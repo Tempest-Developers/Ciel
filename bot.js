@@ -1,6 +1,7 @@
+// bot.js
 require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const mongoose = require('mongoose');
+const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
 
@@ -18,9 +19,19 @@ client.slashCommands = new Collection();
 client.config = require('./config.json');
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch((err) => console.error('MongoDB connection error:', err));
+const uri = process.env.MONGODB_URI;
+const clientMongo = new MongoClient(uri);
+
+async function connectToMongoDB() {
+    try {
+        await clientMongo.connect();
+        console.log('Connected to MongoDB');
+    } catch (err) {
+        console.error('MongoDB connection error:', err);
+    }
+}
+
+connectToMongoDB();
 
 // Load Command Handlers
 const commandsPath = path.join(__dirname, 'commands');
@@ -32,13 +43,13 @@ for (const file of commandFiles) {
 }
 
 // Load Slash Commands
-const slashCommandsPath = path.join(__dirname, 'slashCommands');
-const slashCommandFiles = fs.readdirSync(slashCommandsPath).filter(file => file.endsWith('.js'));
+// const slashCommandsPath = path.join(__dirname, 'slashCommands');
+// const slashCommandFiles = fs.readdirSync(slashCommandsPath).filter(file => file.endsWith('.js'));
 
-for (const file of slashCommandFiles) {
-    const command = require(path.join(slashCommandsPath, file));
-    client.slashCommands.set(command.data.name, command);
-}
+// for (const file of slashCommandFiles) {
+//     const command = require(path.join(slashCommandsPath, file));
+//     client.slashCommands.set(command.data.name, command);
+// }
 
 // Event Handler
 const eventsPath = path.join(__dirname, 'events');
@@ -53,4 +64,4 @@ for (const file of eventFiles) {
     }
 }
 
-client.login(process.env.TOKEN);
+client.login(process.env.TOKEN_TEST);
