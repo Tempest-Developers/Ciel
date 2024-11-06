@@ -1,0 +1,6 @@
+{
+    "prefix": "!",
+    "developers": ["dev-id"],
+    "serverAllowed": ["server-id-1","server-id-2"],
+    "mazokuID": "1242388858897956906"
+}
