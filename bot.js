@@ -3,6 +3,9 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const { isServerAllowed } = require('./utility/auth')
+
+const BOT_TOKEN = process.env.TOKEN;
 
 // Import database module
 const db = require('./database/mongo');
@@ -23,8 +26,8 @@ client.config = require('./config.json');
 // Initialize database connection
 async function initializeDatabase() {
     try {
-        const database = await db.connectDB();
-        client.database = database; // Make database accessible throughout the bot
+        await db.connectDB();
+        client.database = db; // Make database accessible throughout the bot
     } catch (err) {
         console.error('Failed to connect to database:', err);
         process.exit(1); // Exit if database connection fails
@@ -56,16 +59,22 @@ const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'
 for (const file of eventFiles) {
     const event = require(path.join(eventsPath, file));
     if (event.once) {
-        client.once(event.name, (...args) => event.execute(...args));
+        client.once(event.name, (...args) => {
+            if (args[0].guild && !isServerAllowed(client, args[0].guild.id)) return;
+            event.execute(client,...args);
+        });
     } else {
-        client.on(event.name, (...args) => event.execute(...args));
+        client.on(event.name, (...args) => {
+            if (args[0].guild && !isServerAllowed(client, args[0].guild.id)) return;
+            event.execute(client,...args);
+        });
     }
 }
 
 // Initialize database before logging in
 initializeDatabase().then(() => {
     // Use TOKEN_TEST for development
-    client.login(process.env.TOKEN_TEST);
+    client.login(BOT_TOKEN);
 }).catch(err => {
     console.error('Failed to initialize bot:', err);
     process.exit(1);

@@ -1,12 +1,18 @@
+const handleCreateMazokuMessage = require('../utility/handleCreateMazokuMessage');
+
 module.exports = {
     name: 'messageCreate',
-    async execute(message) {
+    async execute(client, message) {
+        if (message.author.id === client.user.id) return;
         if (message.author.bot) return;
+
+        // Handle Mazoku messages
+        handleCreateMazokuMessage(message, client.config.mazokuID);
         
         const { prefix, developers } = message.client.config;
         
         if (!message.content.startsWith(prefix)) return;
-        
+
         const args = message.content.slice(prefix.length).trim().split(/ +/);
         const commandName = args.shift().toLowerCase();
         

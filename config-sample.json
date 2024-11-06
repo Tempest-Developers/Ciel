@@ -1,4 +1,6 @@
 {
     "prefix": "!",
-    "developers": ["your_discord_id_1", "your_discord_id_2"]
+    "developers": ["dev-id"],
+    "serverAllowed": ["server-id-1","server-id-2"],
+    "mazokuID": "1242388858897956906"
 }

@@ -92,6 +92,10 @@ async function addClaim(serverID, claim) {
   return claimData;
 }
 
+async function getServerData(serverID) {
+  return await serverDB.findOne({ serverID });
+}
+
 // Helper functions
 function generateUniqueID() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -107,5 +111,6 @@ module.exports = {
   createServer,
   createPlayer,
   createGateUser,
-  addClaim
+  addClaim,
+  getServerData
 };

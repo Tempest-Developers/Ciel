@@ -1,3 +1,4 @@
 node_modules
 .env
-promptTest.md 
+.promptTest.md 
+config.json
