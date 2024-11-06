@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle, DiscordAPIError } = require('discord.js');
 let lastTimestamps = {};
+let lastRemberedEmbed = "";
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
@@ -24,6 +25,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         // Get the new embed
         const oldEmbed = oldMessage.embeds[0];
         const newEmbed = newMessage.embeds[0];
+
+        if(lastRemberedEmbed==oldEmbed){
+            return;
+        }else{
+            lastRemberedEmbed=oldMessage.embeds[0];
+        }
 
         if (!oldEmbed.title || !oldEmbed.title.includes('Automatic Summon!')) {
             return;
