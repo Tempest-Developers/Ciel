@@ -4,7 +4,7 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('ping')
         .setDescription('Replies with Pong!'),
-    developerOnly: true, // Make this command developer-only
+    developerOnly: false, // Make this command developer-only
     async execute(interaction) {
         try {
             await interaction.deferReply({ ephemeral: true }); // Send a temporary response that's only visible to the user

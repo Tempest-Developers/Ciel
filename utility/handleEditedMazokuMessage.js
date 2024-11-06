@@ -215,7 +215,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
                             let newFeature = `🆕**Command \`/recent\`**\n`;
 
-                            let giveawayMessage = newFeature;
+                            let giveawayMessage = ""//newFeature;
                             let row;
                             row = new ActionRowBuilder()
                                 .addComponents(statsButton);
