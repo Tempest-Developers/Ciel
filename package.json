@@ -4,8 +4,10 @@
   "description": "",
   "main": "bot.js",
   "scripts": {
-    "start": "nodemon bot.js"
-  },
+    "start": "node bot.js",
+    "dev": "nodemon bot.js",
+    "deploy": "node deploy-commands.js"
+},
   "author": "MiMs",
   "license": "ISC",
   "dependencies": {

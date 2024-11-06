@@ -43,13 +43,30 @@ for (const file of commandFiles) {
 }
 
 // Load Slash Commands
-// const slashCommandsPath = path.join(__dirname, 'slashCommands');
-// const slashCommandFiles = fs.readdirSync(slashCommandsPath).filter(file => file.endsWith('.js'));
+const slashCommandsPath = path.join(__dirname, 'slashCommands');
+const slashCommandFiles = fs.readdirSync(slashCommandsPath).filter(file => file.endsWith('.js'));
 
-// for (const file of slashCommandFiles) {
-//     const command = require(path.join(slashCommandsPath, file));
-//     client.slashCommands.set(command.data.name, command);
-// }
+for (const file of slashCommandFiles) {
+    try {
+        const command = require(path.join(slashCommandsPath, file));
+
+        if (!command.data || !command.data.name) {
+            console.error(`Invalid command file: ${file}. Command data or name is missing.`);
+            continue;
+        }
+
+        if (client.slashCommands.has(command.data.name)) {
+            console.error(`Duplicate command name: ${command.data.name}. Skipping...`);
+            continue;
+        }
+
+        client.slashCommands.set(command.data.name, command);
+        console.log(`Loaded slash command: ${command.data.name}`);
+    } catch (error) {
+        console.error(`Error loading command file: ${file}. ${error.message}`);
+    }
+}
+
 
 // Event Handler
 const eventsPath = path.join(__dirname, 'events');
