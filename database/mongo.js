@@ -64,12 +64,13 @@ async function addClaim(serverID, claim) {
   const uniqueID = generateUniqueID();
   const claimData = {
     uniqueID,
+    tier: claim.tier,
+    claimedID: claim.claimedID,
     cardName: claim.cardName,
     print: claim.print,
-    owner: claim.owner,
-    timestamp: new Date(),
-    claimed: claim.claimed,
-    tier: claim.tier,
+    fieldName: claim.fieldName,
+    fieldValue: claim.fieldValue,
+    timestamp: claim.timestamp,
     serverID
   };
 

@@ -4,11 +4,11 @@ module.exports = {
     name: 'messageCreate',
     async execute(client, message) {
         if (message.author.id === client.user.id) return;
-        if (message.author.bot) return;
 
         // Handle Mazoku messages
         handleCreateMazokuMessage(message, client.config.mazokuID);
-        
+
+        if (message.author.bot) return;
         const { prefix, developers } = message.client.config;
         
         if (!message.content.startsWith(prefix)) return;
