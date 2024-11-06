@@ -4,15 +4,15 @@ let lastTimestamps = {};
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
-        // Check if the client is already connected
-        // if (!client.isConnected()) {
-        //     await client.connect();
-        // }
-
         const database = client.database;
 
         // Check if edit is from exempt bot
-        if (newMessage.author.id !== exemptBotId) {
+        if (oldMessage.author.id !== exemptBotId) {
+            return;
+        }
+
+        // Check if edit is from exempt bot
+        if (!oldMessage.embeds.length) {
             return;
         }
 
@@ -22,7 +22,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         }
 
         // Get the new embed
+        const oldEmbed = oldMessage.embeds[0];
         const newEmbed = newMessage.embeds[0];
+
+        if (!oldEmbed.title || !oldEmbed.title.includes('Automatic Summon!')) {
+            return;
+        }
 
         // Initialize an array to store embed data
         const serverClaims = [];
