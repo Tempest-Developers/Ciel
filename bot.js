@@ -1,9 +1,11 @@
 // bot.js
 require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
+
+// Import database module
+const db = require('./database/mongo');
 
 const client = new Client({
     intents: [
@@ -18,20 +20,16 @@ client.commands = new Collection();
 client.slashCommands = new Collection();
 client.config = require('./config.json');
 
-// Connect to MongoDB
-const uri = process.env.MONGODB_URI;
-const clientMongo = new MongoClient(uri);
-
-async function connectToMongoDB() {
+// Initialize database connection
+async function initializeDatabase() {
     try {
-        await clientMongo.connect();
-        console.log('Connected to MongoDB');
+        const database = await db.connectDB();
+        client.database = database; // Make database accessible throughout the bot
     } catch (err) {
-        console.error('MongoDB connection error:', err);
+        console.error('Failed to connect to database:', err);
+        process.exit(1); // Exit if database connection fails
     }
 }
-
-connectToMongoDB();
 
 // Load Command Handlers
 const commandsPath = path.join(__dirname, 'commands');
@@ -47,26 +45,9 @@ const slashCommandsPath = path.join(__dirname, 'slashCommands');
 const slashCommandFiles = fs.readdirSync(slashCommandsPath).filter(file => file.endsWith('.js'));
 
 for (const file of slashCommandFiles) {
-    try {
-        const command = require(path.join(slashCommandsPath, file));
-
-        if (!command.data || !command.data.name) {
-            console.error(`Invalid command file: ${file}. Command data or name is missing.`);
-            continue;
-        }
-
-        if (client.slashCommands.has(command.data.name)) {
-            console.error(`Duplicate command name: ${command.data.name}. Skipping...`);
-            continue;
-        }
-
-        client.slashCommands.set(command.data.name, command);
-        console.log(`Loaded slash command: ${command.data.name}`);
-    } catch (error) {
-        console.error(`Error loading command file: ${file}. ${error.message}`);
-    }
+    const command = require(path.join(slashCommandsPath, file));
+    client.slashCommands.set(command.data.name, command);
 }
-
 
 // Event Handler
 const eventsPath = path.join(__dirname, 'events');
@@ -81,4 +62,11 @@ for (const file of eventFiles) {
     }
 }
 
-client.login(process.env.TOKEN_TEST);
+// Initialize database before logging in
+initializeDatabase().then(() => {
+    // Use TOKEN_TEST for development
+    client.login(process.env.TOKEN_TEST);
+}).catch(err => {
+    console.error('Failed to initialize bot:', err);
+    process.exit(1);
+});
