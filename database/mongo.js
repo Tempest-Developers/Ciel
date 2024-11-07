@@ -1,8 +1,6 @@
 const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config();
 
-const findUserId = require('../utility/findUserId');
-
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
   serverApi: {
@@ -62,7 +60,7 @@ async function createGateUser(userData) {
   });
 }
 
-async function addClaim(serverID, claim) {
+async function addClaim(serverID, userID, claim) {
   const uniqueID = generateUniqueID();
   const claimData = {
     uniqueID,
@@ -83,8 +81,6 @@ async function addClaim(serverID, claim) {
       $inc: { [`tierCounts.${getTierIndex(claim.tier)}`]: 1 }
     }
   );
-
-  let userId = await findUserId(client, claim.owner.split(" ")[2]);
 
   await playerDB.updateOne(
     { userID: userId },
