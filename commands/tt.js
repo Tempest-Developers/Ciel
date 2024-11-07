@@ -7,7 +7,7 @@ module.exports = {
   developerOnly: true,
   adminOnly: true,
   async execute(message, args) {
-    const serverID = '1240866080985976844'; // Hardcoded serverID
+    const serverID = '1240866080985976844'; // Hardcoded serverID 
     const { playerDB } = await connectDB();
     const validTiers = ['CT', 'RT', 'SRT', 'SSRT'];
     const tier = args[0]?.toUpperCase();
