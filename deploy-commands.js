@@ -12,7 +12,7 @@ for (const file of commandFiles) {
     commands.push(command.data.toJSON());
 }
 
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN_TEST);
 const isGlobal = process.env.IS_GLOBAL === 'true';
 const isAdd = process.env.IS_ADD === 'true';
 const guildId = process.env.GUILD_ID;

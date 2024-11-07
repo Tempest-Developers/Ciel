@@ -20,14 +20,14 @@ module.exports = {
         
         if (!command) return;
   
-        if ((command.adminOnly || command.developerOnly) && 
-            !admins.includes(message.author.id) && 
-            !developers.includes(message.author.id)) {
-            return;
-        }
+        // if ((command.adminOnly || command.developerOnly) && 
+        //     !admins.includes(message.author.id) && 
+        //     !developers.includes(message.author.id)) {
+        //     return;
+        // }
 
         try {
-            await command.execute(message, args);
+            // await command.execute(message, args);
         } catch (error) {
             console.error(error);
             message.reply('There was an error executing that command.');
