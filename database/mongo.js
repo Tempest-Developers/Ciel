@@ -42,9 +42,16 @@ async function createServer(serverData) {
   });
 }
 
-async function createPlayer(playerData) {
+async function createPlayer(userID) {
+  // Check if player already exists
+  const existingPlayer = await playerDB.findOne({ userID });
+  if (existingPlayer) {
+    return existingPlayer;
+  }
+
+  // If no player exists, insert new player
   return await playerDB.insertOne({
-    userID: playerData.userID,
+    userID: userID,
     tierCounts: [0, 0, 0, 0, 0, 0], // [CT, RT, SRT, SSRT, UT, EXT]
     claims: []
   });
@@ -83,7 +90,7 @@ async function addClaim(serverID, userID, claim) {
   );
 
   await playerDB.updateOne(
-    { userID: userId },
+    { userID },
     { 
       $push: { claims: claimData },
       $inc: { [`tierCounts.${getTierIndex(claim.tier)}`]: 1 }
@@ -95,6 +102,10 @@ async function addClaim(serverID, userID, claim) {
 
 async function getServerData(serverID) {
   return await serverDB.findOne({ serverID });
+}
+
+async function getPlayerID(userID) {
+  return await serverDB.findOne({ userID });
 }
 
 // Helper functions
@@ -113,5 +124,6 @@ module.exports = {
   createPlayer,
   createGateUser,
   addClaim,
-  getServerData
+  getServerData,
+  getPlayerID
 };

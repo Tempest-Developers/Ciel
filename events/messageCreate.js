@@ -20,11 +20,10 @@ module.exports = {
         
         if (!command) return;
   
-        // Developer check
-        if (command.developerOnly && !developers.includes(message.author.id)) {
-            if ((command.adminOnly || command.developerOnly) && !admins.includes(message.author.id)) {
-                return 
-            }
+        if ((command.adminOnly || command.developerOnly) && 
+            !admins.includes(message.author.id) && 
+            !developers.includes(message.author.id)) {
+            return;
         }
 
         try {

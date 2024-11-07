@@ -53,7 +53,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                         lastTimestamps[guildId] = new Date().toISOString();
                     }
 
-                    if (!lastTimestamps[guildId] || timestamp > lastTimestamps[guildId]) {
+                    if (lastTimestamps[guildId] || timestamp > lastTimestamps[guildId]) {
                         lastTimestamps[guildId] = timestamp;
                         const cardClaimed = {
                             tier: match[1],
@@ -99,8 +99,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             }
                             const userId = await findUserId(client, cardClaimed.fieldName.split(" ")[2]);
 
+                            await database.createPlayer(userId); 
                             await database.addClaim(serverId, userId, cardClaimed)
-                            console.log("Completed Server Database Updating");
+                            
+                            console.log(`Updated ${userId} Server ${serverId} ${newMessage.guild.name} Database`);
 
                             const getLoadBar = (percentage) => {
                                 percentage = Math.floor(percentage / 5) * 5;
