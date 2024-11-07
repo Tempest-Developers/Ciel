@@ -53,7 +53,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                         lastTimestamps[guildId] = new Date().toISOString();
                     }
 
-                    if (lastTimestamps[guildId] || timestamp > lastTimestamps[guildId]) {
+                    if (timestamp > lastTimestamps[guildId]) {
                         lastTimestamps[guildId] = timestamp;
                         const cardClaimed = {
                             tier: match[1],
