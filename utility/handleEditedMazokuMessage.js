@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle, DiscordAPIError } = require('discord.js');
+const findUserId = require('../utility/findUserId');
 let lastTimestamps = {};
 let lastRemberedEmbed = "";
 
@@ -96,8 +97,9 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             } else if (cardClaimed.tier === 'SSRT') {
                                 existingSSR++;
                             }
+                            const userId = await findUserId(client, claim.owner.split(" ")[2]);
 
-                            await database.addClaim(serverId, cardClaimed)
+                            await database.addClaim(serverId, userId, cardClaimed)
                             console.log("Completed Server Database Updating");
 
                             const getLoadBar = (percentage) => {
