@@ -55,7 +55,8 @@ module.exports = {
     // Create embed
     const embed = new EmbedBuilder()
     .setColor('#0099ff')
-    .setTitle(tier && validTiers.includes(tier) ? `${message.guild.name} - ${tier} Card Leaderboard` : `${message.guild.name} - Total Cards Leaderboard`)
+    .setTitle(tier && validTiers.includes(tier) ? `Golden Gate - ${tier} Card Leaderboard` : `${message.guild.name} - Total Cards Leaderboard`)
+    .setFooter({ text: `Tracking since <t:1730944800:R>` })
     .setTimestamp();
 
     // Generate leaderboard text
