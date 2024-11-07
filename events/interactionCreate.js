@@ -6,14 +6,16 @@ module.exports = {
 	async execute(client, interaction) {
 		if (!interaction.isChatInputCommand()) return;
 
-		const { developers } = interaction.client.config;
+		const { developers, admins } = interaction.client.config;
 
 		const command = interaction.client.slashCommands.get(interaction.commandName);
 
 		// Developer check
-		if (command.developerOnly && !developers.includes(interaction.user.id)) {
-			return await interaction.reply({ content: ':scroll: | **Command unavilable**', ephemeral: true });
-		}
+        if ((command.adminOnly || command.developerOnly) && 
+            !admins.includes(message.author.id) && 
+            !developers.includes(message.author.id)) {
+            return;
+        }
 
 		if (!command) return;
 
