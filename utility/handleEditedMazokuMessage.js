@@ -97,7 +97,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             } else if (cardClaimed.tier === 'SSRT') {
                                 existingSSR++;
                             }
-                            const userId = await findUserId(client, claim.owner.split(" ")[2]);
+                            const userId = await findUserId(client, cardClaimed.fieldName.split(" ")[2]);
 
                             await database.addClaim(serverId, userId, cardClaimed)
                             console.log("Completed Server Database Updating");
