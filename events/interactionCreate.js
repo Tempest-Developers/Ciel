@@ -10,10 +10,10 @@ module.exports = {
 
 		const command = interaction.client.slashCommands.get(interaction.commandName);
 
-		// Developer check
+		// Developer and Admin check
         if ((command.adminOnly || command.developerOnly) && 
-            !admins.includes(message.author.id) && 
-            !developers.includes(message.author.id)) {
+            !admins.includes(interaction.author.id) && 
+            !developers.includes(interaction.author.id)) {
             return;
         }
 
