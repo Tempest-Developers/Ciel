@@ -8,6 +8,7 @@ module.exports = {
     .setName('recent')
     .setDescription('Displays last 15 claims with tier filtering'),
   developerOnly: false, // Make this command developer-only
+  adminOnly: false,
   async execute(interaction, { database }) {
     // Cooldown check
     const { user } = interaction;

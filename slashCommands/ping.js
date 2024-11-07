@@ -5,6 +5,7 @@ module.exports = {
         .setName('ping')
         .setDescription('Replies with Pong!'),
     developerOnly: false, // Make this command developer-only
+    adminOnly:true,
     async execute(interaction) {
         try {
             await interaction.deferReply({ ephemeral: true }); // Send a temporary response that's only visible to the user

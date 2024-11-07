@@ -9,7 +9,7 @@ module.exports = {
         handleCreateMazokuMessage(message, client.config.mazokuID);
 
         if (message.author.bot) return;
-        const { prefix, developers } = message.client.config;
+        const { prefix, developers, admins } = message.client.config;
         
         if (!message.content.startsWith(prefix)) return;
 
@@ -19,12 +19,14 @@ module.exports = {
         const command = message.client.commands.get(commandName);
         
         if (!command) return;
-        
+  
         // Developer check
         if (command.developerOnly && !developers.includes(message.author.id)) {
-            return //message.reply('This command is only available to bot developers.');
+            if ((command.adminOnly || command.developerOnly) && !admins.includes(message.author.id)) {
+                return 
+            }
         }
-        
+
         try {
             await command.execute(message, args);
         } catch (error) {
