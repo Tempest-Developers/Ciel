@@ -229,9 +229,9 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             let batchNowReferTime = Math.floor(Date.now() / 1000);
                             let batchTime = 1730743200;
 
-                            let newFeature = `🆕**Command \`/recent\`**\n`;
+                            let newFeature = `🌟**Command \`/recent\`**\n🌟**Command \`/search\`**\n`;
 
-                            let giveawayMessage = ""//newFeature;
+                            let giveawayMessage = newFeature;
                             let row;
                             row = new ActionRowBuilder()
                                 .addComponents(statsButton);

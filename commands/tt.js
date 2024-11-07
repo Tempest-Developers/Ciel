@@ -12,6 +12,9 @@ module.exports = {
     const validTiers = ['CT', 'RT', 'SRT', 'SSRT'];
     const tier = args[0]?.toUpperCase();
 
+    // Send a "typing..." message
+    const typingMessage = await message.channel.send('Typing...');
+
     // Get all players who have claims
     const players = await playerDB.find({
       'claims.serverID': serverID,
@@ -19,7 +22,7 @@ module.exports = {
     }).toArray();
 
     if (players.length === 0) {
-      return message.reply('No players found with cards in this server.');
+      return typingMessage.edit('No players found with cards in this server.');
     }
 
     // Process player data
@@ -78,7 +81,7 @@ module.exports = {
     description+=`**Tracking since <t:1730944800:R>**`
 
     embed.setDescription(description || 'No players found.');
-    message.channel.send({ embeds: [embed] });
+    typingMessage.edit({ content: '', embeds: [embed] });
   }
 };
 
