@@ -82,13 +82,13 @@ async function addClaim(serverID, claim) {
     }
   );
 
-  await playerDB.updateOne(
-    { userID: claim.owner },
-    { 
-      $push: { claims: claimData },
-      $inc: { [`tierCounts.${getTierIndex(claim.tier)}`]: 1 }
-    }
-  );
+  // await playerDB.updateOne(
+  //   { userID: claim.owner },
+  //   { 
+  //     $push: { claims: claimData },
+  //     $inc: { [`tierCounts.${getTierIndex(claim.tier)}`]: 1 }
+  //   }
+  // );
 
   return claimData;
 }
