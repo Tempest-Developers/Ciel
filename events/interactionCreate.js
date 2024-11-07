@@ -12,8 +12,8 @@ module.exports = {
 
 		// Developer and Admin check
         if ((command.adminOnly || command.developerOnly) && 
-            !admins.includes(interaction.author.id) && 
-            !developers.includes(interaction.author.id)) {
+            !admins.includes(interaction.user.id) && 
+            !developers.includes(interaction.user.id)) {
             return;
         }
 
