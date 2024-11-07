@@ -139,7 +139,7 @@ module.exports = {
 
                     // Show user's copies if they own any
                     const userOwnership = ownerCounts[interaction.user.id];
-                    const versionsStringPage1 = userOwnership.versions.map(version => `\`${version}\``).join(' ');
+                    const versionsStringPage1 = userOwnership?userOwnership.versions.map(version => `\`${version}\``).join(' '):'\`You dont own any version\`';
                     if (userOwnership) {
                         embed.addFields({ 
                             name: `Your Copies (${userOwnership.versions.length})`, 
