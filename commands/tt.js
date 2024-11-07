@@ -56,7 +56,6 @@ module.exports = {
     const embed = new EmbedBuilder()
     .setColor('#0099ff')
     .setTitle(tier && validTiers.includes(tier) ? `Golden Gate - ${tier} Card Leaderboard` : `${message.guild.name} - Total Cards Leaderboard`)
-    .setFooter({ text: `Tracking since <t:1730944800:R>` })
     .setTimestamp();
 
     // Generate leaderboard text
@@ -69,13 +68,14 @@ module.exports = {
       if (tier && validTiers.includes(tier)) {
         description += `${i + 1}. **${username}** - ${getTierEmoji(tier)}: ${player.tierCounts[tier]}\n`;
       } else {
-        description += `${i + 1}. **${username}** - Total: ${player.total} \n` +
-          `   (<:C_Gate:1300919916685164706>: ${player.tierCounts.CT}, ` +
-          `<:R_Gate:1300919898209386506>: ${player.tierCounts.RT}, ` +
-          `<:SR_Gate:1300919875757146214>: ${player.tierCounts.SRT}, ` +
-          `<:SSR_Gate:1300919858053124163>: ${player.tierCounts.SSRT})\n`;
+        description += `${i + 1}. **${username}** - Total: **${player.total}** \n` +
+          `   <:C_Gate:1300919916685164706>: **${player.tierCounts.CT}**, ` +
+          `<:R_Gate:1300919898209386506>: **${player.tierCounts.RT}**, ` +
+          `<:SR_Gate:1300919875757146214>: **${player.tierCounts.SRT}**, ` +
+          `<:SSR_Gate:1300919858053124163>: **${player.tierCounts.SSRT}**\n`;
       }
     }
+    description+=`**Tracking since <t:1730944800:R>**`
 
     embed.setDescription(description || 'No players found.');
     message.channel.send({ embeds: [embed] });
