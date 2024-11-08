@@ -1,3 +1,5 @@
+// database/mongo.js
+
 const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config();
 
@@ -10,120 +12,274 @@ const client = new MongoClient(uri, {
   }
 });
 
-let serverDB, playerDB, gateServerDB;
+const MAX_CLAIMS = 24;
 
+let mServerDB, mUserDB, mServerSettingsDB, mGateDB, gateServerDB;
+
+/**
+ * Connects to the MongoDB database.
+ * @returns {Promise<Object>} An object containing the database collections.
+ */
 async function connectDB() {
   try {
     await client.connect();
     console.log("Connected to MongoDB!");
 
-    serverDB = client.db('ServerDB').collection('servers');
-    playerDB = client.db('PlayerDB').collection('players');
-    gateServerDB = client.db('GateServerDB').collection('gates');
+    mServerDB = client.db('MainDB').collection('servers');
+    mUserDB = client.db('MainDB').collection('users');
+    mServerSettingsDB = client.db('MainDB').collection('serverSettings');
+    mGateDB = client.db('MainDB').collection('gates');
+    gateServerDB = client.db('MainDB').collection('gateServers');
 
-    // Create indexes for unique fields
-    await serverDB.createIndex({ serverID: 1 }, { unique: true });
-    await playerDB.createIndex({ userID: 1 }, { unique: true });
-    await gateServerDB.createIndex({ userID: 1 }, { unique: true });
+    await gateServerDB.createIndex({ serverID: 1 }, { unique: true });
 
-    return { serverDB, playerDB, gateServerDB };
+    return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, gateServerDB };
   } catch (err) {
     console.error('Error connecting to MongoDB:', err);
     throw err;
   }
 }
 
-// Database operations
-async function createServer(serverData) {
-  return await serverDB.insertOne({
-    serverID: serverData.serverID,
-    tierCounts: [0, 0, 0, 0, 0, 0], // [CT, RT, SRT, SSRT, UT, EXT]
-    claims: []
-  });
-}
+// Gate Server DB methods
 
-async function createPlayer(userID) {
-  // Check if player already exists
-  const existingPlayer = await playerDB.findOne({ userID });
-  if (existingPlayer) {
-    return existingPlayer;
-  }
-
-  // If no player exists, insert new player
-  return await playerDB.insertOne({
-    userID: userID,
-    tierCounts: [0, 0, 0, 0, 0, 0], // [CT, RT, SRT, SSRT, UT, EXT]
-    claims: []
-  });
-}
-
-async function createGateUser(userData) {
+/**
+ * Creates a new gate server document.
+ * @param {string} serverID The ID of the server.
+ * @returns {Promise<Object>} The result of the insert operation.
+ */
+async function createGateServer(serverID) {
   return await gateServerDB.insertOne({
-    userID: userData.userID,
-    slimeToken: 0,
-    missions: [],
-    achievements: [],
-    premium: false
+    serverID: serverID,
+    mods: [],
+    giveaway: []
   });
 }
 
-async function addClaim(serverID, userID, claim) {
-  const uniqueID = generateUniqueID();
-  const claimData = {
-    uniqueID,
-    tier: claim.tier,
-    claimedID: claim.claimedID,
-    cardName: claim.cardName,
-    print: claim.print,
-    fieldName: claim.fieldName,
-    fieldValue: claim.fieldValue,
-    timestamp: claim.timestamp,
-    serverID
+/**
+ * Adds a mod to a gate server.
+ * @param {string} serverID The ID of the server.
+ * @param {string} userID The ID of the user to add as a mod.
+ * @returns {Promise<Object>} The result of the update operation.
+ */
+async function addGateServerMod(serverID, userID) {
+  return await gateServerDB.updateOne(
+    { serverID },
+    { $addToSet: { mods: userID } }
+  );
+}
+
+/**
+ * Removes a mod from a gate server.
+ * @param {string} serverID The ID of the server.
+ * @param {string} userID The ID of the user to remove as a mod.
+ * @returns {Promise<Object>} The result of the update operation.
+ */
+async function removeGateServerMod(serverID, userID) {
+  return await gateServerDB.updateOne(
+    { serverID },
+    { $pull: { mods: userID } }
+  );
+}
+
+/**
+ * Adds a giveaway to a gate server.
+ * @param {string} serverID The ID of the server.
+ * @param {Object} giveawayItem The giveaway item to add.
+ * @returns {Promise<Object>} The result of the update operation.
+ */
+async function addGiveaway(serverID, giveawayItem) {
+  const giveawayData = {
+    id: Date.now().toString(),
+    type: giveawayItem.type,
+    itemId: giveawayItem.id,
+    amount: giveawayItem.amount,
+    print: giveawayItem.print,
+    requirement: {
+      tier: giveawayItem.requirement.tier,
+      claims: giveawayItem.requirement.claims
+    },
+    timestamp: new Date()
   };
 
-  await serverDB.updateOne(
+  return await gateServerDB.updateOne(
     { serverID },
-    { 
-      $push: { claims: claimData },
-      $inc: { [`tierCounts.${getTierIndex(claim.tier)}`]: 1 }
-    }
+    { $push: { giveaway: giveawayData } }
   );
+}
 
-  await playerDB.updateOne(
-    { userID },
-    { 
-      $push: { claims: claimData },
-      $inc: { [`tierCounts.${getTierIndex(claim.tier)}`]: 1 }
-    }
+/**
+ * Removes a giveaway from a gate server.
+ * @param {string} serverID The ID of the server.
+ * @param {string} giveawayId The ID of the giveaway to remove.
+ * @returns {Promise<Object>} The result of the update operation.
+ */
+async function removeGiveaway(serverID, giveawayId) {
+  return await gateServerDB.updateOne(
+    { serverID },
+    { $pull: { giveaway: { id: giveawayId } } }
   );
-
-  return claimData;
 }
 
-async function getServerData(serverID) {
-  return await serverDB.findOne({ serverID });
+/**
+ * Retrieves the data for a gate server.
+ * @param {string} serverID The ID of the server.
+ * @returns {Promise<Object>} The gate server data.
+ */
+async function getGateServerData(serverID) {
+  return await gateServerDB.findOne({ serverID });
 }
 
-async function getPlayerID(userID) {
-  return await serverDB.findOne({ userID });
+/**
+ * Retrieves the mods for a gate server.
+ * @param {string} serverID The ID of the server.
+ * @returns {Promise<Array<string>>} The IDs of the mods.
+ */
+async function getGateServerMods(serverID) {
+  const server = await gateServerDB.findOne({ serverID });
+  return server ? server.mods : [];
 }
 
-// Helper functions
-function generateUniqueID() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+/**
+ * Checks if a user is a mod for a gate server.
+ * @param {string} serverID The ID of the server.
+ * @param {string} userID The ID of the user to check.
+ * @returns {Promise<boolean>} True if the user is a mod, false otherwise.
+ */
+async function isGateServerMod(serverID, userID) {
+  const server = await gateServerDB.findOne({ serverID, mods: userID });
+  return !!server;
 }
 
-function getTierIndex(tier) {
-  const tiers = ['CT', 'RT', 'SRT', 'SSRT', 'UT', 'EXT'];
-  return tiers.indexOf(tier);
+/**
+ * Retrieves the active giveaways for a gate server.
+ * @param {string} serverID The ID of the server.
+ * @returns {Promise<Array<Object>>} The active giveaways.
+ */
+async function getActiveGiveaways(serverID) {
+  const server = await gateServerDB.findOne({ serverID });
+  return server ? server.giveaway : [];
+}
+
+/**
+ * Updates the requirement for a giveaway.
+ * @param {string} serverID The ID of the server.
+ * @param {string} giveawayId The ID of the giveaway to update.
+ * @param {Object} newRequirement The new requirement.
+ * @returns {Promise<Object>} The result of the update operation.
+ */
+async function updateGiveawayRequirement(serverID, giveawayId, newRequirement) {
+  return await gateServerDB.updateOne(
+    { serverID, 'giveaway.id': giveawayId },
+    { $set: { 'giveaway.$.requirement': newRequirement } }
+  );
+}
+
+// Additional utility methods for giveaway management
+
+/**
+ * Retrieves a giveaway by ID.
+ * @param {string} serverID The ID of the server.
+ * @param {string} giveawayId The ID of the giveaway to retrieve.
+ * @returns {Promise<Object>} The giveaway data.
+ */
+async function getGiveawayById(serverID, giveawayId) {
+  const server = await gateServerDB.findOne({ serverID });
+  return server?.giveaway.find(g => g.id === giveawayId);
+}
+
+/**
+ * Updates the amount of a giveaway.
+ * @param {string} serverID The ID of the server.
+ * @param {string} giveawayId The ID of the giveaway to update.
+ * @param {number} newAmount The new amount.
+ * @returns {Promise<Object>} The result of the update operation.
+ */
+async function updateGiveawayAmount(serverID, giveawayId, newAmount) {
+  return await gateServerDB.updateOne(
+    { serverID, 'giveaway.id': giveawayId },
+    { $set: { 'giveaway.$.amount': newAmount } }
+  );
+}
+
+/**
+ * Clears expired giveaways for a server.
+ * @param {string} serverID The ID of the server.
+ * @param {number} expiryHours The number of hours after which a giveaway is considered expired.
+ * @returns {Promise<Object>} The result of the update operation.
+ */
+async function clearExpiredGiveaways(serverID, expiryHours = 24) {
+  const expiryDate = new Date(Date.now() - (expiryHours * 60 * 60 * 1000));
+
+  return await gateServerDB.updateOne(
+    { serverID },
+    { $pull: { giveaway: { timestamp: { $lt: expiryDate } } } }
+  );
+}
+
+/**
+ * Adds multiple giveaways to a server.
+ * @param {string} serverID The ID of the server.
+ * @param {Array<Object>} giveawayItems The giveaways to add.
+ * @returns {Promise<Object>} The result of the update operation.
+ */
+async function bulkAddGiveaways(serverID, giveawayItems) {
+  const giveawayData = giveawayItems.map(item => ({
+    id: Date.now().toString() + Math.random().toString(36).substr(2),
+    type: item.type,
+    itemId: item.id,
+    amount: item.amount,
+    print: item.print,
+    requirement: {
+      tier: item.requirement.tier,
+      claims: item.requirement.claims
+    },
+    timestamp: new Date()
+  }));
+
+  return await gateServerDB.updateOne(
+    { serverID },
+    { $push: { giveaway: { $each: giveawayData } } }
+  );
+}
+
+/**
+ * Retrieves giveaways by type.
+ * @param {string} serverID The ID of the server.
+ * @param {string} type The type of giveaways to retrieve.
+ * @returns {Promise<Array<Object>>} The giveaways of the specified type.
+ */
+async function getGiveawaysByType(serverID, type) {
+  const server = await gateServerDB.findOne({ serverID });
+  return server?.giveaway.filter(g => g.type === type) || [];
+}
+
+/**
+ * Retrieves giveaways by requirement tier.
+ * @param {string} serverID The ID of the server.
+ * @param {string} tier The requirement tier of the giveaways to retrieve.
+ * @returns {Promise<Array<Object>>} The giveaways with the specified requirement tier.
+ */
+async function getGiveawaysByRequirement(serverID, tier) {
+  const server = await gateServerDB.findOne({ serverID });
+  return server?.giveaway.filter(g => g.requirement.tier === tier) || [];
 }
 
 module.exports = {
   connectDB,
-  createServer,
-  createPlayer,
-  createGateUser,
-  addClaim,
-  getServerData,
-  getPlayerID
+  createGateServer,
+  addGateServerMod,
+  removeGateServerMod,
+  addGiveaway,
+  removeGiveaway,
+  getGateServerData,
+  getGateServerMods,
+  isGateServerMod,
+  getActiveGiveaways,
+  updateGiveawayRequirement,
+  getGiveawayById,
+  updateGiveawayAmount,
+  clearExpiredGiveaways,
+  bulkAddGiveaways,
+  getGiveawaysByType,
+  getGiveawaysByRequirement
 };

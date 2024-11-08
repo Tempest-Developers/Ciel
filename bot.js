@@ -26,8 +26,23 @@ client.config = require('./config.json');
 // Initialize database connection
 async function initializeDatabase() {
     try {
-        await db.connectDB();
-        client.database = db; // Make database accessible throughout the bot
+        const { 
+            mServerDB, 
+            mUserDB, 
+            mServerSettingsDB, 
+            mGateDB, 
+            gateServerDB 
+        } = await db.connectDB();
+
+        // Make database collections accessible throughout the bot
+        client.database = {
+            servers: mServerDB,
+            users: mUserDB,
+            serverSettings: mServerSettingsDB,
+            gates: mGateDB,
+            gateServers: gateServerDB,
+            ...db  // Spread the rest of the database methods
+        };
     } catch (err) {
         console.error('Failed to connect to database:', err);
         process.exit(1); // Exit if database connection fails

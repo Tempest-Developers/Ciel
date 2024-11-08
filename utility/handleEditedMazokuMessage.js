@@ -1,12 +1,14 @@
 require('dotenv').config();
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle, DiscordAPIError } = require('discord.js');
 const findUserId = require('../utility/findUserId');
+const { connectDB, createGateServer, getGateServerData, createPlayer, addClaim } = require('../database/mongo');
+
 let lastTimestamps = {};
 let lastRemberedEmbed = "";
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
-        const database = client.database;
+        const { mServerDB, mUserDB, mGateDB, gateServerDB } = await connectDB();
 
         // Check if edit is from exempt bot
         if (oldMessage.author.id !== exemptBotId) {
@@ -70,7 +72,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                         console.log('Formatted Title:', cardClaimed);
 
                         const serverId = newMessage.guild.id;
-                        const serverData = await database.getServerData(serverId);
+                        let serverData = await getGateServerData(serverId);
+
+                        if (!serverData) {
+                            await createGateServer(serverId);
+                            serverData = await getGateServerData(serverId);
+                        }
 
                         if (serverData) {
                             let existingClaims = serverData.claims ? serverData.claims : [];
@@ -99,8 +106,8 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             }
                             const userId = await findUserId(client, cardClaimed.fieldName.split(" ")[2]);
 
-                            await database.createPlayer(userId); 
-                            await database.addClaim(serverId, userId, cardClaimed)
+                            await createPlayer(userId); 
+                            await addClaim(serverId, userId, cardClaimed)
                             
                             console.log(`Updated ${userId} Server ${serverId} ${newMessage.guild.name} Database`);
 
