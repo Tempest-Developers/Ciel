@@ -3,6 +3,6 @@ node_modules
 promptTest.md 
 config.json
 deploy-commands.js
-package-lock
-package
+package-lock.json
+package.json
 slashCommands/mycards.js

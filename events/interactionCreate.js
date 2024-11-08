@@ -23,12 +23,11 @@ module.exports = {
 
         const command = interaction.client.slashCommands.get(interaction.commandName);
 
-        // Developer and Admin check
-        // if ((command.adminOnly || command.developerOnly) && 
-        //     !admins.includes(interaction.user.id) && 
-        //     !developers.includes(interaction.user.id)) {
-        //     return;
-        // }
+        if ((command.adminOnly || command.developerOnly) && 
+            !admins.includes(interaction.user.id) || 
+            !developers.includes(interaction.user.id)) {
+            return;
+        }
 
         if (!command) return;
 
