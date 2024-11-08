@@ -1,4 +1,8 @@
 node_modules
 .env
-.promptTest.md 
+promptTest.md 
 config.json
+deploy-commands.js
+package-lock
+package
+slashCommands/mycards.js
