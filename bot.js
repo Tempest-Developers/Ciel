@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { isServerAllowed } = require('./utility/auth')
 
-const BOT_TOKEN = process.env.TOKEN_TEST;
+const BOT_TOKEN = process.env.TOKEN;
 
 // Import database module
 const db = require('./database/mongo');
