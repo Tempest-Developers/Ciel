@@ -1,9 +1,14 @@
 const { Events } = require('discord.js');
+const { checkPermissions } = require('../utility/auth');
 
 module.exports = {
     name: Events.InteractionCreate,
     once: false,
     async execute(client, interaction) {
+
+        // New permission check
+        if (!checkPermissions(interaction.channel, interaction.client.user)) return;
+
         // Handle autocomplete interactions
         if (interaction.isAutocomplete()) {
             const command = interaction.client.slashCommands.get(interaction.commandName);

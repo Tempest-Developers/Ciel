@@ -1,9 +1,13 @@
 const handleCreateMazokuMessage = require('../utility/handleCreateMazokuMessage');
+const { checkPermissions } = require('../utility/auth');
 
 module.exports = {
     name: 'messageCreate',
     async execute(client, message) {
         if (message.author.id === client.user.id) return;
+
+        // New permission check
+        if (!checkPermissions(message.channel, message.client.user)) return;
 
         // Handle Mazoku messages
         handleCreateMazokuMessage(message, client.config.mazokuID);
