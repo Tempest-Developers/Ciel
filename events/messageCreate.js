@@ -11,9 +11,6 @@ module.exports = {
         if (!checkPermissions(message.channel, message.client.user)) return;
         if (!checkIfGuildAllowed(client, message.guild.id)) return;
 
-        console.log("MessageCreate | Permission Checked")
-        console.log("MessageCreate | Guild Permissions Checked")
-
         // Handle Mazoku messages
         handleCreateMazokuMessage(message, client.config.mazokuID);
 

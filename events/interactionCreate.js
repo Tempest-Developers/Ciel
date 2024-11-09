@@ -6,12 +6,8 @@ module.exports = {
     once: false,
     async execute(client, interaction) {
 
-        console.log("InteractionCreate")
-
         // New permission check
         if (!checkPermissions(interaction.channel, interaction.client.user)) return;
-
-        console.log("InteractionCreate | Permission Checked")
 
         if((await checkIfGuildAllowed(client, interaction.guild.id)==false) && interaction.commandName!="registerguild") return;
         console.log(await checkIfGuildAllowed(client, interaction.guild.id)==false)
@@ -20,8 +16,6 @@ module.exports = {
         // Handle autocomplete interactions
         if (interaction.isAutocomplete()) {
             const command = interaction.client.slashCommands.get(interaction.commandName);
-            console.log("= = = = = = = = = = = = = = = = =")
-            console.log("InteractionCreate | Guild Check Passed | Autocomplete")
             if (!command || !command.autocomplete ) return;
 
             try {
@@ -33,11 +27,9 @@ module.exports = {
         }
 
         if (!interaction.isChatInputCommand()) return;
-        console.log("InteractionCreate | Chat Input Command")
 
         const command = interaction.client.slashCommands.get(interaction.commandName);
         if (!command) return;
-        console.log("InteractionCreate | Command Checked")
 
         const { developers } = interaction.client.config;
         const isDeveloper = developers.includes(interaction.user.id);
@@ -55,10 +47,7 @@ module.exports = {
             }
         }
 
-        console.log("InteractionCreate | Config Permissions Checked")
-
         try {
-            console.log("InteractionCreate | Executing Command")
             await command.execute(interaction, { database: interaction.client.database });
         } catch (error) {
             console.error('Command execution error:', error);
