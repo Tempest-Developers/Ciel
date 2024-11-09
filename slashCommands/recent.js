@@ -9,7 +9,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('recent')
     .setDescription('Displays last 15 claims with tier filtering'),
-  developerOnly: true,
+  developerOnly: false,
   adminOnly: false,
   async execute(interaction, { database }) {
     try {

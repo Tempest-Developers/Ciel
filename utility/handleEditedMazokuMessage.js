@@ -157,7 +157,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                                     },
                                     {
                                         name: 'Tier Counts',
-                                        value: `- ${getTierEmoji('SSRT')} **${tiers.SSR.count}**\n-${getTierEmoji('SRT')} **${tiers.SR.count}**\n- ${getTierEmoji('RT')} **${tiers.R.count}**\n- ${getTierEmoji('CT')} **${tiers.C.count}**`,
+                                        value: `- ${getTierEmoji('SSRT')} **${tiers.SSR.count}**\n- ${getTierEmoji('SRT')} **${tiers.SR.count}**\n- ${getTierEmoji('RT')} **${tiers.R.count}**\n- ${getTierEmoji('CT')} **${tiers.C.count}**`,
                                         inline: true
                                     },
                                     {
@@ -176,7 +176,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                                         inline: true
                                     }
                                 ],
-                                footer: { text: `Database reset expected frequently. Alpha Version` }
+                                // footer: { text: `Database reset expected frequently. Alpha Version` }
                             };
 
                             // Create first button (existing)
