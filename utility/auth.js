@@ -18,7 +18,7 @@ module.exports = {
         // Check if server exists in the database
         if(serverSettings){
             if (!serverSettings.register) {
-                console.log(`Server ${guildID} is not allowed.`);
+                // console.log(`Server ${guildID} is not allowed.`);
                 return false;
             }else{
                 return true;
