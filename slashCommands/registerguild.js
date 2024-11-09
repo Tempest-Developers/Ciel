@@ -38,6 +38,7 @@ module.exports = {
     // Command logic
     const guildId = interaction.guild.id;
     const serverSettings = await mongo.getServerSettings(guildId);
+    console.log(serverSettings)
 
     if (!serverSettings) {
       await mongo.createServerSettings(guildId);
