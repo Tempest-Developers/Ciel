@@ -27,13 +27,13 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             return;
         }
 
-        if (!oldEmbed.title) {
-            return;
-        }
-
         // Get the new embed
         const oldEmbed = oldMessage.embeds[0];
         const newEmbed = newMessage.embeds[0];
+
+        if (!oldEmbed.title) {
+            return;
+        }
 
         if(lastRemberedEmbed==oldEmbed){
             return;
