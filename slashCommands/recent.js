@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 require('dotenv').config();
 
-const { getTierEmoji } = require('../utility/getTierEmoji');
+const getTierEmoji = require('../utility/getTierEmoji');
 
 const cooldowns = new Map();
 
