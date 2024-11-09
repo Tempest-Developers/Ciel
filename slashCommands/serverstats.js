@@ -21,6 +21,44 @@ module.exports = {
                 });
             }
 
+            // Track best prints per tier and unique owners
+            const bestPrintsByTier = {};
+            const uniqueOwners = new Set();
+            const claimTimesByTier = {
+                CT: [],
+                RT: [],
+                SRT: [],
+                SSRT: []
+            };
+            const claimTimesByPrintRange = {
+                SP: [], // 1-10
+                LP: [], // 11-99
+                MP: [], // 100-499
+                HP: []  // 500-1000
+            };
+
+            for (const tier in mServerDB.claims) {
+                for (const claim of mServerDB.claims[tier] || []) {
+                    uniqueOwners.add(claim.owner);
+                    
+                    // Track times by tier
+                    claimTimesByTier[tier].push(claim.timestamp);
+                    
+                    // Track times by print range
+                    const printNum = claim.print;
+                    if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(claim.timestamp);
+                    else if (printNum >= 11 && printNum <= 99) claimTimesByPrintRange.LP.push(claim.timestamp);
+                    else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(claim.timestamp);
+                    else if (printNum >= 500 && printNum <= 1000) claimTimesByPrintRange.HP.push(claim.timestamp);
+                    
+                    if (claim.print <= 99) {
+                        if (!bestPrintsByTier[tier] || claim.print < bestPrintsByTier[tier].print) {
+                            bestPrintsByTier[tier] = claim;
+                        }
+                    }
+                }
+            }
+
             // Calculate tier counts
             const tierCounts = {
                 CT: mServerDB.claims.CT?.length || 0,
@@ -31,10 +69,10 @@ module.exports = {
 
             // Calculate print range counts
             const printRangeCounts = {
-                SP: 0, // 1-10
-                LP: 0, // 11-99
-                MP: 0, // 100-499
-                HP: 0  // 500-1000
+                SP: 0,
+                LP: 0,
+                MP: 0,
+                HP: 0
             };
 
             // Count cards in each print range
@@ -50,84 +88,117 @@ module.exports = {
 
             // Calculate total claims
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
-            const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
 
-            // Find lowest print SP/LP card for thumbnail
-            let lowestPrintCard = null;
-            let lowestPrintNum = Infinity;
+            const formatTime = (ms) => {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+            };
 
-            for (const tier in mServerDB.claims) {
-                for (const claim of mServerDB.claims[tier] || []) {
-                    if (claim.print <= 99 && claim.print < lowestPrintNum) {
-                        lowestPrintCard = claim;
-                        lowestPrintNum = claim.print;
-                    }
+            const calculateAverageTimeBetweenClaims = (times) => {
+                if (times.length < 2) return 0;
+                times.sort((a, b) => a - b);
+                let totalTimeDiff = 0;
+                let timeDiffCount = 0;
+                for (let i = 1; i < times.length; i++) {
+                    totalTimeDiff += times[i] - times[i-1];
+                    timeDiffCount++;
                 }
-            }
+                return timeDiffCount > 0 ? totalTimeDiff / timeDiffCount : 0;
+            };
 
             // Create stats embed
             const embed = new EmbedBuilder()
                 .setColor('#FFC0CB')
-                .setTitle(`${interaction.guild.name} Server Stats`)
-                .addFields(
-                    { 
-                        name: 'Total Claims', 
-                        value: totalClaims.toString(), 
-                        inline: true 
-                    },
-                    { 
-                        name: '\u200B', 
-                        value: '\u200B', 
-                        inline: true 
-                    },
-                    { 
-                        name: 'Total Prints Tracked', 
-                        value: totalPrints.toString(), 
-                        inline: true 
-                    }
-                )
-                .addFields(
-                    {
-                        name: 'Claims by Tier',
-                        value: Object.entries(tierCounts)
-                            .map(([tier, count]) => {
-                                const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
-                                return `${getTierEmoji(tier)} ${count} (${percentage.toFixed(1)}%) ${getLoadBar(percentage)}`;
-                            })
-                            .join('\n')
-                    }
-                )
-                .addFields(
-                    {
-                        name: 'Print Distribution',
-                        value: Object.entries(printRangeCounts)
-                            .map(([range, count]) => {
-                                const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
-                                return `${range} (${getRangeDescription(range)}): ${count} (${percentage.toFixed(1)}%) ${getLoadBar(percentage)}`;
-                            })
-                            .join('\n')
-                    }
-                )
-                .setFooter({ 
-                    text: `Stats as of ${new Date().toLocaleString()}` 
-                });
+                .setTitle(`${interaction.guild.name} Server Stats`);
 
-            // Add thumbnail and card details if we found a low print card
-            if (lowestPrintCard) {
-                // Enrich the card data with API information
-                const enrichedCard = await enrichClaimWithCardData(lowestPrintCard);
-                embed.setThumbnail(enrichedCard.card.cardImageLink);
-                const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
-                embed.addFields({
-                    name: 'Lowest Print Showcase',
-                    value: `Card: ${enrichedCard.cardName}\n` +
-                           `Anime: ${enrichedCard.card.series}\n` +
-                           `Type: ${enrichedCard.card.type}\n` +
-                           `Print: #${enrichedCard.print}\n` +
-                           `Maker(s): ${makers}\n` +
-                           `Owner: <@${enrichedCard.owner}>`
-                });
+            // Add best prints showcase for each tier
+            for (const [tier, claim] of Object.entries(bestPrintsByTier)) {
+                const enrichedCard = await enrichClaimWithCardData(claim);
+                if (enrichedCard) {
+                    embed.addFields({
+                        name: `Best ${tier} Print`,
+                        value: `Card: ${enrichedCard.cardName}\n` +
+                               `Anime: ${enrichedCard.card.series}\n` +
+                               `Print: #${enrichedCard.print}\n` +
+                               `Owner: ${interaction.guild.members.cache.get(enrichedCard.owner)?.user.username || enrichedCard.owner}\n` +
+                               `Claimed: <t:${Math.floor(enrichedCard.timestamp / 1000)}:R>`
+                    });
+                    if (!embed.data.thumbnail) {
+                        embed.setThumbnail(enrichedCard.card.cardImageLink);
+                    }
+                }
             }
+
+            // Add main stats
+            embed.addFields(
+                { 
+                    name: 'Total Claims', 
+                    value: totalClaims.toString(), 
+                    inline: true 
+                },
+                { 
+                    name: '\u200B', 
+                    value: '\u200B', 
+                    inline: true 
+                },
+                { 
+                    name: 'Players in Server', 
+                    value: uniqueOwners.size.toString(), 
+                    inline: true 
+                }
+            );
+
+            // Add tier and print distribution inline
+            embed.addFields(
+                {
+                    name: 'Claims by Tier',
+                    value: Object.entries(tierCounts)
+                        .map(([tier, count]) => {
+                            const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
+                            return `${getTierEmoji(tier)} ${count} (${percentage.toFixed(1)}%) ${getLoadBar(percentage)}`;
+                        })
+                        .join('\n'),
+                    inline: true
+                },
+                {
+                    name: 'Print Distribution',
+                    value: Object.entries(printRangeCounts)
+                        .map(([range, count]) => {
+                            const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
+                            return `${range} (${getRangeDescription(range)}): ${count} (${percentage.toFixed(1)}%) ${getLoadBar(percentage)}`;
+                        })
+                        .join('\n'),
+                    inline: true
+                }
+            );
+
+            // Add average claim times by tier
+            embed.addFields({
+                name: 'Average Time Between Claims by Tier',
+                value: Object.entries(claimTimesByTier)
+                    .filter(([_, times]) => times.length > 0)
+                    .map(([tier, times]) => {
+                        const avgTime = calculateAverageTimeBetweenClaims(times);
+                        return `${getTierEmoji(tier)}: ${formatTime(avgTime)}`;
+                    })
+                    .join('\n'),
+                inline: false
+            });
+
+            // Add average claim times by print range
+            embed.addFields({
+                name: 'Average Time Between Claims by Print Range',
+                value: Object.entries(claimTimesByPrintRange)
+                    .filter(([_, times]) => times.length > 0)
+                    .map(([range, times]) => {
+                        const avgTime = calculateAverageTimeBetweenClaims(times);
+                        return `${range} (${getRangeDescription(range)}): ${formatTime(avgTime)}`;
+                    })
+                    .join('\n'),
+                inline: false
+            });
 
             await interaction.editReply({ embeds: [embed] });
 

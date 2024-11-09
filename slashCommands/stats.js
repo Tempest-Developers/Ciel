@@ -38,7 +38,21 @@ module.exports = {
                 });
             }
 
-            // Calculate total claims per tier
+            // Track claim times by tier and print range
+            const claimTimesByTier = {
+                CT: [],
+                RT: [],
+                SRT: [],
+                SSRT: []
+            };
+            const claimTimesByPrintRange = {
+                SP: [], // 1-10
+                LP: [], // 11-99
+                MP: [], // 100-499
+                HP: []  // 500-1000
+            };
+
+            // Calculate tier counts
             const tierCounts = {
                 CT: userData.claims.CT?.length || 0,
                 RT: userData.claims.RT?.length || 0,
@@ -58,14 +72,31 @@ module.exports = {
             let lowestPrintCard = null;
             let lowestPrintNum = Infinity;
 
-            // Count cards in each print range and find lowest print
+            // Count cards in each print range, find lowest print, and track claim times
             for (const tier in userData.claims) {
                 for (const claim of userData.claims[tier] || []) {
                     const printNum = claim.print;
-                    if (printNum >= 1 && printNum <= 10) printRangeCounts.SP++;
-                    else if (printNum >= 11 && printNum <= 99) printRangeCounts.LP++;
-                    else if (printNum >= 100 && printNum <= 499) printRangeCounts.MP++;
-                    else if (printNum >= 500 && printNum <= 1000) printRangeCounts.HP++;
+                    
+                    // Track claim times by tier
+                    claimTimesByTier[tier].push(claim.timestamp);
+                    
+                    // Track claim times by print range and count prints
+                    if (printNum >= 1 && printNum <= 10) {
+                        printRangeCounts.SP++;
+                        claimTimesByPrintRange.SP.push(claim.timestamp);
+                    }
+                    else if (printNum >= 11 && printNum <= 99) {
+                        printRangeCounts.LP++;
+                        claimTimesByPrintRange.LP.push(claim.timestamp);
+                    }
+                    else if (printNum >= 100 && printNum <= 499) {
+                        printRangeCounts.MP++;
+                        claimTimesByPrintRange.MP.push(claim.timestamp);
+                    }
+                    else if (printNum >= 500 && printNum <= 1000) {
+                        printRangeCounts.HP++;
+                        claimTimesByPrintRange.HP.push(claim.timestamp);
+                    }
 
                     // Track lowest print SP/LP card
                     if (printNum <= 99 && printNum < lowestPrintNum) {
@@ -78,6 +109,25 @@ module.exports = {
             // Calculate total claims
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
             const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
+
+            const formatTime = (ms) => {
+                const seconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(seconds / 60);
+                const hours = Math.floor(minutes / 60);
+                return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+            };
+
+            const calculateAverageTimeBetweenClaims = (times) => {
+                if (times.length < 2) return 0;
+                times.sort((a, b) => a - b);
+                let totalTimeDiff = 0;
+                let timeDiffCount = 0;
+                for (let i = 1; i < times.length; i++) {
+                    totalTimeDiff += times[i] - times[i-1];
+                    timeDiffCount++;
+                }
+                return timeDiffCount > 0 ? totalTimeDiff / timeDiffCount : 0;
+            };
 
             // Create stats embed
             const embed = new EmbedBuilder()
@@ -123,6 +173,32 @@ module.exports = {
                             .join('\n')
                     }
                 );
+
+            // Add average claim times by tier
+            embed.addFields({
+                name: 'Average Time Between Claims by Tier',
+                value: Object.entries(claimTimesByTier)
+                    .filter(([_, times]) => times.length > 0)
+                    .map(([tier, times]) => {
+                        const avgTime = calculateAverageTimeBetweenClaims(times);
+                        return `${getTierEmoji(tier)}: ${formatTime(avgTime)}`;
+                    })
+                    .join('\n'),
+                inline: false
+            });
+
+            // Add average claim times by print range
+            embed.addFields({
+                name: 'Average Time Between Claims by Print Range',
+                value: Object.entries(claimTimesByPrintRange)
+                    .filter(([_, times]) => times.length > 0)
+                    .map(([range, times]) => {
+                        const avgTime = calculateAverageTimeBetweenClaims(times);
+                        return `${range} (${getRangeDescription(range)}): ${formatTime(avgTime)}`;
+                    })
+                    .join('\n'),
+                inline: false
+            });
 
             // Add best card showcase if we found a low print card
             if (lowestPrintCard) {

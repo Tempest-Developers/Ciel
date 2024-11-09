@@ -7,6 +7,7 @@ const CACHE_DURATION = 30000; // 30 seconds cache
 const MIN_SEARCH_LENGTH = 2; // Minimum characters before searching
 const EVENT_EMOJI = '🎃 '; // Cached emoji string
 const MAX_SERIES_LENGTH = 30; // Max length for series name in autocomplete
+const MAX_VERSIONS_DISPLAY = 15; // Maximum number of versions to display per owner
 
 // Helper function to format series name
 const formatSeriesName = (series) => {
@@ -47,6 +48,15 @@ const findLowestPrint = (ownersList) => {
         });
     });
     return lowest === Infinity ? 'N/A' : lowest;
+};
+
+// Helper function to format versions display with limit
+const formatVersionsDisplay = (versions) => {
+    if (versions.length <= MAX_VERSIONS_DISPLAY) {
+        return versions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ');
+    }
+    const displayVersions = versions.slice(0, MAX_VERSIONS_DISPLAY);
+    return `${displayVersions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ')} +${versions.length - MAX_VERSIONS_DISPLAY} more`;
 };
 
 module.exports = {
@@ -194,7 +204,7 @@ module.exports = {
 
                     const userOwnership = ownerCounts[interaction.user.id];
                     const versionsStringPage1 = userOwnership ? 
-                        userOwnership.versions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ') : 
+                        formatVersionsDisplay(userOwnership.versions) : 
                         '`You dont own any version`';
                     
                     if (userOwnership) {
@@ -220,7 +230,7 @@ module.exports = {
                     const ownersText = pageOwners.map(owner => {
                         let username = owner.user ? owner.user.username : owner.id;
                         username = username || owner.id;
-                        const versionsString = owner.versions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ');
+                        const versionsString = formatVersionsDisplay(owner.versions);
                         return `🔰 *[${username}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) **[${owner.versionCount}]**`;
                     }).join('\n');
 
