@@ -21,8 +21,8 @@ module.exports = {
                 });
             }
 
-            // Track best prints per tier and unique owners
-            const bestPrintsByTier = {};
+            // Track best print overall and unique owners
+            let bestPrint = null;
             const uniqueOwners = new Set();
             const claimTimesByTier = {
                 CT: [],
@@ -35,6 +35,23 @@ module.exports = {
                 LP: [], // 11-99
                 MP: [], // 100-499
                 HP: []  // 500-1000
+            };
+
+            // Function to compare tiers
+            const isBetterTier = (tier1, tier2) => {
+                const tiers = ['CT', 'RT', 'SRT', 'SSRT'];
+                return tiers.indexOf(tier1) > tiers.indexOf(tier2);
+            };
+
+            // Function to compare print ranges
+            const isBetterPrint = (print1, print2) => {
+                if (print1 >= 1 && print1 <= 10) return true; // SP is best
+                if (print2 >= 1 && print2 <= 10) return false;
+                if (print1 >= 11 && print1 <= 99) return true; // LP is next best
+                if (print2 >= 11 && print2 <= 99) return false;
+                if (print1 >= 100 && print1 <= 499) return true; // MP is next
+                if (print2 >= 100 && print2 <= 499) return false;
+                return true; // HP is last
             };
 
             for (const tier in mServerDB.claims) {
@@ -51,10 +68,10 @@ module.exports = {
                     else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(claim.timestamp);
                     else if (printNum >= 500 && printNum <= 1000) claimTimesByPrintRange.HP.push(claim.timestamp);
                     
-                    if (claim.print <= 99) {
-                        if (!bestPrintsByTier[tier] || claim.print < bestPrintsByTier[tier].print) {
-                            bestPrintsByTier[tier] = claim;
-                        }
+                    // Update best print based on tier and print number
+                    if (!bestPrint || isBetterTier(tier, bestPrint.tier) || 
+                        (tier === bestPrint.tier && isBetterPrint(claim.print, bestPrint.print))) {
+                        bestPrint = { ...claim, tier };
                     }
                 }
             }
@@ -90,6 +107,7 @@ module.exports = {
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
 
             const formatTime = (ms) => {
+                if (!ms || isNaN(ms)) return '0h 0m 0s';
                 const seconds = Math.floor(ms / 1000);
                 const minutes = Math.floor(seconds / 60);
                 const hours = Math.floor(minutes / 60);
@@ -97,13 +115,16 @@ module.exports = {
             };
 
             const calculateAverageTimeBetweenClaims = (times) => {
-                if (times.length < 2) return 0;
+                if (!times || times.length < 2) return 0;
                 times.sort((a, b) => a - b);
                 let totalTimeDiff = 0;
                 let timeDiffCount = 0;
                 for (let i = 1; i < times.length; i++) {
-                    totalTimeDiff += times[i] - times[i-1];
-                    timeDiffCount++;
+                    const diff = times[i] - times[i-1];
+                    if (!isNaN(diff)) {
+                        totalTimeDiff += diff;
+                        timeDiffCount++;
+                    }
                 }
                 return timeDiffCount > 0 ? totalTimeDiff / timeDiffCount : 0;
             };
@@ -113,25 +134,7 @@ module.exports = {
                 .setColor('#FFC0CB')
                 .setTitle(`${interaction.guild.name} Server Stats`);
 
-            // Add best prints showcase for each tier
-            for (const [tier, claim] of Object.entries(bestPrintsByTier)) {
-                const enrichedCard = await enrichClaimWithCardData(claim);
-                if (enrichedCard) {
-                    embed.addFields({
-                        name: `Best ${tier} Print`,
-                        value: `Card: ${enrichedCard.cardName}\n` +
-                               `Anime: ${enrichedCard.card.series}\n` +
-                               `Print: #${enrichedCard.print}\n` +
-                               `Owner: ${interaction.guild.members.cache.get(enrichedCard.owner)?.user.username || enrichedCard.owner}\n` +
-                               `Claimed: <t:${Math.floor(enrichedCard.timestamp / 1000)}:R>`
-                    });
-                    if (!embed.data.thumbnail) {
-                        embed.setThumbnail(enrichedCard.card.cardImageLink);
-                    }
-                }
-            }
-
-            // Add main stats
+            // Add total claims and players first
             embed.addFields(
                 { 
                     name: 'Total Claims', 
@@ -149,6 +152,22 @@ module.exports = {
                     inline: true 
                 }
             );
+
+            // Add best print showcase
+            if (bestPrint) {
+                const enrichedCard = await enrichClaimWithCardData(bestPrint);
+                if (enrichedCard) {
+                    embed.addFields({
+                        name: `Best ${bestPrint.tier} Print`,
+                        value: `Card: ${enrichedCard.cardName}\n` +
+                               `Anime: ${enrichedCard.card.series}\n` +
+                               `Print: #${enrichedCard.print}\n` +
+                               `Owner: ${interaction.guild.members.cache.get(enrichedCard.owner)?.user.username || enrichedCard.owner}\n` +
+                               `Claimed: <t:${Math.floor(enrichedCard.timestamp / 1000)}:R>`
+                    });
+                    embed.setThumbnail(enrichedCard.card.cardImageLink);
+                }
+            }
 
             // Add tier and print distribution inline
             embed.addFields(

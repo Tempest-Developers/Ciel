@@ -77,25 +77,29 @@ module.exports = {
                 for (const claim of userData.claims[tier] || []) {
                     const printNum = claim.print;
                     
-                    // Track claim times by tier
-                    claimTimesByTier[tier].push(claim.timestamp);
-                    
-                    // Track claim times by print range and count prints
-                    if (printNum >= 1 && printNum <= 10) {
-                        printRangeCounts.SP++;
-                        claimTimesByPrintRange.SP.push(claim.timestamp);
-                    }
-                    else if (printNum >= 11 && printNum <= 99) {
-                        printRangeCounts.LP++;
-                        claimTimesByPrintRange.LP.push(claim.timestamp);
-                    }
-                    else if (printNum >= 100 && printNum <= 499) {
-                        printRangeCounts.MP++;
-                        claimTimesByPrintRange.MP.push(claim.timestamp);
-                    }
-                    else if (printNum >= 500 && printNum <= 1000) {
-                        printRangeCounts.HP++;
-                        claimTimesByPrintRange.HP.push(claim.timestamp);
+                    // Ensure timestamp is a valid number
+                    const timestamp = Number(claim.timestamp);
+                    if (!isNaN(timestamp)) {
+                        // Track claim times by tier
+                        claimTimesByTier[tier].push(timestamp);
+                        
+                        // Track claim times by print range and count prints
+                        if (printNum >= 1 && printNum <= 10) {
+                            printRangeCounts.SP++;
+                            claimTimesByPrintRange.SP.push(timestamp);
+                        }
+                        else if (printNum >= 11 && printNum <= 99) {
+                            printRangeCounts.LP++;
+                            claimTimesByPrintRange.LP.push(timestamp);
+                        }
+                        else if (printNum >= 100 && printNum <= 499) {
+                            printRangeCounts.MP++;
+                            claimTimesByPrintRange.MP.push(timestamp);
+                        }
+                        else if (printNum >= 500 && printNum <= 1000) {
+                            printRangeCounts.HP++;
+                            claimTimesByPrintRange.HP.push(timestamp);
+                        }
                     }
 
                     // Track lowest print SP/LP card
@@ -111,6 +115,7 @@ module.exports = {
             const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
 
             const formatTime = (ms) => {
+                if (isNaN(ms) || ms <= 0) return 'N/A';
                 const seconds = Math.floor(ms / 1000);
                 const minutes = Math.floor(seconds / 60);
                 const hours = Math.floor(minutes / 60);
@@ -118,14 +123,27 @@ module.exports = {
             };
 
             const calculateAverageTimeBetweenClaims = (times) => {
-                if (times.length < 2) return 0;
-                times.sort((a, b) => a - b);
+                if (!Array.isArray(times) || times.length < 2) return 0;
+                
+                // Sort timestamps and ensure they're all valid numbers
+                const validTimes = times
+                    .map(t => Number(t))
+                    .filter(t => !isNaN(t))
+                    .sort((a, b) => a - b);
+
+                if (validTimes.length < 2) return 0;
+
                 let totalTimeDiff = 0;
                 let timeDiffCount = 0;
-                for (let i = 1; i < times.length; i++) {
-                    totalTimeDiff += times[i] - times[i-1];
-                    timeDiffCount++;
+
+                for (let i = 1; i < validTimes.length; i++) {
+                    const diff = validTimes[i] - validTimes[i-1];
+                    if (diff > 0) {  // Only count positive time differences
+                        totalTimeDiff += diff;
+                        timeDiffCount++;
+                    }
                 }
+
                 return timeDiffCount > 0 ? totalTimeDiff / timeDiffCount : 0;
             };
 
@@ -183,7 +201,7 @@ module.exports = {
                         const avgTime = calculateAverageTimeBetweenClaims(times);
                         return `${getTierEmoji(tier)}: ${formatTime(avgTime)}`;
                     })
-                    .join('\n'),
+                    .join('\n') || 'No claim time data available',
                 inline: false
             });
 
@@ -196,7 +214,7 @@ module.exports = {
                         const avgTime = calculateAverageTimeBetweenClaims(times);
                         return `${range} (${getRangeDescription(range)}): ${formatTime(avgTime)}`;
                     })
-                    .join('\n'),
+                    .join('\n') || 'No claim time data available',
                 inline: false
             });
 
