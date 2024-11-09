@@ -296,9 +296,12 @@ module.exports = {
             });
         }
 
-        // Check if economy is enabled for all other commands
-        if (!serverData.economyEnabled) {
-            return;
+        // Check if economy is enabled for economy-related commands
+        if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take'].includes(subcommand)) {
+            return interaction.reply({
+                content: '❌ The economy system is currently disabled.',
+                ephemeral: true
+            });
         }
 
         // Check cooldown
