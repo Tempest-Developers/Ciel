@@ -31,7 +31,7 @@ async function initializeDatabase() {
             mUserDB, 
             mServerSettingsDB, 
             mGateDB, 
-            gateServerDB 
+            mGateServerDB 
         } = await db.connectDB();
 
         // Make database collections accessible throughout the bot
@@ -39,8 +39,8 @@ async function initializeDatabase() {
             servers: mServerDB,
             users: mUserDB,
             serverSettings: mServerSettingsDB,
-            gates: mGateDB,
-            gateServers: gateServerDB,
+            mGateDB,
+            mGateServerDB,
             ...db  // Spread the rest of the database methods
         };
     } catch (err) {

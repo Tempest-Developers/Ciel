@@ -83,13 +83,13 @@ module.exports = {
                         .setDescription('Amount of tokens to take')
                         .setRequired(true))),
 
-    async execute(interaction) {
+    async execute(interaction, { database }) {
         // Silently ignore if not in Gate Guild
         if (interaction.guild.id !== GATE_GUILD) {
             return;
         }
 
-        const { mGateDB, mGateServerDB } = interaction.client.database;
+        const { mGateDB, mGateServerDB } = database;
         const subcommand = interaction.options.getSubcommand();
         const config = require('../config.json');
 
@@ -225,7 +225,7 @@ module.exports = {
             const isLead = config.leads.includes(interaction.user.id);
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
-                .setTitle('🪙 Gate Economy System')
+                .setTitle('<:Slime_Token:1304929154285703179> Gate Economy System')
                 .setDescription(serverData.economyEnabled ? 'Economy system is currently **enabled**' : 'Economy system is currently **disabled**');
 
             if (isLead) {
@@ -328,7 +328,7 @@ module.exports = {
                     const tickets = userData.tickets || [];
                     
                     return interaction.reply({
-                        content: `Your balance:\n🪙 ${tokens} Slime Tokens\n🎟️ Tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}`,
+                        content: `Your balance:\n<:Slime_Token:1304929154285703179> ${tokens} SLime Token\n:tickets: Tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}`,
                         ephemeral: true
                     });
                 }
@@ -401,12 +401,12 @@ module.exports = {
                 case 'giveaway': {
                     return interaction.reply({
                         content: `🎉 Current Giveaway Rewards:\n\n` +
-                            `🎟️ 500 Token Ticket: Basic reward chance\n` +
-                            `🎟️ 1000 Token Ticket: Improved reward chance\n` +
-                            `🎟️ 2500 Token Ticket: High reward chance\n` +
-                            `🎟️ 5000 Token Ticket: Premium reward chance\n` +
-                            `🎟️ 10000 Token Ticket: Ultimate reward chance\n` +
-                            `🎟️ Special Gift Ticket: Exclusive reward chance`,
+                            `:tickets: 500 Token Ticket: Basic reward chance\n` +
+                            `:tickets: 1000 Token Ticket: Improved reward chance\n` +
+                            `:tickets: 2500 Token Ticket: High reward chance\n` +
+                            `:tickets: 5000 Token Ticket: Premium reward chance\n` +
+                            `:tickets: 10000 Token Ticket: Ultimate reward chance\n` +
+                            `:tickets: Special Gift Ticket: Exclusive reward chance`,
                         ephemeral: true
                     });
                 }
