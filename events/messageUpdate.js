@@ -12,8 +12,6 @@ module.exports = {
         // New permission check
         if (!checkPermissions(newMessage.channel, client.user)) return;
 		if (!checkPermissions(oldMessage.channel, client.user)) return;
-		newMessageGuildCheck = await checkIfGuildAllowed(client, newMessage.guild.id)
-		oldMessageGuildCheck = await checkIfGuildAllowed(client, oldMessage.guild.id)
 
 		if (!(await checkIfGuildAllowed(client, newMessage.guild.id)) || !(await checkIfGuildAllowed(client, oldMessage.guild.id))) return;
 
