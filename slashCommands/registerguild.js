@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
 const mongo = require('../database/mongo');
 
 // Define the command
@@ -21,15 +21,19 @@ module.exports = {
     const adminRoleName = 'admin';
     const manageServerRoleName = 'manage server';
 
-    // Check if the member has the required roles
-    const hasAdminRole = member.roles.cache.some(role => role.name.toLowerCase() === adminRoleName.toLowerCase());
-    const hasManageServerRole = member.roles.cache.some(role => role.name.toLowerCase() === manageServerRoleName.toLowerCase());
-    
-    if (!hasAdminRole && !hasManageServerRole) {
+    // Define the required permissions
+    const requiredPermissions = [PermissionsBitField.Flags.Administrator, PermissionsBitField.Flags.ManageGuild];
+
+    // Check if the member has the required permissions
+    const hasRequiredPermissions = requiredPermissions.some(permission => interaction.member.permissions.has(permission));
+
+    console.log(hasRequiredPermissions, interaction.user.name)
+
+    if (!hasRequiredPermissions) {
       return await interaction.editReply({
         embeds: [{
           title: 'Permission Denied',
-          description: 'You need Admin or Manage Server role to use this command.',
+          description: 'You need Admin or Manage Server permission to use this command.',
           color: 0xff0000,
         }]
       });

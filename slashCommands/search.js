@@ -5,6 +5,49 @@ let cacheTimestamp = 0;
 let cachedFilteredResults = new Map();
 const CACHE_DURATION = 30000; // 30 seconds cache
 const MIN_SEARCH_LENGTH = 2; // Minimum characters before searching
+const EVENT_EMOJI = '🎃 '; // Cached emoji string
+const MAX_SERIES_LENGTH = 30; // Max length for series name in autocomplete
+
+// Helper function to format series name
+const formatSeriesName = (series) => {
+    return series.length > MAX_SERIES_LENGTH ? 
+        series.substring(0, MAX_SERIES_LENGTH - 3) + '...' : 
+        series;
+};
+
+// Helper function to format card suggestion
+const formatCardSuggestion = (card) => {
+    const eventMark = card.eventType ? EVENT_EMOJI : '';
+    const series = formatSeriesName(card.series);
+    return `${card.tier} | ${card.name} ${eventMark}(${series})`;
+};
+
+// Helper function to sort versions with CM (0) first
+const sortVersions = (versions) => {
+    return versions.sort((a, b) => {
+        if (a === 0) return -1;
+        if (b === 0) return 1;
+        return a - b;
+    });
+};
+
+// Helper function to check if owner has CM print
+const hasCMPrint = (versions) => {
+    return versions.includes(0);
+};
+
+// Helper function to find lowest print number (excluding CM)
+const findLowestPrint = (ownersList) => {
+    let lowest = Infinity;
+    ownersList.forEach(owner => {
+        owner.versions.forEach(version => {
+            if (version !== 0 && version < lowest) {
+                lowest = version;
+            }
+        });
+    });
+    return lowest === Infinity ? 'N/A' : lowest;
+};
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -20,12 +63,10 @@ module.exports = {
         try {
             const focusedValue = interaction.options.getFocused().toLowerCase();
             
-            // Return empty array for short inputs
             if (focusedValue.length < MIN_SEARCH_LENGTH) {
                 return await interaction.respond([]);
             }
 
-            // Check if we have cached results for this search
             const cachedResult = cachedFilteredResults.get(focusedValue);
             if (cachedResult) {
                 return await interaction.respond(cachedResult);
@@ -50,15 +91,13 @@ module.exports = {
             const filtered = cards
                 .filter(card => card?.name?.toLowerCase().includes(focusedValue))
                 .map(card => ({
-                    name: `${card.tier} | ${card.name}`,
+                    name: formatCardSuggestion(card),
                     value: card.id
                 }))
                 .slice(0, 25);
 
-            // Cache the filtered results
             cachedFilteredResults.set(focusedValue, filtered);
 
-            // Clear old cached results
             if (cachedFilteredResults.size > 100) {
                 const oldestKey = cachedFilteredResults.keys().next().value;
                 cachedFilteredResults.delete(oldestKey);
@@ -77,14 +116,12 @@ module.exports = {
         try {
             const cardId = interaction.options.getString('card');
             
-            // Get card owners
             const ownersResponse = await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`);
             if (!ownersResponse.ok) {
                 throw new Error('Failed to fetch card owners');
             }
             const owners = await ownersResponse.json();
 
-            // Get card details from cache or fetch if needed
             let cardDetails;
             if (cachedCards) {
                 cardDetails = cachedCards.find(card => card.id === cardId);
@@ -103,43 +140,63 @@ module.exports = {
                 return await interaction.editReply('Card not found.');
             }
 
-            // Group owners by user to count versions
-            const ownerCounts = owners.reduce((acc, item) => {
+            const ownerCounts = (owners || []).reduce((acc, item) => {
+                if (!item || !item.owner) return acc;
+                
                 const ownerId = item.owner;
                 if (!acc[ownerId]) {
                     acc[ownerId] = {
-                        user: item.user,
+                        user: item.user || null,
                         versions: []
                     };
                 }
-                acc[ownerId].versions.push(item.version);
+                if (item.version !== undefined && item.version !== null) {
+                    acc[ownerId].versions.push(item.version);
+                }
                 return acc;
             }, {});
 
-            const ownersList = Object.entries(ownerCounts).map(([ownerId, data]) => ({
-                id: ownerId,
-                user: data.user,
-                versionCount: data.versions.length,
-                versions: data.versions
-            }));
+            // Sort versions for each owner with CM (0) first
+            Object.values(ownerCounts).forEach(owner => {
+                owner.versions = sortVersions(owner.versions);
+            });
+
+            const ownersList = Object.entries(ownerCounts)
+                .map(([ownerId, data]) => ({
+                    id: ownerId,
+                    user: data.user,
+                    versionCount: data.versions.length,
+                    versions: data.versions
+                }))
+                .sort((a, b) => {
+                    // Sort owners with CM prints first
+                    const aCM = hasCMPrint(a.versions);
+                    const bCM = hasCMPrint(b.versions);
+                    if (aCM && !bCM) return -1;
+                    if (!aCM && bCM) return 1;
+                    return 0;
+                });
 
             const ITEMS_PER_PAGE = 10;
-            const totalPages = Math.ceil(ownersList.length / ITEMS_PER_PAGE) + 1; // +1 for the card details page
+            const totalPages = Math.min(Math.ceil(ownersList.length / ITEMS_PER_PAGE) + 1, 25); // Limit to 24 pages + details page
             let currentPage = 0;
             
             const generateEmbed = (page) => {
                 const cardImageUrl = `https://cdn.mazoku.cc/packs/${cardId}`;
+                const eventMark = cardDetails.eventType ? EVENT_EMOJI : '';
+                const lowestPrint = findLowestPrint(ownersList);
                 
                 if (page === 0) {
-                    // First page shows card details and user's copies
+                    const makerMentions = (cardDetails.makers || []).map(maker => `<@${maker}>`).join(' ') || 'No makers listed';
                     const embed = new EmbedBuilder()
-                        .setTitle(`${cardDetails.tier} | ${cardDetails.name}`)
-                        .setDescription(`Series: ${cardDetails.series}`)
-                        .setImage(cardImageUrl);
+                        .setTitle(`${cardDetails.tier} | ${cardDetails.name} ${eventMark}`)
+                        .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}`);
 
-                    // Show user's copies if they own any
                     const userOwnership = ownerCounts[interaction.user.id];
-                    const versionsStringPage1 = userOwnership?userOwnership.versions.map(version => `\`${version}\``).join(' '):'\`You dont own any version\`';
+                    const versionsStringPage1 = userOwnership ? 
+                        userOwnership.versions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ') : 
+                        '`You dont own any version`';
+                    
                     if (userOwnership) {
                         embed.addFields({ 
                             name: `Your Copies (${userOwnership.versions.length})`, 
@@ -147,49 +204,47 @@ module.exports = {
                         });
                     }
 
-                    embed.setFooter({ text: `Card Details | ${ownersList.length} total owners` });
+                    if (userOwnership && userOwnership.versions.length > 20) {
+                        embed.setThumbnail(cardImageUrl);
+                    } else {
+                        embed.setImage(cardImageUrl);
+                    }
+
+                    const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
+                    embed.setFooter({ text: `${totalPrints} total prints | ${ownersList.length} total owners | LP ${lowestPrint}` });
                     return embed;
                 } else {
-                    // Subsequent pages show version owners
                     const startIdx = (page - 1) * ITEMS_PER_PAGE;
                     const pageOwners = ownersList.slice(startIdx, startIdx + ITEMS_PER_PAGE);
                     
                     const ownersText = pageOwners.map(owner => {
                         let username = owner.user ? owner.user.username : owner.id;
-                        username = username == "" ? owner.id : username;
-                        const versionsString = owner.versions.map(version => `\`${version}\``).join(' ');
-                        return `🔰 *[${username}](https://mazoku.cc/user/${owner.id})* - **${owner.versionCount}** ${owner.versionCount !== 1 ? 's' : ''} ( ${versionsString} )`;
-
+                        username = username || owner.id;
+                        const versionsString = owner.versions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ');
+                        return `🔰 *[${username}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) **[${owner.versionCount}]**`;
                     }).join('\n');
 
                     const embed = new EmbedBuilder()
-                        .setTitle(`${cardDetails.name} Owners`)
+                        .setTitle(`${cardDetails.tier} | ${cardDetails.name} ${eventMark}Owners`)
                         .setDescription(ownersText || 'No owners found')
                         .setThumbnail(cardImageUrl)
-                        .setFooter({ text: `Page ${page}/${totalPages - 1}` });
+                        .setFooter({ text: `Page ${page}/${Math.min(totalPages - 1, 24)}` });
 
                     return embed;
                 }
             };
 
             const generateSelectMenu = () => {
-                const options = [];
-                
-                // Add card details option
-                options.push({
+                const options = [{
                     label: 'Card Details',
                     description: 'View card information and your copies',
                     value: 'details'
-                });
+                }];
 
-                // Add owner list pages
-                const numOwnerPages = Math.ceil(ownersList.length / ITEMS_PER_PAGE);
-                for (let i = 0; i < numOwnerPages; i++) {
+                const numOwnerPages = Math.min(Math.ceil(ownersList.length / ITEMS_PER_PAGE), 24);
+                for (let i = 0; i < numOwnerPages && options.length < 25; i++) {
                     const startIdx = i * ITEMS_PER_PAGE + 1;
                     const endIdx = Math.min((i + 1) * ITEMS_PER_PAGE, ownersList.length);
-                    
-                    // Ensure we don't exceed Discord's 25-option limit
-                    if (options.length >= 25) break;
                     
                     options.push({
                         label: `Owners Page ${i + 1}`,
@@ -198,15 +253,13 @@ module.exports = {
                     });
                 }
 
-                const row = new ActionRowBuilder()
+                return new ActionRowBuilder()
                     .addComponents(
                         new StringSelectMenuBuilder()
                             .setCustomId('pageSelect')
                             .setPlaceholder('Select a page')
                             .addOptions(options)
                     );
-
-                return row;
             };
 
             const initialMessage = await interaction.editReply({
@@ -216,7 +269,7 @@ module.exports = {
 
             const collector = initialMessage.createMessageComponentCollector({
                 componentType: ComponentType.StringSelect,
-                time: 600000 // 10 minutes
+                time: 600000
             });
 
             collector.on('collect', async i => {
