@@ -18,9 +18,6 @@ setInterval(() => {
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
-        const { getServerData, getPlayerData, createServer, createPlayer, addClaim } = await client.database;
-        const { mGateDB, mGateServerDB } = client.database;
-
         // Check if edit is from exempt bot and in Gate Guild
         if (oldMessage.author.id !== exemptBotId || newMessage.guild.id !== GATE_GUILD) {
             return;
@@ -40,9 +37,17 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         }
 
         // Get server data for settings check
-        let serverData = await getServerData(GATE_GUILD);
+        let serverData = await client.database.getServerData(GATE_GUILD);
         if (!serverData) {
-            return;
+            await client.database.createServer(GATE_GUILD);
+            serverData = await client.database.getServerData(GATE_GUILD);
+        }
+
+        // Get Gate server data for economy/tracking settings
+        let gateServerData = await client.database.mGateServerDB.findOne({ serverID: GATE_GUILD });
+        if (!gateServerData) {
+            await client.database.createGateServer(GATE_GUILD);
+            gateServerData = await client.database.mGateServerDB.findOne({ serverID: GATE_GUILD });
         }
 
         // Process embed fields for claims
@@ -90,35 +95,24 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
                     try {
                         // Create server and player data if they don't exist
-                        let serverData = await getServerData(guildId);
-                        let serverPlayerData = await getPlayerData(userId, guildId);
-
-                        if (!serverData) {
-                            await createServer(guildId);
-                        }
+                        let serverPlayerData = await client.database.getPlayerData(userId, guildId);
                         if (!serverPlayerData) {
-                            await createPlayer(userId, guildId);
+                            await client.database.createPlayer(userId, guildId);
                         }
 
                         // Add claim to database if card tracking is enabled
-                        if (serverData.cardTrackingEnabled !== false) {  // Default to enabled if not set
-                            await addClaim(guildId, userId, cardClaimed);
+                        if (gateServerData.cardTrackingEnabled !== false) {  // Default to enabled if not set
+                            await client.database.addClaim(guildId, userId, cardClaimed);
                             console.log(`Updated ${userId} - ${cardClaimed.owner} player | Server ${guildId} - ${newMessage.guild.name} Database`);
                         }
 
                         // Handle economy rewards if economy is enabled
-                        if (serverData.economyEnabled) {
+                        if (gateServerData.economyEnabled) {
                             // Add token reward
-                            let userData = await mGateDB.findOne({ userID: userId });
+                            let userData = await client.database.mGateDB.findOne({ userID: userId });
                             if (!userData) {
-                                await mGateDB.insertOne({
-                                    userID: userId,
-                                    currency: [0, 0, 0, 0, 0],
-                                    tickets: [],
-                                    mission: [],
-                                    achievements: []
-                                });
-                                userData = await mGateDB.findOne({ userID: userId });
+                                await client.database.createGateUser(userId);
+                                userData = await client.database.mGateDB.findOne({ userID: userId });
                             }
 
                             // Generate random token reward (0-10)
@@ -144,7 +138,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             }
 
                             if (tokenReward > 0) {
-                                await mGateDB.updateOne(
+                                await client.database.mGateDB.updateOne(
                                     { userID: userId },
                                     { $inc: { 'currency.0': tokenReward } }
                                 );

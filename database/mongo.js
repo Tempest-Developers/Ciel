@@ -166,6 +166,9 @@ async function createGateUser(userID) {
 async function createGateServer(serverID) {
     return await mGateServerDB.insertOne({
         serverID,
+        economyEnabled: false,
+        cardTrackingEnabled: true, // Default to true for backward compatibility
+        totalTokens: 0,
         mods: [],
         giveaway: []
     });
@@ -317,5 +320,11 @@ module.exports = {
     getServerData,
     getPlayerData,
     getServerSettings,
-    toggleRegister
+    toggleRegister,
+    // Export database collections
+    mServerDB,
+    mUserDB,
+    mServerSettingsDB,
+    mGateDB,
+    mGateServerDB
 };

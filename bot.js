@@ -34,14 +34,16 @@ async function initializeDatabase() {
             mGateServerDB 
         } = await db.connectDB();
 
-        // Make database collections accessible throughout the bot
+        // Make database collections and methods accessible throughout the bot
         client.database = {
+            // Spread database methods first
+            ...db,
+            // Then set specific collections so they don't get overwritten
             servers: mServerDB,
             users: mUserDB,
             serverSettings: mServerSettingsDB,
             mGateDB,
-            mGateServerDB,
-            ...db  // Spread the rest of the database methods
+            mGateServerDB
         };
     } catch (err) {
         console.error('Failed to connect to database:', err);
@@ -74,9 +76,7 @@ const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'
 for (const file of eventFiles) {
     const event = require(path.join(eventsPath, file));
     if (event.once) {
-
         client.once(event.name, async (...args) => {
-
             const serverExist = await client.database.getServerSettings(args[0].guild.id)
             if(!serverExist) client.database.createServerSettings(args[0].guild.id)
             if (!args[0].guild) return;
@@ -84,7 +84,6 @@ for (const file of eventFiles) {
         });
     } else {
         client.on(event.name, async (...args) => {
-
             const serverExist = await client.database.getServerSettings(args[0].guild.id)
             if(!serverExist) client.database.createServerSettings(args[0].guild.id)
             if (!args[0].guild) return;
