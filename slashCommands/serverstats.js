@@ -60,7 +60,7 @@ module.exports = {
                 for (const claim of mServerDB.claims[tier] || []) {
                     if (claim.print <= 99 && claim.print < lowestPrintNum) {
                         lowestPrintCard = claim;
-                        lowestPrintNum = printNum;
+                        lowestPrintNum = claim.print;
                     }
                 }
             }
