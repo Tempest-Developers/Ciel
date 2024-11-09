@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion, Timestamp } = require('mongodb');
+const { MongoClient, ServerApiVersion } = require('mongodb');
 require('dotenv').config();
 
 const uri = process.env.MONGODB_URI;
@@ -29,6 +29,31 @@ async function connectDB() {
         await mServerSettingsDB.createIndex({ serverID: 1 }, { unique: true });
         await mGateDB.createIndex({ userID: 1 }, { unique: true });
         await mGateServerDB.createIndex({ serverID: 1 }, { unique: true });
+
+        // Create compound indexes for claims to prevent duplicates
+        const tiers = ['CT', 'RT', 'SRT', 'SSRT', 'URT', 'EXT'];
+        for (const tier of tiers) {
+            // Server claim indexes
+            await mServerDB.createIndex({
+                [`claims.${tier}.claimedID`]: 1,
+                [`claims.${tier}.cardID`]: 1,
+                [`claims.${tier}.timestamp`]: 1
+            });
+            
+            // User claim indexes
+            await mUserDB.createIndex({
+                [`claims.${tier}.claimedID`]: 1,
+                [`claims.${tier}.cardID`]: 1,
+                [`claims.${tier}.timestamp`]: 1
+            });
+        }
+
+        // Index for manual claims
+        await mUserDB.createIndex({
+            "manualClaims.claimedID": 1,
+            "manualClaims.cardID": 1,
+            "manualClaims.timestamp": 1
+        });
 
         return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB };
     } catch (err) {
@@ -92,24 +117,24 @@ async function createServerSettings(serverID) {
 
 async function toggleRegister(serverID) {
     try {
-      const serverSettings = await mServerSettingsDB.findOne({ serverID });
+        const serverSettings = await mServerSettingsDB.findOne({ serverID });
 
-      if (!serverSettings) {
-          throw new Error('Server settings not found');
-      }
+        if (!serverSettings) {
+            throw new Error('Server settings not found');
+        }
 
-      const newRegisterValue = true//!serverSettings.register;
+        const newRegisterValue = true;//!serverSettings.register;
 
-      await mServerSettingsDB.updateOne(
-          { serverID },
-          { $set: { register: newRegisterValue } }
-      );
+        await mServerSettingsDB.updateOne(
+            { serverID },
+            { $set: { register: newRegisterValue } }
+        );
 
-      return { serverID, register: newRegisterValue };
-  } catch (error) {
-      console.error('Error toggling register:', error);
-      throw error;
-  }
+        return { serverID, register: newRegisterValue };
+    } catch (error) {
+        console.error('Error toggling register:', error);
+        throw error;
+    }
 }
 
 async function createPlayer(userID, serverID) {
@@ -160,9 +185,21 @@ async function addClaim(serverID, userID, claim) {
         timestamp: claim.timestamp
     };
 
-    // Update server claims with 24 limit per tier
-    await mServerDB.updateOne(
-        { serverID },
+    // Check for existing claims using findOneAndUpdate with upsert
+    // This ensures atomicity and prevents race conditions
+    const serverUpdate = await mServerDB.findOneAndUpdate(
+        { 
+            serverID,
+            [`claims.${claim.tier}`]: {
+                $not: {
+                    $elemMatch: {
+                        claimedID: claim.claimedID,
+                        cardID: claim.cardID,
+                        timestamp: claim.timestamp
+                    }
+                }
+            }
+        },
         {
             $push: {
                 [`claims.${claim.tier}`]: {
@@ -174,9 +211,20 @@ async function addClaim(serverID, userID, claim) {
         }
     );
 
-    // Update user claims with 24 limit per tier
-    await mUserDB.updateOne(
-        { userID, serverID },
+    const userUpdate = await mUserDB.findOneAndUpdate(
+        {
+            userID,
+            serverID,
+            [`claims.${claim.tier}`]: {
+                $not: {
+                    $elemMatch: {
+                        claimedID: claim.claimedID,
+                        cardID: claim.cardID,
+                        timestamp: claim.timestamp
+                    }
+                }
+            }
+        },
         {
             $push: {
                 [`claims.${claim.tier}`]: {
@@ -188,7 +236,10 @@ async function addClaim(serverID, userID, claim) {
         }
     );
 
-    return claimData;
+    return { 
+        claimData, 
+        updated: serverUpdate.lastErrorObject?.n > 0 || userUpdate.lastErrorObject?.n > 0 
+    };
 }
 
 async function addManualClaim(serverID, userID, claim) {
@@ -205,9 +256,21 @@ async function addManualClaim(serverID, userID, claim) {
         timestamp: claim.timestamp
     };
 
-    // Update user claims with 48 limit
-    await mUserDB.updateOne(
-        { userID, serverID },
+    // Use findOneAndUpdate with upsert for atomic operation
+    const userUpdate = await mUserDB.findOneAndUpdate(
+        {
+            userID,
+            serverID,
+            manualClaims: {
+                $not: {
+                    $elemMatch: {
+                        claimedID: claim.claimedID,
+                        cardID: claim.cardID,
+                        timestamp: claim.timestamp
+                    }
+                }
+            }
+        },
         {
             $push: {
                 manualClaims: {
@@ -219,7 +282,10 @@ async function addManualClaim(serverID, userID, claim) {
         }
     );
 
-    return claimData;
+    return { 
+        claimData, 
+        updated: userUpdate.lastErrorObject?.n > 0 
+    };
 }
 
 async function getServerData(serverID) {

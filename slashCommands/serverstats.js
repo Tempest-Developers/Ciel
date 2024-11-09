@@ -4,45 +4,28 @@ const getLoadBar = require('../utility/getLoadBar');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('stats')
-        .setDescription('Shows server or user stats')
-        .addUserOption(option =>
-            option
-                .setName('user')
-                .setDescription('User to check stats for')
-                .setRequired(false)
-        ),
+        .setName('serverstats')
+        .setDescription('Shows server-wide card statistics'),
     async execute(interaction, { database }) {
         try {
             await interaction.deferReply();
-
-            const targetUser = interaction.options.getUser('user') || interaction.user;
             const guildId = interaction.guild.id;
 
-            // Get server settings to check if stats are allowed
-            const serverSettings = await database.getServerSettings(guildId);
-            if (!serverSettings?.settings?.allowShowStats) {
+            // Get all server claims
+            const mServerDB = await database.getServerData(guildId);
+            if (!mServerDB || !mServerDB.claims) {
                 return await interaction.editReply({
-                    content: 'Stats are currently disabled in this server.',
+                    content: 'No claims data found for this server.',
                     ephemeral: true
                 });
             }
 
-            // Get user data
-            const userData = await database.getPlayerData(targetUser.id, guildId);
-            if (!userData) {
-                return await interaction.editReply({
-                    content: 'No data found for this user.',
-                    ephemeral: true
-                });
-            }
-
-            // Calculate total claims per tier
+            // Calculate tier counts
             const tierCounts = {
-                CT: userData.claims.CT?.length || 0,
-                RT: userData.claims.RT?.length || 0,
-                SRT: userData.claims.SRT?.length || 0,
-                SSRT: userData.claims.SSRT?.length || 0
+                CT: mServerDB.claims.CT?.length || 0,
+                RT: mServerDB.claims.RT?.length || 0,
+                SRT: mServerDB.claims.SRT?.length || 0,
+                SSRT: mServerDB.claims.SSRT?.length || 0
             };
 
             // Calculate print range counts
@@ -53,24 +36,14 @@ module.exports = {
                 HP: 0  // 500-1000
             };
 
-            // Find lowest print SP/LP card for showcase
-            let lowestPrintCard = null;
-            let lowestPrintNum = Infinity;
-
-            // Count cards in each print range and find lowest print
-            for (const tier in userData.claims) {
-                for (const claim of userData.claims[tier] || []) {
+            // Count cards in each print range
+            for (const tier in mServerDB.claims) {
+                for (const claim of mServerDB.claims[tier] || []) {
                     const printNum = claim.version;
                     if (printNum >= 1 && printNum <= 10) printRangeCounts.SP++;
                     else if (printNum >= 11 && printNum <= 99) printRangeCounts.LP++;
                     else if (printNum >= 100 && printNum <= 499) printRangeCounts.MP++;
                     else if (printNum >= 500 && printNum <= 1000) printRangeCounts.HP++;
-
-                    // Track lowest print SP/LP card
-                    if (printNum <= 99 && printNum < lowestPrintNum) {
-                        lowestPrintCard = claim;
-                        lowestPrintNum = printNum;
-                    }
                 }
             }
 
@@ -78,11 +51,23 @@ module.exports = {
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
             const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
 
+            // Find lowest print SP/LP card for thumbnail
+            let lowestPrintCard = null;
+            let lowestPrintNum = Infinity;
+
+            for (const tier in mServerDB.claims) {
+                for (const claim of mServerDB.claims[tier] || []) {
+                    if (claim.version <= 99 && claim.version < lowestPrintNum) {
+                        lowestPrintCard = claim;
+                        lowestPrintNum = claim.version;
+                    }
+                }
+            }
+
             // Create stats embed
             const embed = new EmbedBuilder()
                 .setColor('#FFC0CB')
-                .setTitle(`${targetUser.username}'s Stats`)
-                .setThumbnail(targetUser.displayAvatarURL())
+                .setTitle(`${interaction.guild.name} Server Stats`)
                 .addFields(
                     { 
                         name: 'Total Claims', 
@@ -95,8 +80,8 @@ module.exports = {
                         inline: true 
                     },
                     { 
-                        name: 'Server', 
-                        value: interaction.guild.name, 
+                        name: 'Total Prints Tracked', 
+                        value: totalPrints.toString(), 
                         inline: true 
                     }
                 )
@@ -121,32 +106,31 @@ module.exports = {
                             })
                             .join('\n')
                     }
-                );
+                )
+                .setFooter({ 
+                    text: `Stats as of ${new Date().toLocaleString()}` 
+                });
 
-            // Add best card showcase if we found a low print card
+            // Add thumbnail and card details if we found a low print card
             if (lowestPrintCard) {
+                embed.setThumbnail(lowestPrintCard.card.cardImageLink);
                 const makers = lowestPrintCard.card.makers.map(id => `<@${id}>`).join(', ');
                 embed.addFields({
-                    name: 'Best Print Showcase',
+                    name: 'Lowest Print Showcase',
                     value: `Card: ${lowestPrintCard.card.name}\n` +
                            `Anime: ${lowestPrintCard.card.series}\n` +
                            `Print: #${lowestPrintCard.version}\n` +
                            `Maker(s): ${makers}\n` +
                            `Owner: <@${lowestPrintCard.owner}>`
                 });
-                embed.setImage(lowestPrintCard.card.cardImageLink);
             }
-
-            embed.setFooter({ 
-                text: `Stats as of ${new Date().toLocaleString()}` 
-            });
 
             await interaction.editReply({ embeds: [embed] });
 
         } catch (error) {
-            console.error('Error in stats command:', error);
+            console.error('Error in serverstats command:', error);
             await interaction.editReply({
-                content: 'An error occurred while fetching stats.',
+                content: 'An error occurred while fetching server stats.',
                 ephemeral: true
             });
         }

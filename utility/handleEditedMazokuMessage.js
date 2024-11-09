@@ -1,7 +1,18 @@
 require('dotenv').config();
 const findUserId = require('../utility/findUserId');
 
-let lastRemberedEmbed = "";
+// Use a Map to track processed claims with a TTL
+const processedClaims = new Map();
+
+// Clean up old entries every hour
+setInterval(() => {
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    for (const [key, timestamp] of processedClaims.entries()) {
+        if (timestamp < oneHourAgo) {
+            processedClaims.delete(key);
+        }
+    }
+}, 60 * 60 * 1000);
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
@@ -25,15 +36,8 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             return;
         }
 
-        // Prevent duplicate processing
-        if (lastRemberedEmbed == oldEmbed) {
-            return;
-        } else {
-            lastRemberedEmbed = oldMessage.embeds[0];
-        }
-
         // Process embed fields for claims
-        newEmbed.fields.forEach(async (field) => {
+        for (const field of newEmbed.fields) {
             if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
                 const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
                 if (match) {
@@ -44,7 +48,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     const tier = match[1];
                     if (!['CT', 'RT', 'SRT', 'SSRT'].includes(tier)) {
                         console.log(`Skipping claim for unsupported tier: ${tier}`);
-                        return;
+                        continue;
                     }
 
                     const cardClaimed = {
@@ -60,27 +64,45 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                         timestamp: newEmbed.timestamp
                     };
 
+                    // Create unique key for this claim
+                    const claimKey = `${cardClaimed.claimedID}-${cardClaimed.cardID}-${cardClaimed.timestamp}-${cardClaimed.userID}-${cardClaimed.serverID}`;
+
+                    // Check if we've already processed this claim recently
+                    if (processedClaims.has(claimKey)) {
+                        console.log(`Skipping duplicate claim: ${claimKey}`);
+                        continue;
+                    }
+
+                    // Mark this claim as processed with current timestamp
+                    processedClaims.set(claimKey, Date.now());
+
                     console.warn(`GUILD: ${newMessage.guild.name} | ${newMessage.guild.id}`);
                     console.log('Card Claimed:', cardClaimed);
 
-                    // Create server and player data if they don't exist
-                    let serverData = await getServerData(guildId);
-                    let serverPlayerData = await getPlayerData(userId, guildId);
+                    try {
+                        // Create server and player data if they don't exist
+                        let serverData = await getServerData(guildId);
+                        let serverPlayerData = await getPlayerData(userId, guildId);
 
-                    if (!serverData) {
-                        await createServer(guildId);
-                    }
-                    if (!serverPlayerData) {
-                        await createPlayer(userId, guildId);
-                    }
+                        if (!serverData) {
+                            await createServer(guildId);
+                        }
+                        if (!serverPlayerData) {
+                            await createPlayer(userId, guildId);
+                        }
 
-                    // Add claim to database
-                    await addClaim(guildId, userId, cardClaimed);
-                    console.log(`Updated ${userId} - ${cardClaimed.owner} player | Server ${guildId} - ${newMessage.guild.name} Database`);
+                        // Add claim to database
+                        await addClaim(guildId, userId, cardClaimed);
+                        console.log(`Updated ${userId} - ${cardClaimed.owner} player | Server ${guildId} - ${newMessage.guild.name} Database`);
+                    } catch (error) {
+                        console.error('Error processing claim:', error);
+                        // Remove from processed claims if there was an error
+                        processedClaims.delete(claimKey);
+                    }
                 }
             }
-        });
+        }
     } catch (error) {
         console.error('Error handling summon embed edit:', error);
     }
-}
+};

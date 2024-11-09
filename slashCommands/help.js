@@ -14,17 +14,22 @@ module.exports = {
                 .addFields(
                     {
                         name: '`/recent`',
-                        value: 'View the last 15 card claims with tier filtering options. You can filter claims by tier (C, R, SR, SSR) using the dropdown menu.',
+                        value: 'View recent card claims with tier filtering',
                         inline: false
                     },
                     {
                         name: '`/search`',
-                        value: 'Search through all available cards. Shows detailed card information including owners, prints, and your copies. Features autocomplete for easy searching.',
+                        value: 'Search cards with autocomplete',
                         inline: false
                     },
                     {
                         name: '`/stats`',
-                        value: 'View server statistics for card claims, including tier percentages, counts, and recent claims with their timestamps.',
+                        value: 'View user card statistics and print ranges',
+                        inline: false
+                    },
+                    {
+                        name: '`/serverstats`',
+                        value: 'View server-wide card statistics and print ranges',
                         inline: false
                     }
                 )
