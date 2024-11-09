@@ -1,5 +1,4 @@
 module.exports = function getTierEmoji(tier) {
-    console.log("Utility Tier Emoji "+tier)
     let tierCase = tier.toUpperCase();
     switch (tierCase) {
         case 'CT':
