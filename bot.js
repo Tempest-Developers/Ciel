@@ -3,7 +3,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { isServerAllowed } = require('./utility/auth')
+const { checkPermissions, checkIfGuildAllowed } = require('./utility/auth')
 
 const BOT_TOKEN = process.env.TOKEN;
 
@@ -74,13 +74,21 @@ const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'
 for (const file of eventFiles) {
     const event = require(path.join(eventsPath, file));
     if (event.once) {
-        client.once(event.name, (...args) => {
-            if (args[0].guild && !isServerAllowed(client, args[0].guild.id)) return;
+
+
+        client.once(event.name, async (...args) => {
+
+            const serverExist = await client.database.getServerSettings(args[0].guild.id)
+            if(!serverExist) client.database.createServerSettings(args[0].guild.id).then(console.log("Created server settings 1"))
+            if (!args[0].guild) return;
             event.execute(client,...args);
         });
     } else {
-        client.on(event.name, (...args) => {
-            if (args[0].guild && !isServerAllowed(client, args[0].guild.id)) return;
+        client.on(event.name, async (...args) => {
+
+            const serverExist = await client.database.getServerSettings(args[0].guild.id)
+            if(!serverExist) client.database.createServerSettings(args[0].guild.id).then(console.log("Created server settings 2"))
+            if (!args[0].guild) return;
             event.execute(client,...args);
         });
     }

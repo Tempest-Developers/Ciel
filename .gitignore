@@ -5,3 +5,4 @@ config.json
 database/oldmongo.js
 deploy-commands.js
 slashCommands/mycards.js
+zTestCommands/mycards.js

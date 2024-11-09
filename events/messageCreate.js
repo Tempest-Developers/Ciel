@@ -1,5 +1,6 @@
 const handleCreateMazokuMessage = require('../utility/handleCreateMazokuMessage');
-const { checkPermissions } = require('../utility/auth');
+const { checkPermissions, checkIfGuildAllowed } = require('../utility/auth');
+const config = require('../config.json');
 
 module.exports = {
     name: 'messageCreate',
@@ -8,6 +9,10 @@ module.exports = {
 
         // New permission check
         if (!checkPermissions(message.channel, message.client.user)) return;
+        if (!checkIfGuildAllowed(client, message.guild.id)) return;
+
+        console.log("MessageCreate | Permission Checked")
+        console.log("MessageCreate | Guild Permissions Checked")
 
         // Handle Mazoku messages
         handleCreateMazokuMessage(message, client.config.mazokuID);
