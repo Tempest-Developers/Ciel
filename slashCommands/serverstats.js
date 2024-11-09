@@ -37,21 +37,28 @@ module.exports = {
                 HP: []  // 500-1000
             };
 
-            // Function to compare tiers
-            const isBetterTier = (tier1, tier2) => {
-                const tiers = ['CT', 'RT', 'SRT', 'SSRT'];
-                return tiers.indexOf(tier1) > tiers.indexOf(tier2);
+            // Function to get print quality
+            const getPrintQuality = (print) => {
+                if (print >= 1 && print <= 10) return 'SP';
+                if (print >= 11 && print <= 99) return 'LP';
+                return 'OTHER';
             };
 
-            // Function to compare print ranges
-            const isBetterPrint = (print1, print2) => {
-                if (print1 >= 1 && print1 <= 10) return true; // SP is best
-                if (print2 >= 1 && print2 <= 10) return false;
-                if (print1 >= 11 && print1 <= 99) return true; // LP is next best
-                if (print2 >= 11 && print2 <= 99) return false;
-                if (print1 >= 100 && print1 <= 499) return true; // MP is next
-                if (print2 >= 100 && print2 <= 499) return false;
-                return true; // HP is last
+            // Function to compare card quality based on tier and print
+            const isHigherQuality = (card1, card2) => {
+                const tierRank = { 'SSRT': 4, 'SRT': 3, 'RT': 2, 'CT': 1 };
+                const printRank = { 'SP': 2, 'LP': 1, 'OTHER': 0 };
+                
+                const tier1Rank = tierRank[card1.tier] || 0;
+                const tier2Rank = tierRank[card2.tier] || 0;
+                const print1Rank = printRank[getPrintQuality(card1.print)];
+                const print2Rank = printRank[getPrintQuality(card2.print)];
+
+                // First compare tier+print combination
+                const combo1Score = (tier1Rank * 10) + print1Rank;
+                const combo2Score = (tier2Rank * 10) + print2Rank;
+                
+                return combo1Score > combo2Score;
             };
 
             for (const tier in mServerDB.claims) {
@@ -59,18 +66,20 @@ module.exports = {
                     uniqueOwners.add(claim.owner);
                     
                     // Track times by tier
-                    claimTimesByTier[tier].push(claim.timestamp);
+                    if (claim.timestamp) {
+                        claimTimesByTier[tier].push(new Date(claim.timestamp));
+                    }
                     
                     // Track times by print range
                     const printNum = claim.print;
-                    if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(claim.timestamp);
-                    else if (printNum >= 11 && printNum <= 99) claimTimesByPrintRange.LP.push(claim.timestamp);
-                    else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(claim.timestamp);
-                    else if (printNum >= 500 && printNum <= 1000) claimTimesByPrintRange.HP.push(claim.timestamp);
+                    const timestamp = new Date(claim.timestamp);
+                    if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(timestamp);
+                    else if (printNum >= 11 && printNum <= 99) claimTimesByPrintRange.LP.push(timestamp);
+                    else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(timestamp);
+                    else if (printNum >= 500 && printNum <= 1000) claimTimesByPrintRange.HP.push(timestamp);
                     
-                    // Update best print based on tier and print number
-                    if (!bestPrint || isBetterTier(tier, bestPrint.tier) || 
-                        (tier === bestPrint.tier && isBetterPrint(claim.print, bestPrint.print))) {
+                    // Update best print based on new quality comparison
+                    if (!bestPrint || isHigherQuality({ ...claim, tier }, { ...bestPrint, tier: bestPrint.tier })) {
                         bestPrint = { ...claim, tier };
                     }
                 }
@@ -106,16 +115,8 @@ module.exports = {
             // Calculate total claims
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
 
-            const formatTime = (ms) => {
-                if (!ms || isNaN(ms)) return '0h 0m 0s';
-                const seconds = Math.floor(ms / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const hours = Math.floor(minutes / 60);
-                return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-            };
-
             const calculateAverageTimeBetweenClaims = (times) => {
-                if (!times || times.length < 2) return 0;
+                if (!times || times.length < 2) return null;
                 times.sort((a, b) => a - b);
                 let totalTimeDiff = 0;
                 let timeDiffCount = 0;
@@ -126,7 +127,7 @@ module.exports = {
                         timeDiffCount++;
                     }
                 }
-                return timeDiffCount > 0 ? totalTimeDiff / timeDiffCount : 0;
+                return timeDiffCount > 0 ? new Date(totalTimeDiff / timeDiffCount) : null;
             };
 
             // Create stats embed
@@ -153,7 +154,7 @@ module.exports = {
                 }
             );
 
-            // Add best print showcase
+            // Add best print showcase with new card image API
             if (bestPrint) {
                 const enrichedCard = await enrichClaimWithCardData(bestPrint);
                 if (enrichedCard) {
@@ -161,11 +162,12 @@ module.exports = {
                         name: `Best ${bestPrint.tier} Print`,
                         value: `Card: ${enrichedCard.cardName}\n` +
                                `Anime: ${enrichedCard.card.series}\n` +
-                               `Print: #${enrichedCard.print}\n` +
+                               `Print: #${enrichedCard.print} (${getPrintQuality(enrichedCard.print)})\n` +
                                `Owner: ${interaction.guild.members.cache.get(enrichedCard.owner)?.user.username || enrichedCard.owner}\n` +
-                               `Claimed: <t:${Math.floor(enrichedCard.timestamp / 1000)}:R>`
+                               `Claimed: ${new Date(enrichedCard.timestamp).toISOString()}`
                     });
-                    embed.setThumbnail(enrichedCard.card.cardImageLink);
+                    // Use the new card image API
+                    embed.setThumbnail('https://cdn.mazoku.cc/packs/b2cf1dde-5bc2-4daa-b24b-b2b549a6e3e8');
                 }
             }
 
@@ -193,27 +195,27 @@ module.exports = {
                 }
             );
 
-            // Add average claim times by tier
+            // Add average claim times by tier with ISO format
             embed.addFields({
                 name: 'Average Time Between Claims by Tier',
                 value: Object.entries(claimTimesByTier)
                     .filter(([_, times]) => times.length > 0)
                     .map(([tier, times]) => {
                         const avgTime = calculateAverageTimeBetweenClaims(times);
-                        return `${getTierEmoji(tier)}: ${formatTime(avgTime)}`;
+                        return `${getTierEmoji(tier)}: ${avgTime ? avgTime.toISOString() : 'N/A'}`;
                     })
                     .join('\n'),
                 inline: false
             });
 
-            // Add average claim times by print range
+            // Add average claim times by print range with ISO format
             embed.addFields({
                 name: 'Average Time Between Claims by Print Range',
                 value: Object.entries(claimTimesByPrintRange)
                     .filter(([_, times]) => times.length > 0)
                     .map(([range, times]) => {
                         const avgTime = calculateAverageTimeBetweenClaims(times);
-                        return `${range} (${getRangeDescription(range)}): ${formatTime(avgTime)}`;
+                        return `${range} (${getRangeDescription(range)}): ${avgTime ? avgTime.toISOString() : 'N/A'}`;
                     })
                     .join('\n'),
                 inline: false

@@ -62,28 +62,50 @@ module.exports = {
 
             // Calculate print range counts
             const printRangeCounts = {
-                SP: 0, // 1-10
-                LP: 0, // 11-99
-                MP: 0, // 100-499
-                HP: 0  // 500-1000
+                SP: 0,
+                LP: 0,
+                MP: 0,
+                HP: 0
             };
 
-            // Find lowest print SP/LP card for showcase
-            let lowestPrintCard = null;
-            let lowestPrintNum = Infinity;
+            // Function to get print quality
+            const getPrintQuality = (print) => {
+                if (print >= 1 && print <= 10) return 'SP';
+                if (print >= 11 && print <= 99) return 'LP';
+                return 'OTHER';
+            };
 
-            // Count cards in each print range, find lowest print, and track claim times
+            // Function to compare card quality based on tier and print
+            const isHigherQuality = (card1, card2) => {
+                const tierRank = { 'SSRT': 4, 'SRT': 3, 'RT': 2, 'CT': 1 };
+                const printRank = { 'SP': 2, 'LP': 1, 'OTHER': 0 };
+                
+                const tier1Rank = tierRank[card1.tier] || 0;
+                const tier2Rank = tierRank[card2.tier] || 0;
+                const print1Rank = printRank[getPrintQuality(card1.print)];
+                const print2Rank = printRank[getPrintQuality(card2.print)];
+
+                // First compare tier+print combination
+                const combo1Score = (tier1Rank * 10) + print1Rank;
+                const combo2Score = (tier2Rank * 10) + print2Rank;
+                
+                return combo1Score > combo2Score;
+            };
+
+            // Find best quality card for showcase
+            let bestCard = null;
+
+            // Process claims
             for (const tier in userData.claims) {
                 for (const claim of userData.claims[tier] || []) {
                     const printNum = claim.print;
                     
-                    // Ensure timestamp is a valid number
-                    const timestamp = Number(claim.timestamp);
-                    if (!isNaN(timestamp)) {
-                        // Track claim times by tier
+                    // Track claim times by tier with proper date handling
+                    if (claim.timestamp) {
+                        const timestamp = new Date(claim.timestamp);
                         claimTimesByTier[tier].push(timestamp);
                         
-                        // Track claim times by print range and count prints
+                        // Track claim times by print range
                         if (printNum >= 1 && printNum <= 10) {
                             printRangeCounts.SP++;
                             claimTimesByPrintRange.SP.push(timestamp);
@@ -102,10 +124,9 @@ module.exports = {
                         }
                     }
 
-                    // Track lowest print SP/LP card
-                    if (printNum <= 99 && printNum < lowestPrintNum) {
-                        lowestPrintCard = claim;
-                        lowestPrintNum = printNum;
+                    // Update best card based on quality comparison
+                    if (!bestCard || isHigherQuality({ ...claim, tier }, { ...bestCard, tier: bestCard.tier })) {
+                        bestCard = { ...claim, tier };
                     }
                 }
             }
@@ -114,37 +135,19 @@ module.exports = {
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
             const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
 
-            const formatTime = (ms) => {
-                if (isNaN(ms) || ms <= 0) return 'N/A';
-                const seconds = Math.floor(ms / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const hours = Math.floor(minutes / 60);
-                return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-            };
-
             const calculateAverageTimeBetweenClaims = (times) => {
-                if (!Array.isArray(times) || times.length < 2) return 0;
-                
-                // Sort timestamps and ensure they're all valid numbers
-                const validTimes = times
-                    .map(t => Number(t))
-                    .filter(t => !isNaN(t))
-                    .sort((a, b) => a - b);
-
-                if (validTimes.length < 2) return 0;
-
+                if (!times || times.length < 2) return null;
+                times.sort((a, b) => a - b);
                 let totalTimeDiff = 0;
                 let timeDiffCount = 0;
-
-                for (let i = 1; i < validTimes.length; i++) {
-                    const diff = validTimes[i] - validTimes[i-1];
-                    if (diff > 0) {  // Only count positive time differences
+                for (let i = 1; i < times.length; i++) {
+                    const diff = times[i] - times[i-1];
+                    if (!isNaN(diff)) {
                         totalTimeDiff += diff;
                         timeDiffCount++;
                     }
                 }
-
-                return timeDiffCount > 0 ? totalTimeDiff / timeDiffCount : 0;
+                return timeDiffCount > 0 ? new Date(totalTimeDiff / timeDiffCount) : null;
             };
 
             // Create stats embed
@@ -192,51 +195,54 @@ module.exports = {
                     }
                 );
 
-            // Add average claim times by tier
+            // Add average claim times by tier with ISO format
             embed.addFields({
                 name: 'Average Time Between Claims by Tier',
                 value: Object.entries(claimTimesByTier)
                     .filter(([_, times]) => times.length > 0)
                     .map(([tier, times]) => {
                         const avgTime = calculateAverageTimeBetweenClaims(times);
-                        return `${getTierEmoji(tier)}: ${formatTime(avgTime)}`;
+                        return `${getTierEmoji(tier)}: ${avgTime ? avgTime.toISOString() : 'N/A'}`;
                     })
                     .join('\n') || 'No claim time data available',
                 inline: false
             });
 
-            // Add average claim times by print range
+            // Add average claim times by print range with ISO format
             embed.addFields({
                 name: 'Average Time Between Claims by Print Range',
                 value: Object.entries(claimTimesByPrintRange)
                     .filter(([_, times]) => times.length > 0)
                     .map(([range, times]) => {
                         const avgTime = calculateAverageTimeBetweenClaims(times);
-                        return `${range} (${getRangeDescription(range)}): ${formatTime(avgTime)}`;
+                        return `${range} (${getRangeDescription(range)}): ${avgTime ? avgTime.toISOString() : 'N/A'}`;
                     })
                     .join('\n') || 'No claim time data available',
                 inline: false
             });
 
-            // Add best card showcase if we found a low print card
-            if (lowestPrintCard) {
-                // Enrich the card data with API information
-                const enrichedCard = await enrichClaimWithCardData(lowestPrintCard);
-                const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
-                embed.addFields({
-                    name: 'Best Print Showcase',
-                    value: `Card: ${enrichedCard.cardName}\n` +
-                           `Anime: ${enrichedCard.card.series}\n` +
-                           `Type: ${enrichedCard.card.type}\n` +
-                           `Print: #${enrichedCard.print}\n` +
-                           `Maker(s): ${makers}\n` +
-                           `Owner: <@${enrichedCard.owner}>`
-                });
-                embed.setImage(enrichedCard.card.cardImageLink);
+            // Add best card showcase
+            if (bestCard) {
+                const enrichedCard = await enrichClaimWithCardData(bestCard);
+                if (enrichedCard) {
+                    const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
+                    embed.addFields({
+                        name: 'Best Card Showcase',
+                        value: `Card: ${enrichedCard.cardName}\n` +
+                               `Anime: ${enrichedCard.card.series}\n` +
+                               `Type: ${enrichedCard.card.type}\n` +
+                               `Print: #${enrichedCard.print} (${getPrintQuality(enrichedCard.print)})\n` +
+                               `Maker(s): ${makers}\n` +
+                               `Owner: <@${enrichedCard.owner}>\n` +
+                               `Claimed: ${new Date(enrichedCard.timestamp).toISOString()}`
+                    });
+                    // Use the new card image API
+                    embed.setImage('https://cdn.mazoku.cc/packs/b2cf1dde-5bc2-4daa-b24b-b2b549a6e3e8');
+                }
             }
 
             embed.setFooter({ 
-                text: `Stats as of ${new Date().toLocaleString()}` 
+                text: `Stats as of ${new Date().toISOString()}` 
             });
 
             await interaction.editReply({ embeds: [embed] });

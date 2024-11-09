@@ -168,12 +168,12 @@ module.exports = {
 
             embed.addFields({ name: 'Rankings', value: leaderboardText || 'No data available' });
 
-            // Add user's rank
+            // Add user's rank if they exist in the data
             const userId = interaction.user.id;
             const userRank = leaderboardData.findIndex(data => data.userId === userId) + 1;
             const userData = leaderboardData.find(data => data.userId === userId);
 
-            if (userData) {
+            if (userRank > 0 && userData) {  // Only add user stats if they exist in the data
                 let userStats;
                 if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
                     userStats = `Your Stats:\n` +
