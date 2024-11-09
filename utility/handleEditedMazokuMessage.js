@@ -41,8 +41,8 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             lastRemberedEmbed=oldMessage.embeds[0];
         }
 
-        console.log(oldEmbed.title);
-        console.log(newEmbed.title);
+        console.log(oldEmbed);
+        console.log(newEmbed);
         console.log("= = = = = = ")
 
         // Initialize an array to store embed data
