@@ -140,7 +140,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
                             const embedField4 = existingClaims.slice(-5).map((claim) => {
                                 const claimUnixTimestamp = convertDateToUnix(claim.timestamp);
-                                let content = `- **${claim.fieldName.split(" ")[2]}** | <t:${claimUnixTimestamp}:R>`;
+                                let content = `- **${claim.owner}** | <t:${claimUnixTimestamp}:R>`;
                                 return content;
                             }).join('\n');
 

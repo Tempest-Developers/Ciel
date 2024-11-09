@@ -14,12 +14,9 @@ module.exports = {
 		if (!checkPermissions(oldMessage.channel, client.user)) return;
 		newMessageGuildCheck = await checkIfGuildAllowed(client, newMessage.guild.id)
 		oldMessageGuildCheck = await checkIfGuildAllowed(client, oldMessage.guild.id)
-		console.log(newMessageGuildCheck)
-		console.log(oldMessageGuildCheck)
-		console.log("===== ===== =====")
 
-		if (newMessageGuildCheck == "false") return;
-		if (oldMessageGuildCheck == "false") return;
+		if (!(await checkIfGuildAllowed(client, newMessage.guild.id)) || !(await checkIfGuildAllowed(client, oldMessage.guild.id))) return;
+
 
         // Handle Mazoku messages
         handleEditedMazokuMessage(client, oldMessage, newMessage, client.config.mazokuID);
