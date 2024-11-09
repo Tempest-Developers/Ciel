@@ -91,10 +91,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
                         if (serverData) {
                             let existingClaims = serverData.claims ? serverData.claims : [];
-                            let existingCT = serverData.tierCounts[0] || 0;
-                            let existingRT = serverData.tierCounts[1] || 0;
-                            let existingSR = serverData.tierCounts[2] || 0;
-                            let existingSSR = serverData.tierCounts[3] || 0;
+                            let existingCT = serverData.counts[0] || 0;
+                            let existingRT = serverData.counts[1] || 0;
+                            let existingSR = serverData.counts[2] || 0;
+                            let existingSSR = serverData.counts[3] || 0;
 
                             const nextUniqueId = existingClaims.length;
                             const existingIndex = existingClaims.findIndex(ec => ec.uniqueId === nextUniqueId);

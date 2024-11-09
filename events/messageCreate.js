@@ -10,9 +10,7 @@ module.exports = {
         // New permission check
         if (!checkPermissions(message.channel, message.client.user)) return;
         if (await checkIfGuildAllowed(client, message.guild.id) == false) return;
-        console.log("messageCreate | "+message.guild.name)
-        console.log(await checkIfGuildAllowed(client, message.guild.id))
-        console.log("= = = = = =")
+        
         // Handle Mazoku messages
         handleCreateMazokuMessage(message, client.config.mazokuID);
 
