@@ -74,8 +74,7 @@ const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'
 for (const file of eventFiles) {
     const event = require(path.join(eventsPath, file));
     if (event.once) {
-
-
+        
         client.once(event.name, async (...args) => {
 
             const serverExist = await client.database.getServerSettings(args[0].guild.id)

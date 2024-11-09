@@ -1,7 +1,6 @@
 require('dotenv').config();
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle, DiscordAPIError } = require('discord.js');
 const findUserId = require('../utility/findUserId');
-const { connectDB, createGateServer, getGateServerData, createPlayer, addClaim } = require('../database/mongo');
 const getLoadBar = require('./getLoadBar'); // Import getLoadBar
 const getTierEmoji = require('./getTierEmoji'); // Import getTierEmoji
 
@@ -10,7 +9,8 @@ let lastRemberedEmbed = "";
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
-        const { mServerDB, mUserDB, mGateDB, gateServerDB } = await connectDB();
+
+        const { getServerData, getPlayerData, createServer, createPlayer, addClaim, addManualClaim } = await client.database;
 
         // Check if edit is from exempt bot
         if (oldMessage.author.id !== exemptBotId) {
