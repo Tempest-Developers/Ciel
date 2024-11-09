@@ -41,9 +41,6 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             lastRemberedEmbed=oldMessage.embeds[0];
         }
 
-        console.log(oldEmbed.title);
-        console.log("= = = = = = ")
-
         // Initialize an array to store embed data
         const serverClaims = [];
 
@@ -53,8 +50,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 // Format the title part
                 const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
                 if (match) {
-                    console.log(field);
-                    const userId = await findUserId(client, field.split(" ")[2]);
+                    const userId = await findUserId(client, field.value.split(" ")[2]);
                     const guildId = newMessage.guild.id;
                     const timestamp = newEmbed.timestamp;
 
@@ -70,7 +66,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             serverID: guildId,
                             cardName: match[3],
                             cardID: newEmbed.timestamp,
-                            owner: field.split(" ")[2],
+                            owner: field.value.split(" ")[2],
                             artist: field.value.split(" ")[3],
                             print: match[4],
                             tier: match[1],
