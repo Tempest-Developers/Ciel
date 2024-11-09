@@ -74,11 +74,11 @@ const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'
 for (const file of eventFiles) {
     const event = require(path.join(eventsPath, file));
     if (event.once) {
-        
+
         client.once(event.name, async (...args) => {
 
             const serverExist = await client.database.getServerSettings(args[0].guild.id)
-            if(!serverExist) client.database.createServerSettings(args[0].guild.id).then(console.log("Created server settings 1"))
+            if(!serverExist) client.database.createServerSettings(args[0].guild.id)
             if (!args[0].guild) return;
             event.execute(client,...args);
         });
@@ -86,7 +86,7 @@ for (const file of eventFiles) {
         client.on(event.name, async (...args) => {
 
             const serverExist = await client.database.getServerSettings(args[0].guild.id)
-            if(!serverExist) client.database.createServerSettings(args[0].guild.id).then(console.log("Created server settings 2"))
+            if(!serverExist) client.database.createServerSettings(args[0].guild.id)
             if (!args[0].guild) return;
             event.execute(client,...args);
         });

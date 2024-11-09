@@ -13,6 +13,7 @@ module.exports = {
         if (!checkPermissions(newMessage.channel, client.user)) return;
 		if (!checkPermissions(oldMessage.channel, client.user)) return;
 		if (await checkIfGuildAllowed(client, newMessage.guild.id) == "false") return;
+		if (await checkIfGuildAllowed(client, oldMessage.guild.id) == "false") return;
 
         // Handle Mazoku messages
         handleEditedMazokuMessage(client, oldMessage, newMessage, client.config.mazokuID);

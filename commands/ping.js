@@ -1,5 +1,3 @@
-const { adminOnly } = require("./tt");
-
 module.exports = {
     name: 'ping',
     description: 'Ping command',
