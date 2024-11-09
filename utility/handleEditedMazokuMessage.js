@@ -39,9 +39,9 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             return;
         }
 
-        // Get server data for economy check
+        // Get server data for settings check
         let serverData = await getServerData(GATE_GUILD);
-        if (!serverData || !serverData.economyEnabled) {
+        if (!serverData) {
             return;
         }
 
@@ -100,69 +100,74 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             await createPlayer(userId, guildId);
                         }
 
-                        // Add claim to database
-                        await addClaim(guildId, userId, cardClaimed);
-                        console.log(`Updated ${userId} - ${cardClaimed.owner} player | Server ${guildId} - ${newMessage.guild.name} Database`);
-
-                        // Add token reward
-                        let userData = await mGateDB.findOne({ userID: userId });
-                        if (!userData) {
-                            await mGateDB.insertOne({
-                                userID: userId,
-                                currency: [0, 0, 0, 0, 0],
-                                tickets: [],
-                                mission: [],
-                                achievements: []
-                            });
-                            userData = await mGateDB.findOne({ userID: userId });
+                        // Add claim to database if card tracking is enabled
+                        if (serverData.cardTrackingEnabled !== false) {  // Default to enabled if not set
+                            await addClaim(guildId, userId, cardClaimed);
+                            console.log(`Updated ${userId} - ${cardClaimed.owner} player | Server ${guildId} - ${newMessage.guild.name} Database`);
                         }
 
-                        // Generate random token reward (0-10)
-                        const currentTokens = userData.currency[0];
-                        let tokenReward;
-                        const rand = Math.random() * 100;
+                        // Handle economy rewards if economy is enabled
+                        if (serverData.economyEnabled) {
+                            // Add token reward
+                            let userData = await mGateDB.findOne({ userID: userId });
+                            if (!userData) {
+                                await mGateDB.insertOne({
+                                    userID: userId,
+                                    currency: [0, 0, 0, 0, 0],
+                                    tickets: [],
+                                    mission: [],
+                                    achievements: []
+                                });
+                                userData = await mGateDB.findOne({ userID: userId });
+                            }
 
-                        if (rand < 20) { // 20% chance of 0 tokens
-                            tokenReward = 0;
-                        } else if (rand < 50) { // 30% chance of 1-3 tokens
-                            tokenReward = Math.floor(Math.random() * 3) + 1;
-                        } else if (rand < 75) { // 25% chance of 4-6 tokens
-                            tokenReward = Math.floor(Math.random() * 3) + 4;
-                        } else if (rand < 95) { // 20% chance of 7-9 tokens
-                            tokenReward = Math.floor(Math.random() * 3) + 7;
-                        } else { // 5% chance of 10 tokens
-                            tokenReward = 10;
-                        }
+                            // Generate random token reward (0-10)
+                            const currentTokens = userData.currency[0];
+                            let tokenReward;
+                            const rand = Math.random() * 100;
 
-                        // Check max token limit
-                        if (currentTokens + tokenReward > 25000) {
-                            tokenReward = Math.max(0, 25000 - currentTokens);
-                        }
+                            if (rand < 20) { // 20% chance of 0 tokens
+                                tokenReward = 0;
+                            } else if (rand < 50) { // 30% chance of 1-3 tokens
+                                tokenReward = Math.floor(Math.random() * 3) + 1;
+                            } else if (rand < 75) { // 25% chance of 4-6 tokens
+                                tokenReward = Math.floor(Math.random() * 3) + 4;
+                            } else if (rand < 95) { // 20% chance of 7-9 tokens
+                                tokenReward = Math.floor(Math.random() * 3) + 7;
+                            } else { // 5% chance of 10 tokens
+                                tokenReward = 10;
+                            }
 
-                        if (tokenReward > 0) {
-                            await mGateDB.updateOne(
-                                { userID: userId },
-                                { $inc: { 'currency.0': tokenReward } }
-                            );
+                            // Check max token limit
+                            if (currentTokens + tokenReward > 25000) {
+                                tokenReward = Math.max(0, 25000 - currentTokens);
+                            }
 
-                            // Send reward message
-                            const rewardMessage = await newMessage.channel.send({
-                                content: `🪙 ${field.name.split(" ")[2]} earned ${tokenReward} Slime Tokens!`,
-                                components: [{
-                                    type: 1,
+                            if (tokenReward > 0) {
+                                await mGateDB.updateOne(
+                                    { userID: userId },
+                                    { $inc: { 'currency.0': tokenReward } }
+                                );
+
+                                // Send reward message
+                                const rewardMessage = await newMessage.channel.send({
+                                    content: `🪙 ${field.name.split(" ")[2]} earned ${tokenReward} Slime Tokens!`,
                                     components: [{
-                                        type: 2,
-                                        style: 1,
-                                        label: 'Earn Tokens',
-                                        custom_id: 'earn_tokens',
+                                        type: 1,
+                                        components: [{
+                                            type: 2,
+                                            style: 1,
+                                            label: 'Earn Tokens',
+                                            custom_id: 'earn_tokens',
+                                        }]
                                     }]
-                                }]
-                            });
+                                });
 
-                            // Delete reward message after 10 seconds
-                            setTimeout(() => {
-                                rewardMessage.delete().catch(console.error);
-                            }, 10000);
+                                // Delete reward message after 10 seconds
+                                setTimeout(() => {
+                                    rewardMessage.delete().catch(console.error);
+                                }, 10000);
+                            }
                         }
 
                     } catch (error) {

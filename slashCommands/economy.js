@@ -29,23 +29,16 @@ module.exports = {
                 .setDescription('Toggle the economy system on/off (Lead only)'))
         .addSubcommand(subcommand =>
             subcommand
+                .setName('togglecards')
+                .setDescription('Toggle card tracking on/off (Lead only)'))
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('balance')
                 .setDescription('Check your balance and tickets'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('buy')
-                .setDescription('Buy tickets with tokens')
-                .addStringOption(option =>
-                    option.setName('ticket')
-                        .setDescription('Ticket type to buy')
-                        .setRequired(true)
-                        .addChoices(
-                            { name: '500 Token Ticket', value: '500' },
-                            { name: '1000 Token Ticket', value: '1000' },
-                            { name: '2500 Token Ticket', value: '2500' },
-                            { name: '5000 Token Ticket', value: '5000' },
-                            { name: '10000 Token Ticket', value: '10000' },
-                        )))
+                .setDescription('Buy a ticket with tokens'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('gift')
@@ -99,6 +92,7 @@ module.exports = {
             await mGateServerDB.insertOne({
                 serverID: GATE_GUILD,
                 economyEnabled: false,
+                cardTrackingEnabled: true, // Default to true for backward compatibility
                 totalTokens: 0,
                 mods: [],
                 giveaway: []
@@ -226,13 +220,17 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
                 .setTitle('<:Slime_Token:1304929154285703179> Gate Economy System')
-                .setDescription(serverData.economyEnabled ? 'Economy system is currently **enabled**' : 'Economy system is currently **disabled**');
+                .setDescription(
+                    `Economy system is currently **${serverData.economyEnabled ? 'enabled' : 'disabled'}**\n` +
+                    `Card tracking is currently **${serverData.cardTrackingEnabled !== false ? 'enabled' : 'disabled'}**`
+                );
 
             if (isLead) {
                 // Lead help menu (hidden from others)
                 embed.addFields(
                     { name: 'Lead Commands', value: 
                         '`/economy toggle` - Enable/disable economy system\n' +
+                        '`/economy togglecards` - Enable/disable card tracking\n' +
                         '`/economy give <user> <amount>` - Give tokens to user\n' +
                         '`/economy take <user> <amount>` - Take tokens from user\n' +
                         '**Cooldown**: 5 seconds', inline: false },
@@ -243,14 +241,16 @@ module.exports = {
             embed.addFields(
                 { name: 'User Commands', value: 
                     '`/economy balance` - Check your tokens and tickets\n' +
-                    '`/economy buy <ticket>` - Buy tickets with tokens\n' +
+                    '`/economy buy` - Buy a ticket with tokens\n' +
                     '`/economy gift <user>` - Gift special ticket (10000 tokens)\n' +
                     '`/economy giveaway` - View giveaway rewards\n' +
                     '**Cooldown**: 10 seconds', inline: false },
                 { name: 'Token Information', value:
                     '• Earn 0-10 tokens from claiming cards\n' +
                     '• Maximum balance: 25,000 tokens\n' +
-                    '• Tickets: 500, 1000, 2500, 5000, 10000\n' +
+                    '• First ticket costs 500 tokens\n' +
+                    '• Ticket price increases after each purchase\n' +
+                    '• Maximum ticket price: 10,000 tokens\n' +
                     '• Special Gift Ticket: 10,000 tokens', inline: false }
             );
 
@@ -274,6 +274,24 @@ module.exports = {
 
             return interaction.reply({
                 content: `✅ Economy system has been ${newState ? 'enabled' : 'disabled'}.`,
+                ephemeral: true
+            });
+        }
+
+        // Handle togglecards command
+        if (subcommand === 'togglecards') {
+            if (!config.leads.includes(interaction.user.id)) {
+                return;
+            }
+
+            const newState = !(serverData.cardTrackingEnabled !== false);
+            await mGateServerDB.updateOne(
+                { serverID: GATE_GUILD },
+                { $set: { cardTrackingEnabled: newState } }
+            );
+
+            return interaction.reply({
+                content: `✅ Card tracking has been ${newState ? 'enabled' : 'disabled'}.`,
                 ephemeral: true
             });
         }
@@ -320,34 +338,36 @@ module.exports = {
             return userData;
         }
 
+        // Helper function to get next ticket price
+        function getNextTicketPrice(currentTickets) {
+            const prices = [500, 1000, 2500, 5000, 10000];
+            const ticketCount = currentTickets.length;
+            return ticketCount >= prices.length ? 10000 : prices[ticketCount];
+        }
+
         try {
             switch (subcommand) {
                 case 'balance': {
                     const userData = await ensureUser(interaction.user.id);
                     const tokens = userData.currency[0];
                     const tickets = userData.tickets || [];
+                    const nextPrice = getNextTicketPrice(tickets);
                     
                     return interaction.reply({
-                        content: `Your balance:\n<:Slime_Token:1304929154285703179> ${tokens} SLime Token\n:tickets: Tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}`,
+                        content: `Your balance:\n<:Slime_Token:1304929154285703179> ${tokens} Slime Token\n:tickets: Tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}\nNext ticket price: ${nextPrice} tokens`,
                         ephemeral: true
                     });
                 }
 
                 case 'buy': {
-                    const ticketCost = parseInt(interaction.options.getString('ticket'));
                     const userData = await ensureUser(interaction.user.id);
                     const currentTokens = userData.currency[0];
+                    const tickets = userData.tickets || [];
+                    const ticketCost = getNextTicketPrice(tickets);
 
                     if (currentTokens < ticketCost) {
                         return interaction.reply({
                             content: `❌ You don't have enough tokens! You need ${ticketCost} tokens but only have ${currentTokens}.`,
-                            ephemeral: true
-                        });
-                    }
-
-                    if (currentTokens - ticketCost < 0) {
-                        return interaction.reply({
-                            content: `❌ This would put your balance below 0!`,
                             ephemeral: true
                         });
                     }
@@ -361,8 +381,9 @@ module.exports = {
                         }
                     );
 
+                    const nextPrice = getNextTicketPrice([...tickets, `${ticketCost} Ticket`]);
                     return interaction.reply({
-                        content: `✅ Successfully purchased a ${ticketCost} Token Ticket! Your new balance is ${currentTokens - ticketCost} tokens.`,
+                        content: `✅ Successfully purchased a ${ticketCost} Token Ticket! Your new balance is ${currentTokens - ticketCost} tokens.\nNext ticket will cost: ${nextPrice} tokens`,
                         ephemeral: true
                     });
                 }
@@ -483,6 +504,10 @@ module.exports = {
             }
         } catch (error) {
             console.error('Error in economy command:', error);
+            return interaction.reply({
+                content: '❌ An error occurred while processing your request.',
+                ephemeral: true
+            });
         }
     },
-};
+}
