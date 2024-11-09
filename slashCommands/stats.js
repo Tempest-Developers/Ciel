@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const getTierEmoji = require('../utility/getTierEmoji');
 const getLoadBar = require('../utility/getLoadBar');
+const { enrichClaimWithCardData } = require('../utility/cardAPI');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -125,16 +126,19 @@ module.exports = {
 
             // Add best card showcase if we found a low print card
             if (lowestPrintCard) {
-                const makers = lowestPrintCard.card.makers.map(id => `<@${id}>`).join(', ');
+                // Enrich the card data with API information
+                const enrichedCard = await enrichClaimWithCardData(lowestPrintCard);
+                const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
                 embed.addFields({
                     name: 'Best Print Showcase',
-                    value: `Card: ${lowestPrintCard.card.name}\n` +
-                           `Anime: ${lowestPrintCard.card.series}\n` +
-                           `Print: #${lowestPrintCard.version}\n` +
+                    value: `Card: ${enrichedCard.cardName}\n` +
+                           `Anime: ${enrichedCard.card.series}\n` +
+                           `Type: ${enrichedCard.card.type}\n` +
+                           `Print: #${enrichedCard.print}\n` +
                            `Maker(s): ${makers}\n` +
-                           `Owner: <@${lowestPrintCard.owner}>`
+                           `Owner: <@${enrichedCard.owner}>`
                 });
-                embed.setImage(lowestPrintCard.card.cardImageLink);
+                embed.setImage(enrichedCard.card.cardImageLink);
             }
 
             embed.setFooter({ 
