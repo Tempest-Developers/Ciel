@@ -98,7 +98,7 @@ module.exports = {
         if (!serverData) {
             await mGateServerDB.insertOne({
                 serverID: GATE_GUILD,
-                economyEnabled: true,
+                economyEnabled: false,
                 totalTokens: 0,
                 mods: [],
                 giveaway: []

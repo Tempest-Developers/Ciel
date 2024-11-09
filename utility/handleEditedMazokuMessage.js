@@ -26,23 +26,6 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             return;
         }
 
-        // Check if economy is enabled
-        let serverData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
-        if (!serverData) {
-            await mGateServerDB.insertOne({
-                serverID: GATE_GUILD,
-                economyEnabled: true,
-                totalTokens: 0,
-                mods: [],
-                giveaway: []
-            });
-            serverData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
-        }
-
-        if (!serverData.economyEnabled) {
-            return;
-        }
-
         // Check if message has embeds
         if (!oldMessage.embeds.length || !newMessage.embeds.length) {
             return;
@@ -53,6 +36,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         const newEmbed = newMessage.embeds[0];
 
         if (!oldEmbed.title || !oldEmbed.title.includes("Automatic Summon!")) {
+            return;
+        }
+
+        // Get server data for economy check
+        let serverData = await getServerData(GATE_GUILD);
+        if (!serverData || !serverData.economyEnabled) {
             return;
         }
 
