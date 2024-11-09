@@ -50,7 +50,7 @@ module.exports = {
         await interaction.deferReply();
 
         try {
-            const guildId = "1240866080985976844"//interaction.guild.id;
+            const guildId = interaction.guild.id;
             const subcommand = interaction.options.getSubcommand();
 
             // Get all users in the server from database
