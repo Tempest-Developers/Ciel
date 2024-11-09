@@ -40,6 +40,13 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     const userId = await findUserId(client, field.name.split(" ")[2]);
                     const guildId = newMessage.guild.id;
 
+                    // Validate tier is one of CT, RT, SRT, SSRT
+                    const tier = match[1];
+                    if (!['CT', 'RT', 'SRT', 'SSRT'].includes(tier)) {
+                        console.log(`Skipping claim for unsupported tier: ${tier}`);
+                        return;
+                    }
+
                     const cardClaimed = {
                         claimedID: match[2],
                         userID: userId,
@@ -49,7 +56,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                         owner: field.name.split(" ")[2],
                         artist: field.value.split(" ")[3],
                         print: match[4],
-                        tier: match[1],
+                        tier: tier,
                         timestamp: newEmbed.timestamp
                     };
 

@@ -13,15 +13,6 @@ module.exports = {
   adminOnly: false,
   async execute(interaction, { database }) {
     try {
-      // Check if server is allowed
-      // if (!interaction.client.config.serverAllowed.includes(interaction.guild.id)) {
-      //   return await interaction.reply({ 
-      //     content: 'This command is not available in this server.',
-      //     ephemeral: true 
-      //   });
-      // }
-
-      // Defer the reply immediately to prevent timeout
       await interaction.deferReply();
 
       // Cooldown check
@@ -45,11 +36,9 @@ module.exports = {
         }
       }
       
-      // When setting the cooldown, use the guild ID and user ID
       guildCooldowns.set(user.id, Date.now());
-
+      1007582286092443698
       const serverData = await database.getServerData(interaction.guild.id);
-      // const serverData = await database.getServerData(process.env.GATE_GUILD);
 
       if (!serverData?.claims) {
         return await interaction.editReply({ 
@@ -58,31 +47,21 @@ module.exports = {
         });
       }
 
-      let allClaims = serverData.claims;
+      function getAllClaims(claims) {
+        // Combine all tier arrays and sort by timestamp
+        return Object.entries(claims)
+          .filter(([tier]) => ['CT', 'RT', 'SRT', 'SSRT'].includes(tier))
+          .map(([_, claims]) => claims)
+          .flat()
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      }
 
-      // Parse claims if they're stored as a string
-      if (typeof allClaims === 'string') {
-        try {
-          allClaims = JSON.parse(allClaims);
-        } catch (error) {
-          console.error('Error parsing claims:', error);
-          return await interaction.editReply({ 
-            content: 'Error parsing claims data. Please contact an administrator.',
-            ephemeral: true 
-          });
+      function getClaimsForTier(claims, tier) {
+        if (tier === 'ALL') {
+          return getAllClaims(claims);
         }
+        return claims[tier] || [];
       }
-
-      if (!Array.isArray(allClaims)) {
-        console.error('Claims is not an array:', typeof allClaims);
-        return await interaction.editReply({ 
-          content: 'Invalid claims data format. Please contact an administrator.',
-          ephemeral: true 
-        });
-      }
-
-      // Sort claims by timestamp
-      allClaims.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
       function createEmbed(claims, selectedTier) {
         const tierDisplay = selectedTier === 'ALL' ? 'All Tiers' : selectedTier;
@@ -123,7 +102,8 @@ module.exports = {
             ])
         );
 
-      const initialEmbed = createEmbed(allClaims.slice(0, 15), 'ALL');
+      const initialClaims = getAllClaims(serverData.claims);
+      const initialEmbed = createEmbed(initialClaims, 'ALL');
       const response = await interaction.editReply({ 
         embeds: [initialEmbed], 
         components: [row],
@@ -138,11 +118,8 @@ module.exports = {
         try {
           if (i.user.id === interaction.user.id) {
             const selectedTier = i.values[0];
-            const filteredClaims = selectedTier === 'ALL' 
-              ? allClaims 
-              : allClaims.filter(claim => claim.tier.toLowerCase() === selectedTier.toLowerCase());
-            
-            const newEmbed = createEmbed(filteredClaims.slice(0, 15), selectedTier);
+            const filteredClaims = getClaimsForTier(serverData.claims, selectedTier);
+            const newEmbed = createEmbed(filteredClaims, selectedTier);
             await i.update({ embeds: [newEmbed], components: [row] });
           } else {
             await i.reply({ 

@@ -1,92 +1,98 @@
-const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
-const getLoadBar = require('../utility/getLoadBar');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const getTierEmoji = require('../utility/getTierEmoji');
-require('dotenv').config();
+const getLoadBar = require('../utility/getLoadBar');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('stats')
-        .setDescription('View server stats for card claims'),
-
-    async execute(interaction) {
-        const { getServerData } = interaction.client.database;
-        const guildId = interaction.guild.id;
-
+        .setDescription('Shows server or user stats')
+        .addUserOption(option =>
+            option
+                .setName('user')
+                .setDescription('User to check stats for')
+                .setRequired(false)
+        ),
+    async execute(interaction, { database }) {
         try {
-            const serverData = await getServerData(guildId);
-            if (!serverData || !serverData.claims || serverData.claims.length === 0) {
-                return await interaction.reply({ content: 'No claims data found for this server!', ephemeral: true });
+            await interaction.deferReply();
+
+            const targetUser = interaction.options.getUser('user') || interaction.user;
+            const guildId = interaction.guild.id;
+
+            // Get server settings to check if stats are allowed
+            const serverSettings = await database.getServerSettings(guildId);
+            if (!serverSettings?.settings?.allowShowStats) {
+                return await interaction.editReply({
+                    content: 'Stats are currently disabled in this server.',
+                    ephemeral: true
+                });
             }
 
-            const existingClaims = serverData.claims;
-            const existingCT = serverData.counts[0] || 0;
-            const existingRT = serverData.counts[1] || 0;
-            const existingSR = serverData.counts[2] || 0;
-            const existingSSR = serverData.counts[3] || 0;
+            // Get user data
+            const userData = await database.getPlayerData(targetUser.id, guildId);
+            if (!userData) {
+                return await interaction.editReply({
+                    content: 'No data found for this user.',
+                    ephemeral: true
+                });
+            }
 
-            const total = existingSSR + existingSR + existingRT + existingCT;
-
-            const tiers = {
-                SSR: { count: existingSSR, total },
-                SR: { count: existingSR, total },
-                R: { count: existingRT, total },
-                C: { count: existingCT, total }
+            // Calculate total claims per tier
+            const tierCounts = {
+                CT: userData.claims.CT?.length || 0,
+                RT: userData.claims.RT?.length || 0,
+                SRT: userData.claims.SRT?.length || 0,
+                SSRT: userData.claims.SSRT?.length || 0
             };
 
-            const embedField3 = existingClaims.slice(-5).map((claim) => {
-                let content = `- ${getTierEmoji(claim.tier)} **${claim.cardName}** #**${claim.print}**`;
-                return content;
-            }).join('\n');
+            // Calculate total claims
+            const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
 
-            const convertDateToUnix = (date_string) => {
-                const date = new Date(date_string);
-                return parseInt(date.getTime() / 1000);
-            };
-
-            const embedField4 = existingClaims.slice(-5).map((claim) => {
-                const claimUnixTimestamp = convertDateToUnix(claim.timestamp);
-                let content = `- **${claim.owner}** | <t:${claimUnixTimestamp}:R>`;
-                return content;
-            }).join('\n');
-
-            let unixTimestamp = 1731133800;
-
-            const statsEmbed = new EmbedBuilder()
-                .setTitle(`${interaction.guild.name} Server Stats`)
-                .setDescription(`Since <t:${unixTimestamp}:R>`)
+            // Create stats embed
+            const embed = new EmbedBuilder()
+                .setColor('#FFC0CB')
+                .setTitle(`${targetUser.username}'s Stats`)
+                .setThumbnail(targetUser.displayAvatarURL())
+                .addFields(
+                    { 
+                        name: 'Total Claims', 
+                        value: totalClaims.toString(), 
+                        inline: true 
+                    },
+                    { 
+                        name: '\u200B', 
+                        value: '\u200B', 
+                        inline: true 
+                    },
+                    { 
+                        name: 'Server', 
+                        value: interaction.guild.name, 
+                        inline: true 
+                    }
+                )
                 .addFields(
                     {
-                        name: 'Tier Percentages',
-                        value: `\n- ${getTierEmoji('SSRT')} ${getLoadBar((tiers.SSR.count / tiers.SSR.total) * 100)} **${(tiers.SSR.count / tiers.SSR.total * 100).toFixed(2)}**%\n- ${getTierEmoji('SRT')} ${getLoadBar((tiers.SR.count / tiers.SR.total) * 100)} **${(tiers.SR.count / tiers.SR.total * 100).toFixed(2)}**%\n- ${getTierEmoji('RT')} ${getLoadBar((tiers.R.count / tiers.R.total) * 100)} **${(tiers.R.count / tiers.R.total * 100).toFixed(2)}**%\n- ${getTierEmoji('CT')} **${getLoadBar((tiers.C.count / tiers.C.total) * 100)} ${(tiers.C.count / tiers.C.total * 100).toFixed(2)}**%\t`,
-                        inline: true
-                    },
-                    {
-                        name: 'Tier Counts',
-                        value: `- ${getTierEmoji('SSRT')} **${tiers.SSR.count}**\n- ${getTierEmoji('SRT')} **${tiers.SR.count}**\n- ${getTierEmoji('RT')} **${tiers.R.count}**\n- ${getTierEmoji('CT')} **${tiers.C.count}**`,
-                        inline: true
-                    },
-                    {
-                        name: '\u200B',
-                        value: '\u200B',
-                        inline: true
-                    },
-                    {
-                        name: 'Recent Claims',
-                        value: embedField3 || 'No recent claims',
-                        inline: true
-                    },
-                    {
-                        name: 'Owners and Timestamps',
-                        value: embedField4 || 'No recent claims',
-                        inline: true
+                        name: 'Claims by Tier',
+                        value: Object.entries(tierCounts)
+                            .map(([tier, count]) => {
+                                const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
+                                return `${getTierEmoji(tier)} ${count} (${percentage.toFixed(1)}%) ${getLoadBar(percentage)}`;
+                            })
+                            .join('\n')
                     }
-                );
+                )
+                .setFooter({ 
+                    text: `Stats as of <t:1731133800:R>` 
+                });
 
-            await interaction.reply({ embeds: [statsEmbed], ephemeral: true });
+            await interaction.editReply({ embeds: [embed] });
 
         } catch (error) {
-            console.error('Error executing stats command:', error);
-            await interaction.reply({ content: 'An error occurred while fetching stats!', ephemeral: true });
+            console.error('Error in stats command:', error);
+            await interaction.editReply({
+                content: 'An error occurred while fetching stats.',
+                ephemeral: true
+            });
         }
     },
 };

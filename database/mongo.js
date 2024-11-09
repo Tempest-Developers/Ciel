@@ -41,7 +41,14 @@ async function createServer(serverID) {
     return await mServerDB.insertOne({
         serverID,
         counts: [0, 0, 0, 0, 0, 0],
-        claims: [],
+        claims: {
+            CT: [],
+            RT: [],
+            SRT: [],
+            SSRT: [],
+            URT: [],
+            EXT: []
+        },
         pingUser: []
     });
 }
@@ -101,17 +108,23 @@ async function toggleRegister(serverID) {
       return { serverID, register: newRegisterValue };
   } catch (error) {
       console.error('Error toggling register:', error);
-      throw error; // Re-throw the error if you want the caller to handle it
+      throw error;
   }
 }
-
 
 async function createPlayer(userID, serverID) {
     return await mUserDB.insertOne({
         userID,
         serverID,
         counts: [0, 0, 0, 0, 0, 0],
-        claims: [],
+        claims: {
+            CT: [],
+            RT: [],
+            SRT: [],
+            SSRT: [],
+            URT: [],
+            EXT: []
+        },
         manualClaims: []
     });
 }
@@ -147,28 +160,28 @@ async function addClaim(serverID, userID, claim) {
         timestamp: claim.timestamp
     };
 
-    // Update server claims with 24 limit
+    // Update server claims with 24 limit per tier
     await mServerDB.updateOne(
         { serverID },
         {
             $push: {
-                claims: {
+                [`claims.${claim.tier}`]: {
                     $each: [claimData],
-                    $slice: -24 // Keep only the last 24 claims
+                    $slice: -24 // Keep only the last 24 claims per tier
                 }
             },
             $inc: { [`counts.${getTierIndex(claim.tier)}`]: 1 }
         }
     );
 
-    // Update user claims with 24 limit
+    // Update user claims with 24 limit per tier
     await mUserDB.updateOne(
         { userID, serverID },
         {
             $push: {
-                claims: {
+                [`claims.${claim.tier}`]: {
                     $each: [claimData],
-                    $slice: -24 // Keep only the last 24 claims
+                    $slice: -24 // Keep only the last 24 claims per tier
                 }
             },
             $inc: { [`counts.${getTierIndex(claim.tier)}`]: 1 }
@@ -192,7 +205,7 @@ async function addManualClaim(serverID, userID, claim) {
         timestamp: claim.timestamp
     };
 
-    // Update user claims with 24 limit
+    // Update user claims with 48 limit
     await mUserDB.updateOne(
         { userID, serverID },
         {
