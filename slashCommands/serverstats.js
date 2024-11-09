@@ -114,60 +114,77 @@ module.exports = {
 
             // Calculate total claims
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
+            const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
 
             const calculateAverageTimeBetweenClaims = (times) => {
                 if (!times || times.length < 2) return null;
-                times.sort((a, b) => a - b);
-                let totalTimeDiff = 0;
-                let timeDiffCount = 0;
-                for (let i = 1; i < times.length; i++) {
-                    const diff = times[i] - times[i-1];
+                
+                // Convert dates to Unix timestamps (seconds)
+                const timestamps = times.map(time => Math.floor(time.getTime() / 1000));
+                timestamps.sort((a, b) => a - b);
+                
+                // Calculate differences between consecutive timestamps
+                let totalDiff = 0;
+                let diffCount = 0;
+                
+                for (let i = 1; i < timestamps.length; i++) {
+                    const diff = timestamps[i] - timestamps[i-1];
                     if (!isNaN(diff)) {
-                        totalTimeDiff += diff;
-                        timeDiffCount++;
+                        totalDiff += diff;
+                        diffCount++;
                     }
                 }
-                return timeDiffCount > 0 ? new Date(totalTimeDiff / timeDiffCount) : null;
+                
+                if (diffCount === 0) return null;
+                
+                // Calculate average difference in seconds
+                const avgSeconds = Math.floor(totalDiff / diffCount);
+                
+                // Convert to HHhMMmSSs format
+                const hours = Math.floor(avgSeconds / 3600);
+                const minutes = Math.floor((avgSeconds % 3600) / 60);
+                const seconds = avgSeconds % 60;
+                
+                let result = '';
+                if (hours > 0) result += `**${String(hours).padStart(2, '0')}**h`;
+                if (minutes > 0) result += `**${String(minutes).padStart(2, '0')}**m`;
+                result += `**${String(seconds).padStart(2, '0')}**s`;
+                
+                return result;
             };
+
 
             // Create stats embed
             const embed = new EmbedBuilder()
                 .setColor('#FFC0CB')
-                .setTitle(`${interaction.guild.name} Server Stats`);
+                .setAuthor({
+                    name: `${interaction.guild.name} Server Stats`,
+                    iconURL: interaction.guild.iconURL()
+                });
 
             // Add total claims and players first
             embed.addFields(
                 { 
-                    name: 'Total Claims', 
-                    value: totalClaims.toString(), 
-                    inline: true 
+                    name: `Total Claims:  ${totalClaims.toString()}`, 
+                    value: `*Claimers right now*: ${uniqueOwners.size.toString()}`,
                 },
-                { 
-                    name: '\u200B', 
-                    value: '\u200B', 
-                    inline: true 
-                },
-                { 
-                    name: 'Players in Server', 
-                    value: uniqueOwners.size.toString(), 
-                    inline: true 
-                }
             );
 
             // Add best print showcase with new card image API
             if (bestPrint) {
                 const enrichedCard = await enrichClaimWithCardData(bestPrint);
                 if (enrichedCard) {
+                    const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
                     embed.addFields({
-                        name: `Best ${bestPrint.tier} Print`,
-                        value: `Card: ${enrichedCard.cardName}\n` +
-                               `Anime: ${enrichedCard.card.series}\n` +
-                               `Print: #${enrichedCard.print} (${getPrintQuality(enrichedCard.print)})\n` +
-                               `Owner: ${interaction.guild.members.cache.get(enrichedCard.owner)?.user.username || enrichedCard.owner}\n` +
-                               `Claimed: ${new Date(enrichedCard.timestamp).toISOString()}`
+                        name: 'Best Drop Yet',
+                        value: `*${enrichedCard.card.series}*\n` +
+                               `${getTierEmoji(bestPrint.tier)} **${enrichedCard.cardName}** #**${enrichedCard.print}** \n` +
+                               `**Maker(s)**: ${makers}\n` +
+                               `**Owner**: ${enrichedCard.owner}\n` +
+                               `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
                     });
                     // Use the new card image API
-                    embed.setThumbnail('https://cdn.mazoku.cc/packs/b2cf1dde-5bc2-4daa-b24b-b2b549a6e3e8');
+                    embed.setThumbnail(`https://cdn.mazoku.cc/packs/${bestPrint.cardID}`);
                 }
             }
 
@@ -178,7 +195,7 @@ module.exports = {
                     value: Object.entries(tierCounts)
                         .map(([tier, count]) => {
                             const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
-                            return `${getTierEmoji(tier)} ${count} (${percentage.toFixed(1)}%) ${getLoadBar(percentage)}`;
+                            return `${getTierEmoji(tier)} **${count}** *${percentage.toFixed(0)}%* ${getLoadBar(percentage)}`;
                         })
                         .join('\n'),
                     inline: true
@@ -187,38 +204,42 @@ module.exports = {
                     name: 'Print Distribution',
                     value: Object.entries(printRangeCounts)
                         .map(([range, count]) => {
-                            const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
-                            return `${range} (${getRangeDescription(range)}): ${count} (${percentage.toFixed(1)}%) ${getLoadBar(percentage)}`;
+                            const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
+                            return `**${range}** (${getRangeDescription(range)}): **${count}** *${percentage.toFixed(0)}%* ${getLoadBar(percentage)}`;
                         })
                         .join('\n'),
                     inline: true
                 }
             );
 
-            // Add average claim times by tier with ISO format
+            // Add average claim times by tier
             embed.addFields({
                 name: 'Average Time Between Claims by Tier',
                 value: Object.entries(claimTimesByTier)
                     .filter(([_, times]) => times.length > 0)
                     .map(([tier, times]) => {
                         const avgTime = calculateAverageTimeBetweenClaims(times);
-                        return `${getTierEmoji(tier)}: ${avgTime ? avgTime.toISOString() : 'N/A'}`;
+                        return `${getTierEmoji(tier)}: ${avgTime || 'N/A'}`;
                     })
-                    .join('\n'),
+                    .join('\n') || 'No claim time data available',
                 inline: false
             });
 
-            // Add average claim times by print range with ISO format
+            // Add average claim times by print range
             embed.addFields({
-                name: 'Average Time Between Claims by Print Range',
+                name: 'Average Print claim time',
                 value: Object.entries(claimTimesByPrintRange)
                     .filter(([_, times]) => times.length > 0)
                     .map(([range, times]) => {
                         const avgTime = calculateAverageTimeBetweenClaims(times);
-                        return `${range} (${getRangeDescription(range)}): ${avgTime ? avgTime.toISOString() : 'N/A'}`;
+                        return `**${range}** (${getRangeDescription(range)}): ${avgTime || 'N/A'}`;
                     })
-                    .join('\n'),
+                    .join('\n') || 'No claim time data available',
                 inline: false
+            });
+
+            embed.setFooter({ 
+                text: `Mazoku stats Auto-Summon` 
             });
 
             await interaction.editReply({ embeds: [embed] });
@@ -241,4 +262,8 @@ function getRangeDescription(range) {
         case 'HP': return '500-1000';
         default: return '';
     }
+}
+
+function isoToUnixTimestamp(isoTimestamp) {
+    return Math.floor(Date.parse(isoTimestamp) / 1000);
 }

@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const getTierEmoji = require('../utility/getTierEmoji');
-const getLoadBar = require('../utility/getLoadBar');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -51,11 +50,11 @@ module.exports = {
         await interaction.deferReply();
 
         try {
-            const guildId = interaction.guild.id;
+            const guildId = "1240866080985976844"//interaction.guild.id;
             const subcommand = interaction.options.getSubcommand();
 
             // Get all users in the server from database
-            const allUsers = await database.mUserDB.find({ serverID: guildId }).toArray();
+            const allUsers = await database.users.find({ serverID: guildId }).toArray();
             if (!allUsers || allUsers.length === 0) {
                 return await interaction.editReply('No user data found for this server.');
             }
@@ -67,7 +66,7 @@ module.exports = {
             if (subcommand === 'tier') {
                 const tier = interaction.options.getString('tier');
                 title = `${getTierEmoji(tier)} ${tier} Leaderboard`;
-                description = `Top 15 players by ${tier} claims`;
+                description = `Top 10 players by ${tier} claims`;
 
                 leaderboardData = allUsers.map(user => ({
                     userId: user.userID,
@@ -78,7 +77,7 @@ module.exports = {
                 const range = interaction.options.getString('range');
                 if (range === 'ALL') {
                     title = '🖨️ All Prints Leaderboard';
-                    description = 'Top 15 players by print ranges';
+                    description = 'Top 10 players by print ranges';
 
                     // Calculate counts for all print ranges
                     leaderboardData = allUsers.map(user => {
@@ -111,7 +110,7 @@ module.exports = {
                         SP: '⭐', LP: '🌟', MP: '💫', HP: '✨'
                     };
                     title = `${rangeEmoji[range]} ${range} Leaderboard`;
-                    description = `Top 15 players by ${range} (${getRangeDescription(range)})`;
+                    description = `Top 10 players by ${range} (${getRangeDescription(range)})`;
 
                     // Calculate counts for specific print range
                     leaderboardData = allUsers.map(user => {
@@ -128,7 +127,7 @@ module.exports = {
             }
             else { // total
                 title = '🏆 Total Claims Leaderboard';
-                description = 'Top 15 players by total claims';
+                description = 'Top 10 players by total claims';
 
                 leaderboardData = allUsers.map(user => {
                     let total = 0;
@@ -150,19 +149,19 @@ module.exports = {
                 .setTitle(title)
                 .setDescription(description);
 
-            // Add top 15 fields
-            const top15 = leaderboardData.slice(0, 15);
+            // Add top 10 fields
+            const top10 = leaderboardData.slice(0, 10);
             let leaderboardText = '';
 
             if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
-                leaderboardText = top15.map((data, index) => {
+                leaderboardText = top10.map((data, index) => {
                     return `${index + 1}. <@${data.userId}>\n` +
                            `⭐ SP: ${data.SP} | 🌟 LP: ${data.LP} | 💫 MP: ${data.MP} | ✨ HP: ${data.HP}\n` +
                            `Total: ${data.total}\n`;
                 }).join('\n');
             } else {
-                leaderboardText = top15.map((data, index) => 
-                    `${index + 1}. <@${data.userId}> - ${data.count} claims ${getLoadBar(data.count / leaderboardData[0].count * 100)}`
+                leaderboardText = top10.map((data, index) => 
+                    `${index + 1}. <@${data.userId}> - ${data.count} claims`
                 ).join('\n');
             }
 
@@ -178,9 +177,9 @@ module.exports = {
                 if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
                     userStats = `Your Stats:\n` +
                                `⭐ SP: ${userData.SP} | 🌟 LP: ${userData.LP} | 💫 MP: ${userData.MP} | ✨ HP: ${userData.HP}\n` +
-                               `Total: ${userData.total} | Rank: #${userRank}`;
+                               `Total: ${userData.total} | Rank: #${userRank}/${leaderboardData.length}`;
                 } else {
-                    userStats = `Your Claims: ${userData.count} | Your Rank: #${userRank}`;
+                    userStats = `Your Claims: ${userData.count} | Your Rank: #${userRank}/${leaderboardData.length}`;
                 }
                 embed.addFields({ name: 'Your Statistics', value: userStats });
             }
