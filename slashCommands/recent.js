@@ -1,6 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 require('dotenv').config();
 
+const { getTierEmoji } = require('../utility/getTierEmoji');
+
 const cooldowns = new Map();
 
 module.exports = {
@@ -12,12 +14,12 @@ module.exports = {
   async execute(interaction, { database }) {
     try {
       // Check if server is allowed
-      if (!interaction.client.config.serverAllowed.includes(interaction.guild.id)) {
-        return await interaction.reply({ 
-          content: 'This command is not available in this server.',
-          ephemeral: true 
-        });
-      }
+      // if (!interaction.client.config.serverAllowed.includes(interaction.guild.id)) {
+      //   return await interaction.reply({ 
+      //     content: 'This command is not available in this server.',
+      //     ephemeral: true 
+      //   });
+      // }
 
       // Defer the reply immediately to prevent timeout
       await interaction.deferReply();
@@ -26,10 +28,16 @@ module.exports = {
       const { user } = interaction;
       const cooldownTime = 60000; // 1 minute in milliseconds
       
-      if (cooldowns.has(user.id)) {
-        const expirationTime = cooldowns.get(user.id) + cooldownTime;
+      if (!cooldowns.has(interaction.guild.id)) {
+        cooldowns.set(interaction.guild.id, new Map());
+      }
+      
+      const guildCooldowns = cooldowns.get(interaction.guild.id);
+      
+      if (guildCooldowns.has(user.id)) {
+        const expirationTime = guildCooldowns.get(user.id) + cooldownTime;
         if (Date.now() < expirationTime) {
-          const timeLeft = Math.ceil(expirationTime / 1000);
+          const timeLeft = Math.ceil((expirationTime - Date.now()) / 1000);
           return await interaction.editReply({ 
             content: `Please wait <t:${timeLeft}:R> before using this command again.`,
             ephemeral: true 
@@ -37,10 +45,11 @@ module.exports = {
         }
       }
       
-      cooldowns.set(user.id, Date.now());
+      // When setting the cooldown, use the guild ID and user ID
+      guildCooldowns.set(user.id, Date.now());
 
-      // const serverData = await database.getServerData(interaction.guild.id);
-      const serverData = await database.getServerData(process.env.GATE_GUILD);
+      const serverData = await database.getServerData(interaction.guild.id);
+      // const serverData = await database.getServerData(process.env.GATE_GUILD);
 
       if (!serverData?.claims) {
         return await interaction.editReply({ 
@@ -75,16 +84,6 @@ module.exports = {
       // Sort claims by timestamp
       allClaims.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-      function getTierEmoji(tier) {
-        const emojis = {
-          'ct': '<:C_Gate:1300919916685164706>',
-          'rt': '<:R_Gate:1300919898209386506>',
-          'srt': '<:SR_Gate:1300919875757146214>',
-          'ssrt': '<:SSR_Gate:1300919858053124163>'
-        };
-        return emojis[tier.toLowerCase()] || ':game_die:';
-      }
-
       function createEmbed(claims, selectedTier) {
         const tierDisplay = selectedTier === 'ALL' ? 'All Tiers' : selectedTier;
         const embed = new EmbedBuilder()
@@ -101,8 +100,8 @@ module.exports = {
         } else {
           const description = claims.slice(0, 15).map(claim => {
             const unixTime = Math.floor(new Date(claim.timestamp).getTime() / 1000);
-            const seriesName = claim.fieldName.split(' ')[2] || 'Unknown Series';
-            return `${getTierEmoji(claim.tier)} #**${claim.print}** • **${claim.cardName}** \t • <t:${unixTime}:R> \t • *${seriesName}*`;
+            const ownerName = claim.owner || 'Unknown Owner';
+            return `${getTierEmoji(claim.tier)} #**${claim.print}** • **${claim.cardName}** \t • <t:${unixTime}:R> \t • *${ownerName}*`;
           }).join('\n');
           embed.setDescription(description);
         }

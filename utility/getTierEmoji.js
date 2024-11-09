@@ -1,5 +1,6 @@
 module.exports = function getTierEmoji(tier) {
-    switch (tier) {
+    let tierCase = tier.toUpperCase();
+    switch (tierCase) {
         case 'CT':
             return '<:C_Gate:1300919916685164706>';
         case 'RT':
