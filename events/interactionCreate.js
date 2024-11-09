@@ -10,8 +10,6 @@ module.exports = {
         if (!checkPermissions(interaction.channel, interaction.client.user)) return;
 
         if((await checkIfGuildAllowed(client, interaction.guild.id)==false) && interaction.commandName!="registerguild") return;
-        console.log(await checkIfGuildAllowed(client, interaction.guild.id)==false)
-        console.log(interaction.commandName!="registerguild")
 
         // Handle autocomplete interactions
         if (interaction.isAutocomplete()) {
