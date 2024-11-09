@@ -39,7 +39,7 @@ module.exports = {
             // Count cards in each print range
             for (const tier in mServerDB.claims) {
                 for (const claim of mServerDB.claims[tier] || []) {
-                    const printNum = claim.version;
+                    const printNum = claim.print;
                     if (printNum >= 1 && printNum <= 10) printRangeCounts.SP++;
                     else if (printNum >= 11 && printNum <= 99) printRangeCounts.LP++;
                     else if (printNum >= 100 && printNum <= 499) printRangeCounts.MP++;
@@ -57,9 +57,9 @@ module.exports = {
 
             for (const tier in mServerDB.claims) {
                 for (const claim of mServerDB.claims[tier] || []) {
-                    if (claim.version <= 99 && claim.version < lowestPrintNum) {
+                    if (claim.print <= 99 && claim.print < lowestPrintNum) {
                         lowestPrintCard = claim;
-                        lowestPrintNum = claim.version;
+                        lowestPrintNum = claim.print;
                     }
                 }
             }
