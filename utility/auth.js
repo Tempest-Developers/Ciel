@@ -5,7 +5,7 @@ module.exports = {
         const missingPermissions = channel.permissionsFor(clientUser).missing([PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]);
 (['VIEW_CHANNEL', 'SEND_MESSAGES']);
         if (missingPermissions.length > 0) {
-            console.log(`Missing permissions in server ${channel.guild.id} (${channel.guild.name}) in channel ${channel.id} (${channel.name}): ${missingPermissions.join(', ')}`);
+            // console.log(`Missing permissions in server ${channel.guild.id} (${channel.guild.name}) in channel ${channel.id} (${channel.name}): ${missingPermissions.join(', ')}`);
             return false;
         }
         return true;
