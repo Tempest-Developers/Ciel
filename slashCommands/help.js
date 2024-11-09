@@ -31,6 +31,11 @@ module.exports = {
                         name: '`/serverstats`',
                         value: 'View server-wide card statistics and print ranges',
                         inline: false
+                    },
+                    {
+                        name: '`/leaderboard`',
+                        value: 'View server leaderboards:\n• `/leaderboard tier` - Rankings by specific card tier\n• `/leaderboard print` - Rankings by print ranges\n• `/leaderboard total` - Overall claim rankings',
+                        inline: false
                     }
                 )
                 .setFooter({ text: 'Use these commands to interact with the bot!' });
@@ -40,7 +45,7 @@ module.exports = {
             console.error('Error executing help command:', error);
             await interaction.reply({ 
                 content: 'An error occurred while showing the help information.',
-                ephemeral: true 
+                ephemeral: false 
             });
         }
     },
