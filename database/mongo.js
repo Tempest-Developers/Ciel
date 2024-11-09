@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, Timestamp } = require('mongodb');
 require('dotenv').config();
 
 const uri = process.env.MONGODB_URI;
@@ -111,7 +111,8 @@ async function createPlayer(userID, serverID) {
         userID,
         serverID,
         counts: [0, 0, 0, 0, 0, 0],
-        claims: []
+        claims: [],
+        manualClaims: []
     });
 }
 
@@ -137,11 +138,13 @@ async function addClaim(serverID, userID, claim) {
         claimedID: claim.claimedID,
         userID,
         serverID,
+        cardName: claim.cardName,
         cardID: claim.cardID,
         owner: claim.owner,
         artist: claim.artist,
         print: claim.print,
-        tier: claim.tier
+        tier: claim.tier,
+        timestamp: claim.timestamp
     };
 
     // Update server claims with 24 limit
@@ -166,6 +169,37 @@ async function addClaim(serverID, userID, claim) {
                 claims: {
                     $each: [claimData],
                     $slice: -24 // Keep only the last 24 claims
+                }
+            },
+            $inc: { [`counts.${getTierIndex(claim.tier)}`]: 1 }
+        }
+    );
+
+    return claimData;
+}
+
+async function addManualClaim(serverID, userID, claim) {
+    const claimData = {
+        claimedID: claim.claimedID,
+        userID,
+        serverID,
+        cardName: claim.cardName,
+        cardID: claim.cardID,
+        owner: claim.owner,
+        artist: claim.artist,
+        print: claim.print,
+        tier: claim.tier,
+        timestamp: claim.timestamp
+    };
+
+    // Update user claims with 24 limit
+    await mUserDB.updateOne(
+        { userID, serverID },
+        {
+            $push: {
+                manualClaims: {
+                    $each: [claimData],
+                    $slice: -48 // Keep only the last 48 claims
                 }
             },
             $inc: { [`counts.${getTierIndex(claim.tier)}`]: 1 }
@@ -200,6 +234,7 @@ module.exports = {
     createGateUser,
     createGateServer,
     addClaim,
+    addManualClaim,
     getServerData,
     getPlayerData,
     getServerSettings,
