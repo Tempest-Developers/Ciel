@@ -41,8 +41,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             lastRemberedEmbed=oldMessage.embeds[0];
         }
 
-        console.log(oldEmbed);
-        console.log(newEmbed);
+        console.log(oldEmbed.title);
         console.log("= = = = = = ")
 
         // Initialize an array to store embed data
@@ -54,7 +53,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 // Format the title part
                 const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
                 if (match) {
-
+                    console.log(field);
                     const userId = await findUserId(client, field.split(" ")[2]);
                     const guildId = newMessage.guild.id;
                     const timestamp = newEmbed.timestamp;
