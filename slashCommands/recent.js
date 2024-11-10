@@ -85,7 +85,7 @@ module.exports = {
               const unixTime = Math.floor(new Date(claim.timestamp).getTime() / 1000);
               const ownerName = claim.owner || 'Unknown Owner';
               // Add index+1 to show clear ordering from top to bottom
-              return `${index + 1}. ${getTierEmoji(claim.tier)} #*${claim.print}*•**${claim.cardName}** \t•<t:${unixTime}:R>•*${ownerName}*`;
+              return `${getTierEmoji(claim.tier)} #*${claim.print}* • **${claim.cardName}** • <t:${unixTime}:R> • *${ownerName}*`;
             })
             .join('\n');
           embed.setDescription(description);
@@ -117,7 +117,7 @@ module.exports = {
       });
 
       const collector = response.createMessageComponentCollector({ 
-        time: 60000 // Collector active for 1 minute
+        time: 600000 // Collector active for 10 minute
       });
 
       collector.on('collect', async i => {
@@ -148,9 +148,17 @@ module.exports = {
 
       collector.on('end', async () => {
         try {
-          await response.edit({ components: [] });
+          // Check if the message still exists and is fetchable
+          const message = await interaction.channel.messages.fetch(response.id).catch(() => null);
+          if (message) {
+            await message.edit({ components: [] }).catch(() => {
+              // Silently fail if we can't edit the message
+              console.log('Could not remove components from message - it may have been deleted');
+            });
+          }
         } catch (error) {
-          console.error('Error removing components:', error);
+          // Silently handle any errors during component removal
+          console.log('Error in collector end event:', error);
         }
       });
 

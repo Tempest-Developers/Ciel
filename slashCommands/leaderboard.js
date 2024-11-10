@@ -36,7 +36,7 @@ module.exports = {
                             { name: 'Low Print (11-99)', value: 'LP' },
                             { name: 'Mid Print (100-499)', value: 'MP' },
                             { name: 'High Print (500-1000)', value: 'HP' },
-                            { name: 'All Prints', value: 'ALL' }
+                            // { name: 'All Prints', value: 'ALL' }
                         )
                 )
         )
@@ -156,7 +156,7 @@ module.exports = {
             if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
                 leaderboardText = top10.map((data, index) => {
                     return `${index + 1}. <@${data.userId}>` +
-                           `⭐SP:${data.SP}|🌟LP:${data.LP}|💫MP:${data.MP}|✨HP:${data.HP}` +
+                           `⭐${data.SP}|🌟${data.LP}|💫${data.MP}|✨${data.HP}` +
                            `Total: ${data.total}\n`;
                 }).join('\n');
             } else {
@@ -176,10 +176,10 @@ module.exports = {
                 let userStats;
                 if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
                     userStats = `**Your Stats:**\n` +
-                               `⭐SP:**${userData.SP}** |🌟LP:**${userData.LP}** |💫MP:**${userData.MP}** |✨HP:**${userData.HP}**\n` +
+                               `⭐**${userData.SP}** |🌟**${userData.LP}** |💫**${userData.MP}** |✨**${userData.HP}**\n` +
                                `Total: ${userData.total} | Rank: #${userRank}/${leaderboardData.length}`;
                 } else {
-                    userStats = `Your Claims: **${userData.count}** | Your Rank: #**${userRank}**/**${leaderboardData.length}**`;
+                    userStats = `⭐SP = v1-v10\n🌟LP = v11-v99\n💫MP = v101-v499\n✨ HP = v500-v1000\nYour Claims: **${userData.count}** | Your Rank: #**${userRank}**/**${leaderboardData.length}**`;
                 }
                 embed.addFields({ name: 'Your Statistics', value: userStats });
             }

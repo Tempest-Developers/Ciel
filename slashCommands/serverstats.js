@@ -6,11 +6,24 @@ const { enrichClaimWithCardData } = require('../utility/cardAPI');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('serverstats')
-        .setDescription('Shows server-wide card statistics'),
+        .setDescription('Shows server-wide card statistics')
+        .addStringOption(option =>
+            option.setName('type')
+                .setDescription('Type of stats to show')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Overview', value: 'overview' },
+                    { name: 'Best Drop', value: 'best' },
+                    { name: 'Tier Distribution', value: 'tiers' },
+                    { name: 'Print Distribution', value: 'prints' },
+                    { name: 'Tier Claim Times', value: 'tiertimes' },
+                    { name: 'Print Claim Times', value: 'printtimes' }
+                )),
     async execute(interaction, { database }) {
         try {
             await interaction.deferReply();
             const guildId = interaction.guild.id;
+            const statType = interaction.options.getString('type');
 
             // Get all server claims
             const mServerDB = await database.getServerData(guildId);
@@ -44,7 +57,7 @@ module.exports = {
                 return 'OTHER';
             };
 
-            // Function to compare card quality based on tier and print
+            // Function to compare card quality
             const isHigherQuality = (card1, card2) => {
                 const tierRank = { 'SSRT': 4, 'SRT': 3, 'RT': 2, 'CT': 1 };
                 const printRank = { 'SP': 2, 'LP': 1, 'OTHER': 0 };
@@ -54,41 +67,29 @@ module.exports = {
                 const print1Rank = printRank[getPrintQuality(card1.print)];
                 const print2Rank = printRank[getPrintQuality(card2.print)];
 
-                // First compare tier+print combination
                 const combo1Score = (tier1Rank * 10) + print1Rank;
                 const combo2Score = (tier2Rank * 10) + print2Rank;
                 
                 return combo1Score > combo2Score;
             };
 
-            // Map array indices to tier names
-            const tierMap = {
-                0: 'CT',
-                1: 'RT',
-                2: 'SRT',
-                3: 'SSRT',
-                4: 'SSRT+',
-                5: 'SSRT++',
-            };
-
-            // Calculate tier counts from the array
+            // Calculate tier counts
             const tierCounts = {
                 CT: mServerDB.counts[0] || 0,
                 RT: mServerDB.counts[1] || 0,
                 SRT: mServerDB.counts[2] || 0,
-                SSRT: (mServerDB.counts[3] || 0) + (mServerDB.counts[4] || 0) + (mServerDB.counts[5] || 0), // Combine SSRT tiers
+                SSRT: (mServerDB.counts[3] || 0) + (mServerDB.counts[4] || 0) + (mServerDB.counts[5] || 0),
             };
 
+            // Process claims data
             for (const tier in mServerDB.claims) {
                 for (const claim of mServerDB.claims[tier] || []) {
                     uniqueOwners.add(claim.owner);
                     
-                    // Track times by tier
                     if (claim.timestamp) {
                         claimTimesByTier[tier].push(new Date(claim.timestamp));
                     }
                     
-                    // Track times by print range
                     const printNum = claim.print;
                     const timestamp = new Date(claim.timestamp);
                     if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(timestamp);
@@ -96,7 +97,6 @@ module.exports = {
                     else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(timestamp);
                     else if (printNum >= 500 && printNum <= 1000) claimTimesByPrintRange.HP.push(timestamp);
                     
-                    // Update best print based on new quality comparison
                     if (!bestPrint || isHigherQuality({ ...claim, tier }, { ...bestPrint, tier: bestPrint.tier })) {
                         bestPrint = { ...claim, tier };
                     }
@@ -111,7 +111,6 @@ module.exports = {
                 HP: 0
             };
 
-            // Count cards in each print range
             for (const tier in mServerDB.claims) {
                 for (const claim of mServerDB.claims[tier] || []) {
                     const printNum = claim.print;
@@ -122,18 +121,15 @@ module.exports = {
                 }
             }
 
-            // Calculate total claims
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
             const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
 
             const calculateAverageTimeBetweenClaims = (times) => {
                 if (!times || times.length < 2) return null;
                 
-                // Convert dates to Unix timestamps (seconds)
                 const timestamps = times.map(time => Math.floor(time.getTime() / 1000));
                 timestamps.sort((a, b) => a - b);
                 
-                // Calculate differences between consecutive timestamps
                 let totalDiff = 0;
                 let diffCount = 0;
                 
@@ -147,10 +143,8 @@ module.exports = {
                 
                 if (diffCount === 0) return null;
                 
-                // Calculate average difference in seconds
                 const avgSeconds = Math.floor(totalDiff / diffCount);
                 
-                // Convert to HHhMMmSSs format
                 const hours = Math.floor(avgSeconds / 3600);
                 const minutes = Math.floor((avgSeconds % 3600) / 60);
                 const seconds = avgSeconds % 60;
@@ -163,94 +157,95 @@ module.exports = {
                 return result;
             };
 
-
-            // Create stats embed
+            // Create base embed
             const embed = new EmbedBuilder()
                 .setColor('#FFC0CB')
                 .setAuthor({
                     name: `${interaction.guild.name} Server Stats`,
                     iconURL: interaction.guild.iconURL()
+                })
+                .setThumbnail(interaction.guild.iconURL())
+                .setFooter({ 
+                    text: `Mazoku stats Auto-Summon` 
                 });
 
-            // Add total claims and players first
-            embed.addFields(
-                { 
-                    name: `Total Claims:  ${totalClaims.toString()}`, 
-                    value: `*Claimers right now*: ${uniqueOwners.size.toString()}`,
-                },
-            );
-
-            // Add best print showcase with new card image API
-            if (bestPrint) {
-                const enrichedCard = await enrichClaimWithCardData(bestPrint);
-                if (enrichedCard) {
-                    const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
-                    embed.addFields({
-                        name: 'Best Drop Yet',
-                        value: `*${enrichedCard.card.series}*\n` +
-                               `${getTierEmoji(bestPrint.tier)} **${enrichedCard.cardName}** #**${enrichedCard.print}** \n` +
-                               `**Maker(s)**: ${makers}\n` +
-                               `**Owner**: ${enrichedCard.owner}\n` +
-                               `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
+            // Handle different stat types
+            switch(statType) {
+                case 'overview':
+                    embed.addFields({ 
+                        name: `Total Claims:  ${totalClaims.toString()}`, 
+                        value: `*Claimers right now*: ${uniqueOwners.size.toString()}`,
                     });
-                    // Use the new card image API
-                    embed.setThumbnail(`https://cdn.mazoku.cc/packs/${bestPrint.cardID}`);
-                }
+                    break;
+
+                case 'best':
+                    if (bestPrint) {
+                        const enrichedCard = await enrichClaimWithCardData(bestPrint);
+                        if (enrichedCard) {
+                            const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
+                            embed.addFields({
+                                name: 'Best Drop Yet',
+                                value: `*${enrichedCard.card.series}*\n` +
+                                       `${getTierEmoji(bestPrint.tier)} **${enrichedCard.cardName}** #**${enrichedCard.print}** \n` +
+                                       `**Maker(s)**: ${makers}\n` +
+                                       `**Owner**: ${enrichedCard.owner}\n` +
+                                       `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
+                            })
+                            .setThumbnail(`https://cdn.mazoku.cc/packs/${bestPrint.cardID}`);
+                        }
+                    }
+                    break;
+
+                case 'tiers':
+                    embed.addFields({
+                        name: 'Claims by Tier',
+                        value: Object.entries(tierCounts)
+                            .map(([tier, count]) => {
+                                const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
+                                return `${getTierEmoji(tier)} **${count}** *${percentage.toFixed(0)}%* ${getLoadBar(percentage)}`;
+                            })
+                            .join('\n')
+                    });
+                    break;
+
+                case 'prints':
+                    embed.addFields({
+                        name: 'Print Distribution',
+                        value: Object.entries(printRangeCounts)
+                            .map(([range, count]) => {
+                                const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
+                                return `**${range}** (${getRangeDescription(range)}): **${count}** *${percentage.toFixed(0)}%* ${getLoadBar(percentage)}`;
+                            })
+                            .join('\n')
+                    });
+                    break;
+
+                case 'tiertimes':
+                    embed.addFields({
+                        name: 'Average Time Between Claims by Tier',
+                        value: Object.entries(claimTimesByTier)
+                            .filter(([_, times]) => times.length > 0)
+                            .map(([tier, times]) => {
+                                const avgTime = calculateAverageTimeBetweenClaims(times);
+                                return `${getTierEmoji(tier)}: ${avgTime || 'N/A'}`;
+                            })
+                            .join('\n') || 'No claim time data available'
+                    });
+                    break;
+
+                case 'printtimes':
+                    embed.addFields({
+                        name: 'Average Print claim time',
+                        value: Object.entries(claimTimesByPrintRange)
+                            .filter(([_, times]) => times.length > 0)
+                            .map(([range, times]) => {
+                                const avgTime = calculateAverageTimeBetweenClaims(times);
+                                return `**${range}** (${getRangeDescription(range)}): ${avgTime || 'N/A'}`;
+                            })
+                            .join('\n') || 'No claim time data available'
+                    });
+                    break;
             }
-
-            // Add tier and print distribution inline
-            embed.addFields(
-                {
-                    name: 'Claims by Tier',
-                    value: Object.entries(tierCounts)
-                        .map(([tier, count]) => {
-                            const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
-                            return `${getTierEmoji(tier)} **${count}** *${percentage.toFixed(0)}%* ${getLoadBar(percentage)}`;
-                        })
-                        .join('\n'),
-                    inline: true
-                },
-                {
-                    name: 'Print Distribution',
-                    value: Object.entries(printRangeCounts)
-                        .map(([range, count]) => {
-                            const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
-                            return `**${range}** (${getRangeDescription(range)}): **${count}** *${percentage.toFixed(0)}%* ${getLoadBar(percentage)}`;
-                        })
-                        .join('\n'),
-                    inline: true
-                }
-            );
-
-            // Add average claim times by tier
-            embed.addFields({
-                name: 'Average Time Between Claims by Tier',
-                value: Object.entries(claimTimesByTier)
-                    .filter(([_, times]) => times.length > 0)
-                    .map(([tier, times]) => {
-                        const avgTime = calculateAverageTimeBetweenClaims(times);
-                        return `${getTierEmoji(tier)}: ${avgTime || 'N/A'}`;
-                    })
-                    .join('\n') || 'No claim time data available',
-                inline: false
-            });
-
-            // Add average claim times by print range
-            embed.addFields({
-                name: 'Average Print claim time',
-                value: Object.entries(claimTimesByPrintRange)
-                    .filter(([_, times]) => times.length > 0)
-                    .map(([range, times]) => {
-                        const avgTime = calculateAverageTimeBetweenClaims(times);
-                        return `**${range}** (${getRangeDescription(range)}): ${avgTime || 'N/A'}`;
-                    })
-                    .join('\n') || 'No claim time data available',
-                inline: false
-            });
-
-            embed.setFooter({ 
-                text: `Mazoku stats Auto-Summon` 
-            });
 
             await interaction.editReply({ embeds: [embed] });
 

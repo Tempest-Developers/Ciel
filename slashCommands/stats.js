@@ -53,12 +53,12 @@ module.exports = {
                 HP: []  // 500-1000
             };
 
-            // Calculate tier counts
+            // Calculate tier counts using the counts array
             const tierCounts = {
-                CT: userData.claims.CT?.length || 0,
-                RT: userData.claims.RT?.length || 0,
-                SRT: userData.claims.SRT?.length || 0,
-                SSRT: userData.claims.SSRT?.length || 0
+                CT: userData.counts[0] || 0,
+                RT: userData.counts[1] || 0,
+                SRT: userData.counts[2] || 0,
+                SSRT: userData.counts[3] || 0
             };
 
             // Calculate print range counts
