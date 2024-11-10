@@ -13,8 +13,8 @@ const nukeConfirmations = new Collection();
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('economy')
-        .setDescription('Economy system commands')
+        .setName('gate')
+        .setDescription('Gate system commands')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('nuke')
@@ -22,11 +22,11 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('help')
-                .setDescription('Show economy system commands and information'))
+                .setDescription('Show gate system commands and information'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('toggle')
-                .setDescription('Toggle the economy system on/off (Lead only)'))
+                .setDescription('Toggle the gate system on/off (Lead only)'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('togglecards')
@@ -34,10 +34,10 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('balance')
-                .setDescription('Check balance and tickets')
+                .setDescription('Check tickets and token balance')
                 .addUserOption(option =>
                     option.setName('user')
-                        .setDescription('User to check balance for (Lead only)')))
+                        .setDescription('User to check tickets for (Lead only)')))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('buy')
@@ -222,9 +222,9 @@ module.exports = {
             const isLead = config.leads.includes(interaction.user.id);
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
-                .setTitle('<:Slime_Token:1304929154285703179> Gate Economy System')
+                .setTitle('<:Slime_Token:1304929154285703179> Gate System')
                 .setDescription(
-                    `Economy system is currently **${serverData.economyEnabled ? 'enabled' : 'disabled'}**\n` +
+                    `Gate system is currently **${serverData.economyEnabled ? 'enabled' : 'disabled'}**\n` +
                     `Card tracking is currently **${serverData.cardTrackingEnabled !== false ? 'enabled' : 'disabled'}**`
                 );
 
@@ -232,11 +232,11 @@ module.exports = {
                 // Lead help menu (hidden from others)
                 embed.addFields(
                     { name: 'Lead Commands', value: 
-                        '`/economy toggle` - Enable/disable economy system\n' +
-                        '`/economy togglecards` - Enable/disable card tracking\n' +
-                        '`/economy give <user> <amount>` - Give tokens to user\n' +
-                        '`/economy take <user> <amount>` - Take tokens from user\n' +
-                        '`/economy balance <user>` - Check user\'s balance\n' +
+                        '`/gate toggle` - Enable/disable gate system\n' +
+                        '`/gate togglecards` - Enable/disable card tracking\n' +
+                        '`/gate give <user> <amount>` - Give tokens to user\n' +
+                        '`/gate take <user> <amount>` - Take tokens from user\n' +
+                        '`/gate balance <user>` - Check user\'s tickets\n' +
                         '**Cooldown**: 5 seconds', inline: false },
                 );
             }
@@ -244,12 +244,12 @@ module.exports = {
             // Regular commands (visible to all)
             embed.addFields(
                 { name: 'User Commands', value: 
-                    '`/economy balance` - Check your tokens and tickets\n' +
-                    '`/economy buy` - Buy a ticket with tokens\n' +
-                    '`/economy gift <user>` - Gift special ticket (10000 tokens)\n' +
-                    '`/economy giveaway` - View giveaway rewards\n' +
+                    '`/gate balance` - Check your tickets and tokens\n' +
+                    '`/gate buy` - Buy a ticket with tokens\n' +
+                    '`/gate gift <user>` - Gift special ticket (10000 tokens)\n' +
+                    '`/gate giveaway` - View giveaway rewards\n' +
                     '**Cooldown**: 10 seconds', inline: false },
-                { name: 'Token Information', value:
+                { name: 'Ticket Information', value:
                     '• Earn 0-10 tokens from claiming cards\n' +
                     '• Maximum balance: 25,000 tokens\n' +
                     '• First ticket costs 500 tokens\n' +
@@ -277,7 +277,7 @@ module.exports = {
             );
 
             return interaction.reply({
-                content: `✅ Economy system has been ${newState ? 'enabled' : 'disabled'}.`,
+                content: `✅ Gate system has been ${newState ? 'enabled' : 'disabled'}.`,
                 ephemeral: true
             });
         }
@@ -303,7 +303,7 @@ module.exports = {
         // Check if economy is enabled for economy-related commands
         if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take'].includes(subcommand)) {
             return interaction.reply({
-                content: '❌ The economy system is currently disabled.',
+                content: '❌ The gate system is currently disabled.',
                 ephemeral: true
             });
         }
@@ -360,7 +360,7 @@ module.exports = {
                     // If checking another user's balance, verify lead permission
                     if (targetUser && !config.leads.includes(interaction.user.id)) {
                         return interaction.reply({
-                            content: '❌ Only leads can check other users\' balances.',
+                            content: '❌ Only leads can check other users\' tickets.',
                             ephemeral: true
                         });
                     }
@@ -372,7 +372,7 @@ module.exports = {
                     const nextPrice = getNextTicketPrice(tickets);
                     
                     return interaction.reply({
-                        content: `${userToCheck.username}'s balance:\n<:Slime_Token:1304929154285703179> ${tokens} Slime Token\n:tickets: Tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}\nNext ticket price: ${nextPrice} tokens`,
+                        content: `${userToCheck.username}'s tickets:\n:tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}\n<:Slime_Token:1304929154285703179> ${tokens} Slime Token\nNext ticket price: ${nextPrice} tokens`,
                         ephemeral: true
                     });
                 }
@@ -521,7 +521,7 @@ module.exports = {
                 }
             }
         } catch (error) {
-            console.error('Error in economy command:', error);
+            console.error('Error in gate command:', error);
             return interaction.reply({
                 content: '❌ An error occurred while processing your request.',
                 ephemeral: true
