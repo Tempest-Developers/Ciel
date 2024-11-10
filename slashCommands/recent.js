@@ -37,7 +37,7 @@ module.exports = {
       }
       
       guildCooldowns.set(user.id, Date.now());
-      1007582286092443698
+      
       const serverData = await database.getServerData(interaction.guild.id);
 
       if (!serverData?.claims) {
@@ -48,19 +48,20 @@ module.exports = {
       }
 
       function getAllClaims(claims) {
-        // Combine all tier arrays and sort by timestamp
+        // Combine all tier arrays and ensure sorting by newest first
         return Object.entries(claims)
           .filter(([tier]) => ['CT', 'RT', 'SRT', 'SSRT'].includes(tier))
           .map(([_, claims]) => claims)
           .flat()
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Newest first
       }
 
       function getClaimsForTier(claims, tier) {
         if (tier === 'ALL') {
           return getAllClaims(claims);
         }
-        return claims[tier] || [];
+        // Ensure tier-specific claims are also sorted newest first
+        return (claims[tier] || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       }
 
       function createEmbed(claims, selectedTier) {
@@ -77,11 +78,16 @@ module.exports = {
         if (claims.length === 0) {
           embed.setDescription('No claims recorded for this tier');
         } else {
-          const description = claims.slice(0, 15).map(claim => {
-            const unixTime = Math.floor(new Date(claim.timestamp).getTime() / 1000);
-            const ownerName = claim.owner || 'Unknown Owner';
-            return `${getTierEmoji(claim.tier)} #**${claim.print}** • **${claim.cardName}** \t • <t:${unixTime}:R> \t • *${ownerName}*`;
-          }).join('\n');
+          // Take first 15 claims (already sorted newest first) and map them to display strings
+          const description = claims
+            .slice(0, 15)
+            .map((claim, index) => {
+              const unixTime = Math.floor(new Date(claim.timestamp).getTime() / 1000);
+              const ownerName = claim.owner || 'Unknown Owner';
+              // Add index+1 to show clear ordering from top to bottom
+              return `${index + 1}. ${getTierEmoji(claim.tier)} #**${claim.print}** • **${claim.cardName}** \t • <t:${unixTime}:R> \t • *${ownerName}*`;
+            })
+            .join('\n');
           embed.setDescription(description);
         }
 
