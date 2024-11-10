@@ -34,7 +34,10 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('balance')
-                .setDescription('Check your balance and tickets'))
+                .setDescription('Check balance and tickets')
+                .addUserOption(option =>
+                    option.setName('user')
+                        .setDescription('User to check balance for (Lead only)')))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('buy')
@@ -233,6 +236,7 @@ module.exports = {
                         '`/economy togglecards` - Enable/disable card tracking\n' +
                         '`/economy give <user> <amount>` - Give tokens to user\n' +
                         '`/economy take <user> <amount>` - Take tokens from user\n' +
+                        '`/economy balance <user>` - Check user\'s balance\n' +
                         '**Cooldown**: 5 seconds', inline: false },
                 );
             }
@@ -351,13 +355,24 @@ module.exports = {
         try {
             switch (subcommand) {
                 case 'balance': {
-                    const userData = await ensureUser(interaction.user.id);
+                    const targetUser = interaction.options.getUser('user');
+                    
+                    // If checking another user's balance, verify lead permission
+                    if (targetUser && !config.leads.includes(interaction.user.id)) {
+                        return interaction.reply({
+                            content: '❌ Only leads can check other users\' balances.',
+                            ephemeral: true
+                        });
+                    }
+
+                    const userToCheck = targetUser || interaction.user;
+                    const userData = await ensureUser(userToCheck.id);
                     const tokens = userData.currency[0];
                     const tickets = userData.tickets || [];
                     const nextPrice = getNextTicketPrice(tickets);
                     
                     return interaction.reply({
-                        content: `Your balance:\n<:Slime_Token:1304929154285703179> ${tokens} Slime Token\n:tickets: Tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}\nNext ticket price: ${nextPrice} tokens`,
+                        content: `${userToCheck.username}'s balance:\n<:Slime_Token:1304929154285703179> ${tokens} Slime Token\n:tickets: Tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}\nNext ticket price: ${nextPrice} tokens`,
                         ephemeral: true
                     });
                 }
