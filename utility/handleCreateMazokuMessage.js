@@ -117,9 +117,9 @@ module.exports = async (message, exemptBotId) => {
                 const rewardMsg = await message.channel.send({ embeds: [rewardEmbed] });
 
                 // Delete reward message after 10 seconds
-                setTimeout(() => {
-                  rewardMsg.delete().catch(console.error);
-                }, 10000);
+                // setTimeout(() => {
+                //   rewardMsg.delete().catch(console.error);
+                // }, 10000);
               }
             }
           } catch (error) {
