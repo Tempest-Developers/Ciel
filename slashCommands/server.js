@@ -5,7 +5,7 @@ const { enrichClaimWithCardData } = require('../utility/cardAPI');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('serverstats')
+        .setName('server')
         .setDescription('Shows server-wide card statistics')
         .addStringOption(option =>
             option.setName('type')

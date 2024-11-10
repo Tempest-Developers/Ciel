@@ -10,7 +10,7 @@ const client = new MongoClient(uri, {
     }
 });
 
-let mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB;
+let mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB;
 
 async function connectDB() {
     try {
@@ -22,6 +22,7 @@ async function connectDB() {
         mServerSettingsDB = client.db('MainDB').collection('mServerSettingsDB');
         mGateDB = client.db('MainDB').collection('mGateDB');
         mGateServerDB = client.db('MainDB').collection('mGateServerDB');
+        mCommandLogsDB = client.db('MainDB').collection('mCommandLogsDB');
 
         // Create indexes for unique fields
         await mServerDB.createIndex({ serverID: 1 }, { unique: true });
@@ -29,6 +30,10 @@ async function connectDB() {
         await mServerSettingsDB.createIndex({ serverID: 1 }, { unique: true });
         await mGateDB.createIndex({ userID: 1 }, { unique: true });
         await mGateServerDB.createIndex({ serverID: 1 }, { unique: true });
+
+        // Create index for command logs
+        await mCommandLogsDB.createIndex({ serverID: 1 });
+        await mCommandLogsDB.createIndex({ timestamp: 1 });
 
         // Create compound indexes for claims to prevent duplicates
         const tiers = ['CT', 'RT', 'SRT', 'SSRT', 'URT', 'EXT'];
@@ -55,10 +60,53 @@ async function connectDB() {
             "manualClaims.timestamp": 1
         });
 
-        return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB };
+        return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB };
     } catch (err) {
         console.error('Error connecting to MongoDB:', err);
         throw err;
+    }
+}
+
+async function logCommand(userID, username, serverID, serverName, commandName, options = {}) {
+    try {
+        return await mCommandLogsDB.insertOne({
+            userID,
+            username,
+            serverID,
+            serverName,
+            commandName,
+            options,
+            timestamp: new Date()
+        });
+    } catch (error) {
+        console.error('Error logging command:', error);
+    }
+}
+
+async function getCommandLogs(serverID = null, page = 1, limit = 10) {
+    try {
+        const query = serverID ? { serverID } : {};
+        const skip = (page - 1) * limit;
+        
+        const logs = await mCommandLogsDB
+            .find(query)
+            .sort({ timestamp: -1 })
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+            
+        const total = await mCommandLogsDB.countDocuments(query);
+        const totalPages = Math.ceil(total / limit);
+        
+        return {
+            logs,
+            currentPage: page,
+            totalPages,
+            totalLogs: total
+        };
+    } catch (error) {
+        console.error('Error getting command logs:', error);
+        throw error;
     }
 }
 
@@ -321,10 +369,13 @@ module.exports = {
     getPlayerData,
     getServerSettings,
     toggleRegister,
+    logCommand,
+    getCommandLogs,
     // Export database collections
     mServerDB,
     mUserDB,
     mServerSettingsDB,
     mGateDB,
-    mGateServerDB
+    mGateServerDB,
+    mCommandLogsDB
 };
