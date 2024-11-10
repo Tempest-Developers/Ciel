@@ -164,7 +164,9 @@ module.exports = {
                     `${index + 1}. <@${data.userId}> - ${data.count} claims`
                 ).join('\n');
             }
-            leaderboardText += `⭐**SP** = v**1**-v**10**\n🌟**LP** = v**11**-v**99**\n💫**MP** = v**101**-v**499**\n✨**HP** = v**500**-v**1000**\n`;
+            if(subcommand == 'print'){
+                leaderboardText += `\n⭐**SP** = v**1**-v**10**\n🌟**LP** = v**11**-v**99**\n💫**MP** = v**101**-v**499**\n✨**HP** = v**500**-v**1000**\n`;
+            }
 
             embed.addFields({ name: 'Rankings', value: leaderboardText || 'No data available' });
 

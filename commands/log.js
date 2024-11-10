@@ -67,7 +67,7 @@ ${'─'.repeat(40)}`;
 
             return message.reply({ embeds: [embed] });
         } catch (error) {
-            console.error('Error in xlog command:', error);
+            console.error('Error in log command:', error);
             return message.reply('An error occurred while fetching command logs.');
         }
     }
