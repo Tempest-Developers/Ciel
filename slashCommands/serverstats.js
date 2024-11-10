@@ -61,6 +61,20 @@ module.exports = {
                 return combo1Score > combo2Score;
             };
 
+            // Calculate tier counts directly from the database
+            const tierCounts = {
+                CT: 0,
+                RT: 0,
+                SRT: 0,
+                SSRT: 0
+            };
+
+            for (const tier in mServerDB.counts || {}) {
+                if (tierCounts.hasOwnProperty(tier)) {
+                    tierCounts[tier] = mServerDB.counts[tier] || 0;
+                }
+            }
+
             for (const tier in mServerDB.claims) {
                 for (const claim of mServerDB.claims[tier] || []) {
                     uniqueOwners.add(claim.owner);
@@ -84,14 +98,6 @@ module.exports = {
                     }
                 }
             }
-
-            // Calculate tier counts
-            const tierCounts = {
-                CT: mServerDB.claims.CT?.length || 0,
-                RT: mServerDB.claims.RT?.length || 0,
-                SRT: mServerDB.claims.SRT?.length || 0,
-                SSRT: mServerDB.claims.SSRT?.length || 0
-            };
 
             // Calculate print range counts
             const printRangeCounts = {

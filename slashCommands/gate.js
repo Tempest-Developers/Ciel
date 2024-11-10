@@ -44,7 +44,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('buy')
-                .setDescription('Buy a ticket with tokens'))
+                .setDescription('Buy a ticket with Slime Tokens'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('gift')
@@ -60,7 +60,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('give')
-                .setDescription('Give tokens to a user (Lead only)')
+                .setDescription('Give Slime Tokens to a user (Lead only)')
                 .addUserOption(option =>
                     option.setName('user')
                         .setDescription('User to give tokens to')
@@ -72,7 +72,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('take')
-                .setDescription('Take tokens from a user (Lead only)')
+                .setDescription('Take Slime Tokens from a user (Lead only)')
                 .addUserOption(option =>
                     option.setName('user')
                         .setDescription('User to take tokens from')
@@ -177,8 +177,7 @@ module.exports = {
                             {},
                             { 
                                 $set: { 
-                                    'currency.0': 0,
-                                    'tickets': []
+                                    'currency': [0, 0, 0, 0, 0, 0] // Added 6th slot for tickets
                                 }
                             }
                         );
@@ -237,8 +236,8 @@ module.exports = {
                     { name: 'Lead Commands', value: 
                         '`/gate toggle` - Enable/disable gate system\n' +
                         '`/gate togglecards` - Enable/disable card tracking\n' +
-                        '`/gate give <user> <amount>` - Give tokens to user\n' +
-                        '`/gate take <user> <amount>` - Take tokens from user\n' +
+                        '`/gate give <user> <amount>` - Give Slime Tokens to user\n' +
+                        '`/gate take <user> <amount>` - Take Slime Tokens from user\n' +
                         '`/gate balance <user>` - Check user\'s tickets\n' +
                         '**Cooldown**: 5 seconds', inline: false },
                 );
@@ -248,19 +247,19 @@ module.exports = {
             embed.addFields(
                 { name: 'User Commands', value: 
                     '`/gate balance` - Check your tickets and tokens\n' +
-                    '`/gate buy` - Buy a ticket with tokens\n' +
+                    '`/gate buy` - Buy a ticket with Slime Tokens\n' +
                     '`/gate gift <user>` - Gift special ticket (10000 tokens)\n' +
                     '`/gate giveaway` - View giveaway rewards\n' +
                     '**Cooldown**: 10 seconds', inline: false },
                 { name: 'Ticket Information', value:
-                    '• Earn 0-10 tokens from claiming cards\n' +
-                    '• Maximum balance: 25,000 tokens\n' +
-                    '• token-500: 500 tokens\n' +
-                    '• token-1000: 1,000 tokens\n' +
-                    '• token-2500: 2,500 tokens\n' +
-                    '• token-5000: 5,000 tokens\n' +
-                    '• token-10000: 10,000 tokens\n' +
-                    '• Special Gift Ticket: 10,000 tokens', inline: false }
+                    '• Earn 0-10 Slime Tokens from claiming cards\n' +
+                    '• Maximum balance: 25,000 Slime Tokens\n' +
+                    '• First ticket: 500 Slime Tokens\n' +
+                    '• Second ticket: 1,000 Slime Tokens\n' +
+                    '• Third ticket: 2,500 Slime Tokens\n' +
+                    '• Fourth ticket: 5,000 Slime Tokens\n' +
+                    '• Fifth+ ticket: 10,000 Slime Tokens\n' +
+                    '• Special Gift Ticket: 10,000 Slime Tokens', inline: false }
             );
 
             return interaction.reply({
@@ -340,11 +339,17 @@ module.exports = {
             if (!userData) {
                 await mGateDB.insertOne({
                     userID: userId,
-                    currency: [0, 0, 0, 0, 0],
-                    tickets: [],
+                    currency: [0, 0, 0, 0, 0, 0], // Added 6th slot for tickets
                     mission: [],
                     achievements: []
                 });
+                userData = await mGateDB.findOne({ userID: userId });
+            } else if (userData.currency.length === 5) {
+                // Update existing users to have the 6th slot
+                await mGateDB.updateOne(
+                    { userID: userId },
+                    { $push: { currency: 0 } }
+                );
                 userData = await mGateDB.findOne({ userID: userId });
             }
             return userData;
@@ -353,8 +358,7 @@ module.exports = {
         // Helper function to get next ticket price
         function getNextTicketPrice(currentTickets) {
             const prices = [500, 1000, 2500, 5000, 10000];
-            const ticketCount = currentTickets.length;
-            return ticketCount >= prices.length ? 10000 : prices[ticketCount];
+            return currentTickets >= prices.length ? 10000 : prices[currentTickets];
         }
 
         try {
@@ -372,32 +376,32 @@ module.exports = {
 
                     const userToCheck = targetUser || interaction.user;
                     const userData = await ensureUser(userToCheck.id);
-                    const tokens = userData.currency[0];
-                    const tickets = userData.tickets || [];
+                    const slimeTokens = userData.currency[0];
+                    const tickets = userData.currency[5] || 0;
                     const nextPrice = getNextTicketPrice(tickets);
                     
                     return interaction.reply({
-                        content: `${userToCheck.username}'s tickets:\n:tickets: ${tickets.length > 0 ? tickets.map(t => t.replace(/(\d+) Ticket/, 'token-$1')).join(', ') : 'None'}\n<:Slime_Token:1304929154285703179> ${tokens} Slime Token\nNext ticket price: ${nextPrice} tokens`,
+                        content: `${userToCheck.username}'s balance:\n:tickets: x${tickets} Ticket\n<:Slime_Token:1304929154285703179> ${slimeTokens} Slime Token\nNext ticket price: ${nextPrice} Slime Tokens`,
                         ephemeral: true
                     });
                 }
 
                 case 'buy': {
                     const userData = await ensureUser(interaction.user.id);
-                    const currentTokens = userData.currency[0];
-                    const tickets = userData.tickets || [];
-                    const ticketCost = getNextTicketPrice(tickets);
+                    const currentSlimeTokens = userData.currency[0];
+                    const currentTickets = userData.currency[5] || 0;
+                    const ticketCost = getNextTicketPrice(currentTickets);
 
-                    if (currentTokens < ticketCost) {
+                    if (currentSlimeTokens < ticketCost) {
                         return interaction.reply({
-                            content: `❌ You don't have enough tokens! You need ${ticketCost} tokens but only have ${currentTokens}.`,
+                            content: `❌ You don't have enough Slime Tokens! You need ${ticketCost} Slime Tokens but only have ${currentSlimeTokens}.`,
                             ephemeral: true
                         });
                     }
 
                     const confirmButton = new ButtonBuilder()
                         .setCustomId('buy_confirm')
-                        .setLabel(`Buy token-${ticketCost}`)
+                        .setLabel(`Buy Ticket (${ticketCost} Slime Tokens)`)
                         .setStyle(ButtonStyle.Primary);
 
                     const cancelButton = new ButtonBuilder()
@@ -409,7 +413,7 @@ module.exports = {
                         .addComponents(confirmButton, cancelButton);
 
                     const response = await interaction.reply({
-                        content: `Are you sure you want to buy token-${ticketCost} for ${ticketCost} tokens?`,
+                        content: `Are you sure you want to buy a ticket for ${ticketCost} Slime Tokens?`,
                         components: [row],
                         ephemeral: true
                     });
@@ -433,24 +437,26 @@ module.exports = {
                             const updatedUserData = await mGateDB.findOne({ userID: interaction.user.id });
                             if (updatedUserData.currency[0] < ticketCost) {
                                 await i.update({
-                                    content: `❌ You don't have enough tokens! You need ${ticketCost} tokens but only have ${updatedUserData.currency[0]}.`,
+                                    content: `❌ You don't have enough Slime Tokens! You need ${ticketCost} Slime Tokens but only have ${updatedUserData.currency[0]}.`,
                                     components: []
                                 });
                                 return;
                             }
 
-                            // Update user's tokens and add ticket
+                            // Update user's tokens and tickets
                             await mGateDB.updateOne(
                                 { userID: interaction.user.id },
                                 {
-                                    $inc: { 'currency.0': -ticketCost },
-                                    $push: { tickets: `${ticketCost} Ticket` }
+                                    $inc: { 
+                                        'currency.0': -ticketCost,
+                                        'currency.5': 1
+                                    }
                                 }
                             );
 
-                            const nextPrice = getNextTicketPrice([...tickets, `${ticketCost} Ticket`]);
+                            const nextPrice = getNextTicketPrice(currentTickets + 1);
                             await i.update({
-                                content: `✅ Successfully purchased token-${ticketCost}! Your new balance is ${updatedUserData.currency[0] - ticketCost} tokens.\nNext ticket will cost: ${nextPrice} tokens`,
+                                content: `✅ Successfully purchased a ticket! Your new balance is ${updatedUserData.currency[0] - ticketCost} Slime Tokens.\nNext ticket will cost: ${nextPrice} Slime Tokens`,
                                 components: []
                             });
                         }
@@ -475,7 +481,7 @@ module.exports = {
 
                     if (userData.currency[0] < cost) {
                         return interaction.reply({
-                            content: `❌ You need ${cost} tokens to gift a special ticket! You only have ${userData.currency[0]} tokens.`,
+                            content: `❌ You need ${cost} Slime Tokens to gift a special ticket! You only have ${userData.currency[0]} Slime Tokens.`,
                             ephemeral: true
                         });
                     }
@@ -490,11 +496,11 @@ module.exports = {
                     await ensureUser(targetUser.id);
                     await mGateDB.updateOne(
                         { userID: targetUser.id },
-                        { $push: { tickets: 'Special Gift Ticket' } }
+                        { $inc: { 'currency.5': 1 } }
                     );
 
                     return interaction.reply({
-                        content: `✅ Successfully gifted a Special Ticket to ${targetUser.username}! Your new balance is ${userData.currency[0] - cost} tokens.`,
+                        content: `✅ Successfully gifted a Special Ticket to ${targetUser.username}! Your new balance is ${userData.currency[0] - cost} Slime Tokens.`,
                         ephemeral: false
                     });
                 }
@@ -502,11 +508,11 @@ module.exports = {
                 case 'giveaway': {
                     return interaction.reply({
                         content: `🎉 Current Giveaway Rewards:\n\n` +
-                            `:tickets: token-500: Basic reward chance\n` +
-                            `:tickets: token-1000: Improved reward chance\n` +
-                            `:tickets: token-2500: High reward chance\n` +
-                            `:tickets: token-5000: Premium reward chance\n` +
-                            `:tickets: token-10000: Ultimate reward chance\n` +
+                            `:tickets: First Ticket (500 Slime Tokens): Basic reward chance\n` +
+                            `:tickets: Second Ticket (1000 Slime Tokens): Improved reward chance\n` +
+                            `:tickets: Third Ticket (2500 Slime Tokens): High reward chance\n` +
+                            `:tickets: Fourth Ticket (5000 Slime Tokens): Premium reward chance\n` +
+                            `:tickets: Fifth+ Ticket (10000 Slime Tokens): Ultimate reward chance\n` +
                             `:tickets: Special Gift Ticket: Exclusive reward chance`,
                         ephemeral: true
                     });
@@ -531,7 +537,7 @@ module.exports = {
 
                     if (newBalance > 25000) {
                         return interaction.reply({
-                            content: `❌ This would exceed the maximum balance of 25000 tokens! Current balance: ${userData.currency[0]}`,
+                            content: `❌ This would exceed the maximum balance of 25000 Slime Tokens! Current balance: ${userData.currency[0]}`,
                             ephemeral: true
                         });
                     }
@@ -542,7 +548,7 @@ module.exports = {
                     );
 
                     return interaction.reply({
-                        content: `✅ Successfully gave ${amount} tokens to ${targetUser.username}. Their new balance is ${newBalance} tokens.`,
+                        content: `✅ Successfully gave ${amount} Slime Tokens to ${targetUser.username}. Their new balance is ${newBalance} Slime Tokens.`,
                         ephemeral: true
                     });
                 }
@@ -577,7 +583,7 @@ module.exports = {
                     );
 
                     return interaction.reply({
-                        content: `✅ Successfully took ${amount} tokens from ${targetUser.username}. Their new balance is ${newBalance} tokens.`,
+                        content: `✅ Successfully took ${amount} Slime Tokens from ${targetUser.username}. Their new balance is ${newBalance} Slime Tokens.`,
                         ephemeral: true
                     });
                 }
