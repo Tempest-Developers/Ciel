@@ -26,7 +26,7 @@ module.exports = {
         
         if (!command) return;
   
-		if (!(await checkIfGuildAllowed(client, newMessage.guild.id)) || !(await checkIfGuildAllowed(client, oldMessage.guild.id))) return;
+		if (!(await checkIfGuildAllowed(client, message.guild.id)) || !(await checkIfGuildAllowed(client, message.guild.id))) return;
 
         try {
             await command.execute(message, args);
