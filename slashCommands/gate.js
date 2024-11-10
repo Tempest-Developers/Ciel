@@ -20,8 +20,8 @@ module.exports = {
         .setDescription('Gate system commands')
         .addSubcommand(subcommand =>
             subcommand
-                .setName('nuke')
-                .setDescription('Clear all economy data (Restricted)'))
+                .setName('null')
+                .setDescription('null'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('help')
@@ -501,7 +501,7 @@ module.exports = {
 
                     return interaction.reply({
                         content: `✅ Successfully gifted a Special Ticket to ${targetUser.username}! Your new balance is ${userData.currency[0] - cost} Slime Tokens.`,
-                        ephemeral: false
+                        ephemeral: true
                     });
                 }
 
@@ -513,7 +513,7 @@ module.exports = {
                             `:tickets: Third Ticket (2500 Slime Tokens): High reward chance\n` +
                             `:tickets: Fourth Ticket (5000 Slime Tokens): Premium reward chance\n` +
                             `:tickets: Fifth+ Ticket (10000 Slime Tokens): Ultimate reward chance\n` +
-                            `:tickets: Special Gift Ticket: Exclusive reward chance`,
+                            `:tickets: Gift Ticket: Exclusive reward chance`,
                         ephemeral: true
                     });
                 }

@@ -75,7 +75,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     };
 
                     // Create unique key for this claim
-                    const claimKey = `${cardClaimed.claimedID}-${cardClaimed.cardID}-${cardClaimed.timestamp}-${cardClaimed.userID}-${cardClaimed.serverID}`;
+                    const claimKey = `${cardClaimed.cardID}-${cardClaimed.timestamp}-${cardClaimed.userID}-${cardClaimed.serverID}`;
 
                     // Check if we've already processed this claim recently
                     if (processedClaims.has(claimKey)) {
