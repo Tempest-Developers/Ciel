@@ -155,8 +155,8 @@ module.exports = {
 
             if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
                 leaderboardText = top10.map((data, index) => {
-                    return `${index + 1}. <@${data.userId}>\n` +
-                           `⭐ SP: ${data.SP} | 🌟 LP: ${data.LP} | 💫 MP: ${data.MP} | ✨ HP: ${data.HP}\n` +
+                    return `${index + 1}. <@${data.userId}>` +
+                           `⭐SP:${data.SP}|🌟LP:${data.LP}|💫MP:${data.MP}|✨HP:${data.HP}` +
                            `Total: ${data.total}\n`;
                 }).join('\n');
             } else {
@@ -175,11 +175,11 @@ module.exports = {
             if (userRank > 0 && userData) {  // Only add user stats if they exist in the data
                 let userStats;
                 if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
-                    userStats = `Your Stats:\n` +
-                               `⭐ SP: ${userData.SP} | 🌟 LP: ${userData.LP} | 💫 MP: ${userData.MP} | ✨ HP: ${userData.HP}\n` +
+                    userStats = `**Your Stats:**\n` +
+                               `⭐SP:**${userData.SP}** |🌟LP:**${userData.LP}** |💫MP:**${userData.MP}** |✨HP:**${userData.HP}**\n` +
                                `Total: ${userData.total} | Rank: #${userRank}/${leaderboardData.length}`;
                 } else {
-                    userStats = `Your Claims: ${userData.count} | Your Rank: #${userRank}/${leaderboardData.length}`;
+                    userStats = `Your Claims: **${userData.count}** | Your Rank: #**${userRank}**/**${leaderboardData.length}**`;
                 }
                 embed.addFields({ name: 'Your Statistics', value: userStats });
             }

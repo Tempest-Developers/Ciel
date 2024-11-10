@@ -11,6 +11,9 @@ const USER_COOLDOWN = 10; // 10 seconds for regular users
 // Nuke confirmation tracking
 const nukeConfirmations = new Collection();
 
+// Buy confirmations tracking
+const buyConfirmations = new Collection();
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('gate')
@@ -252,9 +255,11 @@ module.exports = {
                 { name: 'Ticket Information', value:
                     '• Earn 0-10 tokens from claiming cards\n' +
                     '• Maximum balance: 25,000 tokens\n' +
-                    '• First ticket costs 500 tokens\n' +
-                    '• Ticket price increases after each purchase\n' +
-                    '• Maximum ticket price: 10,000 tokens\n' +
+                    '• token-500: 500 tokens\n' +
+                    '• token-1000: 1,000 tokens\n' +
+                    '• token-2500: 2,500 tokens\n' +
+                    '• token-5000: 5,000 tokens\n' +
+                    '• token-10000: 10,000 tokens\n' +
                     '• Special Gift Ticket: 10,000 tokens', inline: false }
             );
 
@@ -372,7 +377,7 @@ module.exports = {
                     const nextPrice = getNextTicketPrice(tickets);
                     
                     return interaction.reply({
-                        content: `${userToCheck.username}'s tickets:\n:tickets: ${tickets.length > 0 ? tickets.join(', ') : 'None'}\n<:Slime_Token:1304929154285703179> ${tokens} Slime Token\nNext ticket price: ${nextPrice} tokens`,
+                        content: `${userToCheck.username}'s tickets:\n:tickets: ${tickets.length > 0 ? tickets.map(t => t.replace(/(\d+) Ticket/, 'token-$1')).join(', ') : 'None'}\n<:Slime_Token:1304929154285703179> ${tokens} Slime Token\nNext ticket price: ${nextPrice} tokens`,
                         ephemeral: true
                     });
                 }
@@ -390,20 +395,77 @@ module.exports = {
                         });
                     }
 
-                    // Update user's tokens and add ticket
-                    await mGateDB.updateOne(
-                        { userID: interaction.user.id },
-                        {
-                            $inc: { 'currency.0': -ticketCost },
-                            $push: { tickets: `${ticketCost} Ticket` }
-                        }
-                    );
+                    const confirmButton = new ButtonBuilder()
+                        .setCustomId('buy_confirm')
+                        .setLabel(`Buy token-${ticketCost}`)
+                        .setStyle(ButtonStyle.Primary);
 
-                    const nextPrice = getNextTicketPrice([...tickets, `${ticketCost} Ticket`]);
-                    return interaction.reply({
-                        content: `✅ Successfully purchased a ${ticketCost} Token Ticket! Your new balance is ${currentTokens - ticketCost} tokens.\nNext ticket will cost: ${nextPrice} tokens`,
+                    const cancelButton = new ButtonBuilder()
+                        .setCustomId('buy_cancel')
+                        .setLabel('Cancel')
+                        .setStyle(ButtonStyle.Secondary);
+
+                    const row = new ActionRowBuilder()
+                        .addComponents(confirmButton, cancelButton);
+
+                    const response = await interaction.reply({
+                        content: `Are you sure you want to buy token-${ticketCost} for ${ticketCost} tokens?`,
+                        components: [row],
                         ephemeral: true
                     });
+
+                    // Create collector for buttons
+                    const collector = response.createMessageComponentCollector({
+                        filter: i => i.user.id === interaction.user.id,
+                        time: 30000 // 30 seconds
+                    });
+
+                    collector.on('collect', async i => {
+                        if (i.customId === 'buy_cancel') {
+                            await i.update({
+                                content: '❌ Purchase cancelled.',
+                                components: []
+                            });
+                            collector.stop();
+                        }
+                        else if (i.customId === 'buy_confirm') {
+                            // Verify tokens again in case they were spent elsewhere
+                            const updatedUserData = await mGateDB.findOne({ userID: interaction.user.id });
+                            if (updatedUserData.currency[0] < ticketCost) {
+                                await i.update({
+                                    content: `❌ You don't have enough tokens! You need ${ticketCost} tokens but only have ${updatedUserData.currency[0]}.`,
+                                    components: []
+                                });
+                                return;
+                            }
+
+                            // Update user's tokens and add ticket
+                            await mGateDB.updateOne(
+                                { userID: interaction.user.id },
+                                {
+                                    $inc: { 'currency.0': -ticketCost },
+                                    $push: { tickets: `${ticketCost} Ticket` }
+                                }
+                            );
+
+                            const nextPrice = getNextTicketPrice([...tickets, `${ticketCost} Ticket`]);
+                            await i.update({
+                                content: `✅ Successfully purchased token-${ticketCost}! Your new balance is ${updatedUserData.currency[0] - ticketCost} tokens.\nNext ticket will cost: ${nextPrice} tokens`,
+                                components: []
+                            });
+                        }
+                    });
+
+                    collector.on('end', collected => {
+                        if (collected.size === 0) {
+                            interaction.editReply({
+                                content: '❌ Purchase cancelled - timed out.',
+                                components: []
+                            });
+                        }
+                    });
+
+                    return;
                 }
 
                 case 'gift': {
@@ -440,11 +502,11 @@ module.exports = {
                 case 'giveaway': {
                     return interaction.reply({
                         content: `🎉 Current Giveaway Rewards:\n\n` +
-                            `:tickets: 500 Token Ticket: Basic reward chance\n` +
-                            `:tickets: 1000 Token Ticket: Improved reward chance\n` +
-                            `:tickets: 2500 Token Ticket: High reward chance\n` +
-                            `:tickets: 5000 Token Ticket: Premium reward chance\n` +
-                            `:tickets: 10000 Token Ticket: Ultimate reward chance\n` +
+                            `:tickets: token-500: Basic reward chance\n` +
+                            `:tickets: token-1000: Improved reward chance\n` +
+                            `:tickets: token-2500: High reward chance\n` +
+                            `:tickets: token-5000: Premium reward chance\n` +
+                            `:tickets: token-10000: Ultimate reward chance\n` +
                             `:tickets: Special Gift Ticket: Exclusive reward chance`,
                         ephemeral: true
                     });

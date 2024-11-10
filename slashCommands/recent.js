@@ -85,7 +85,7 @@ module.exports = {
               const unixTime = Math.floor(new Date(claim.timestamp).getTime() / 1000);
               const ownerName = claim.owner || 'Unknown Owner';
               // Add index+1 to show clear ordering from top to bottom
-              return `${index + 1}. ${getTierEmoji(claim.tier)} #**${claim.print}** • **${claim.cardName}** \t • <t:${unixTime}:R> \t • *${ownerName}*`;
+              return `${index + 1}. ${getTierEmoji(claim.tier)} #*${claim.print}*•**${claim.cardName}** \t•<t:${unixTime}:R>•*${ownerName}*`;
             })
             .join('\n');
           embed.setDescription(description);
