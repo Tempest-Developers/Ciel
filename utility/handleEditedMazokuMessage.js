@@ -18,8 +18,8 @@ setInterval(() => {
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
-        // Check if edit is from exempt bot and in Gate Guild
-        if (oldMessage.author.id !== exemptBotId || newMessage.guild.id !== GATE_GUILD) {
+        // Check if edit is from exempt bot
+        if (oldMessage.author.id !== exemptBotId) {
             return;
         }
 
@@ -36,18 +36,23 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             return;
         }
 
+        const guildId = newMessage.guild.id;
+
         // Get server data for settings check
-        let serverData = await client.database.getServerData(GATE_GUILD);
+        let serverData = await client.database.getServerData(guildId);
         if (!serverData) {
-            await client.database.createServer(GATE_GUILD);
-            serverData = await client.database.getServerData(GATE_GUILD);
+            await client.database.createServer(guildId);
+            serverData = await client.database.getServerData(guildId);
         }
 
-        // Get Gate server data for economy/tracking settings
-        let gateServerData = await client.database.mGateServerDB.findOne({ serverID: GATE_GUILD });
-        if (!gateServerData) {
-            await client.database.createGateServer(GATE_GUILD);
+        // Get Gate server data only if in Gate guild (for economy features)
+        let gateServerData;
+        if (guildId === GATE_GUILD) {
             gateServerData = await client.database.mGateServerDB.findOne({ serverID: GATE_GUILD });
+            if (!gateServerData) {
+                await client.database.createGateServer(GATE_GUILD);
+                gateServerData = await client.database.mGateServerDB.findOne({ serverID: GATE_GUILD });
+            }
         }
 
         // Process embed fields for claims
@@ -56,7 +61,6 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
                 if (match) {
                     const userId = await findUserId(client, field.name.split(" ")[2]);
-                    const guildId = newMessage.guild.id;
 
                     // Validate tier is one of CT, RT, SRT, SSRT
                     const tier = match[1];
@@ -101,13 +105,18 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                         }
 
                         // Add claim to database if card tracking is enabled
-                        if (gateServerData.cardTrackingEnabled !== false) {  // Default to enabled if not set
+                        // For Gate guild, check gateServerData settings, for other guilds always track
+                        const shouldTrackCards = guildId === GATE_GUILD 
+                            ? gateServerData.cardTrackingEnabled !== false
+                            : true;
+
+                        if (shouldTrackCards) {
                             await client.database.addClaim(guildId, userId, cardClaimed);
                             console.log(`Updated ${userId} - ${cardClaimed.owner} player | Server ${guildId} - ${newMessage.guild.name} Database`);
                         }
 
-                        // Handle economy rewards if economy is enabled
-                        if (gateServerData.economyEnabled) {
+                        // Handle economy rewards only for Gate guild
+                        if (guildId === GATE_GUILD && gateServerData.economyEnabled) {
                             // Add token reward
                             let userData = await client.database.mGateDB.findOne({ userID: userId });
                             if (!userData) {
