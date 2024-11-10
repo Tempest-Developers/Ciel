@@ -7,12 +7,6 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('mystats')
         .setDescription('Shows server or user stats')
-        .addUserOption(option =>
-            option
-                .setName('user')
-                .setDescription('User to check stats for')
-                .setRequired(false)
-        )
         .addStringOption(option =>
             option
                 .setName('category')
@@ -26,6 +20,12 @@ module.exports = {
                     { name: 'Tier Claim Times', value: 'tier_times' },
                     { name: 'Print Claim Times', value: 'print_times' }
                 )
+        )
+        .addUserOption(option =>
+            option
+                .setName('user')
+                .setDescription('User to check stats for')
+                .setRequired(false)
         ),
           
     async execute(interaction, { database }) {
