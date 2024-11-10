@@ -92,18 +92,26 @@ module.exports = {
         } catch (error) {
             console.error('Command execution error:', error);
             
+            const errorMessage = 'There was an error while executing this command!';
+            
             try {
-                if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ 
-                        content: 'There was an error while executing this command!', 
-                        ephemeral: true 
-                    });
-                } else if (interaction.deferred) {
+                // Check the interaction state and respond appropriately
+                if (interaction.deferred) {
+                    // If the interaction was deferred, edit the deferred reply
                     await interaction.editReply({
-                        content: 'There was an error while executing this command!',
+                        content: errorMessage,
+                        ephemeral: true
+                    });
+                } else if (!interaction.replied) {
+                    // If the interaction hasn't been replied to at all, send a new reply
+                    await interaction.reply({
+                        content: errorMessage,
+                        ephemeral: true
                     });
                 }
+                // If the interaction was already replied to, we don't need to do anything
             } catch (replyError) {
+                // If we fail to send the error message, log it but don't throw
                 console.error('Failed to send error message:', replyError);
             }
         }

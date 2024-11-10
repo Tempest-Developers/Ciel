@@ -20,8 +20,11 @@ module.exports = {
                     { name: 'Print Claim Times', value: 'printtimes' }
                 )),
     async execute(interaction, { database }) {
+        let hasDeferred = false;
         try {
             await interaction.deferReply();
+            hasDeferred = true;
+            
             const guildId = interaction.guild.id;
             const statType = interaction.options.getString('type');
 
@@ -247,14 +250,23 @@ module.exports = {
                     break;
             }
 
-            await interaction.editReply({ embeds: [embed] });
+            return await interaction.editReply({ embeds: [embed] });
 
         } catch (error) {
             console.error('Error in serverstats command:', error);
-            await interaction.editReply({
-                content: 'An error occurred while fetching server stats.',
-                ephemeral: true
-            });
+            
+            if (!hasDeferred) {
+                await interaction.reply({
+                    content: 'An error occurred while fetching server stats.',
+                    ephemeral: true
+                });
+            } else {
+                await interaction.editReply({
+                    content: 'An error occurred while fetching server stats.',
+                    ephemeral: true
+                });
+            }
+            throw error; // Re-throw to be caught by the global handler
         }
     },
 };
