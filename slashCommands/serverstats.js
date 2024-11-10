@@ -61,19 +61,23 @@ module.exports = {
                 return combo1Score > combo2Score;
             };
 
-            // Calculate tier counts directly from the database
-            const tierCounts = {
-                CT: 0,
-                RT: 0,
-                SRT: 0,
-                SSRT: 0
+            // Map array indices to tier names
+            const tierMap = {
+                0: 'CT',
+                1: 'RT',
+                2: 'SRT',
+                3: 'SSRT',
+                4: 'SSRT+',
+                5: 'SSRT++',
             };
 
-            for (const tier in mServerDB.counts || {}) {
-                if (tierCounts.hasOwnProperty(tier)) {
-                    tierCounts[tier] = mServerDB.counts[tier] || 0;
-                }
-            }
+            // Calculate tier counts from the array
+            const tierCounts = {
+                CT: mServerDB.counts[0] || 0,
+                RT: mServerDB.counts[1] || 0,
+                SRT: mServerDB.counts[2] || 0,
+                SSRT: (mServerDB.counts[3] || 0) + (mServerDB.counts[4] || 0) + (mServerDB.counts[5] || 0), // Combine SSRT tiers
+            };
 
             for (const tier in mServerDB.claims) {
                 for (const claim of mServerDB.claims[tier] || []) {
