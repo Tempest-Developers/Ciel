@@ -8,6 +8,12 @@ const GIVEAWAY_CHANNEL = '1245303055004733460';
 module.exports = {
     name: 'messageCreate',
     async execute(message, { database }) {
+        // Skip if no database
+        if (!database || !database.mGiveawayDB) {
+            console.error('Database or mGiveawayDB not available');
+            return;
+        }
+
         const now = Date.now();
         if (now - lastCheck < CHECK_INTERVAL) {
             return;
@@ -15,10 +21,8 @@ module.exports = {
         lastCheck = now;
 
         try {
-            const { mGiveawayDB } = database;
-            
             // Find active giveaways that have ended
-            const endedGiveaways = await mGiveawayDB.find({
+            const endedGiveaways = await database.mGiveawayDB.find({
                 active: true,
                 timestamp: { $lt: new Date() }
             }).toArray();
@@ -26,7 +30,7 @@ module.exports = {
             for (const giveaway of endedGiveaways) {
                 // Skip if no participants
                 if (!giveaway.users || giveaway.users.length === 0) {
-                    await mGiveawayDB.updateOne(
+                    await database.mGiveawayDB.updateOne(
                         { giveawayID: giveaway.giveawayID },
                         { $set: { active: false } }
                     );
@@ -78,14 +82,14 @@ module.exports = {
                     await channel.send({ embeds: [embed] });
 
                     // Mark giveaway as inactive
-                    await mGiveawayDB.updateOne(
+                    await database.mGiveawayDB.updateOne(
                         { giveawayID: giveaway.giveawayID },
                         { $set: { active: false } }
                     );
                 } catch (error) {
                     console.error('Error fetching item data:', error);
                     // Still mark giveaway as inactive even if API call fails
-                    await mGiveawayDB.updateOne(
+                    await database.mGiveawayDB.updateOne(
                         { giveawayID: giveaway.giveawayID },
                         { $set: { active: false } }
                     );

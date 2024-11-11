@@ -7,12 +7,14 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ADMINISTRATOR | PermissionFlagsBits.MANAGE_ROLES | PermissionFlagsBits.MANAGE_MESSAGES),
 
     async execute(interaction) {
-        return await interaction.reply({
-            content: 'Command unavailable for this server.',
-            ephemeral: true
-        });
         try {
             const guildId = interaction.guild.id;
+            if(guildID!="1240866080985976844"){
+                return await interaction.reply({
+                    content: 'Command unavailable for this server.',
+                    ephemeral: true
+                });
+            }
             
             // Get server settings using the correct property name
             let serverData = await interaction.client.database.serverSettings.findOne({ serverID: guildId });

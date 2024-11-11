@@ -32,7 +32,9 @@ async function initializeDatabase(retries = 5, delay = 5000) {
                 mUserDB, 
                 mServerSettingsDB, 
                 mGateDB, 
-                mGateServerDB 
+                mGateServerDB,
+                mCommandLogsDB,
+                mGiveawayDB
             } = await db.connectDB();
 
             // Make database collections and methods accessible throughout the bot
@@ -44,7 +46,9 @@ async function initializeDatabase(retries = 5, delay = 5000) {
                 users: mUserDB,
                 serverSettings: mServerSettingsDB,
                 mGateDB,
-                mGateServerDB
+                mGateServerDB,
+                mCommandLogsDB,
+                mGiveawayDB
             };
             
             console.log('Database initialization successful');
@@ -90,7 +94,7 @@ for (const file of eventFiles) {
                 if (!args[0].guild) return;
                 const serverExist = await client.database.getServerSettings(args[0].guild.id);
                 if(!serverExist) await client.database.createServerSettings(args[0].guild.id);
-                await event.execute(client, ...args);
+                await event.execute(...args, { database: client.database });
             } catch (error) {
                 console.error(`Error in event ${event.name}:`, error);
             }
@@ -98,10 +102,14 @@ for (const file of eventFiles) {
     } else {
         client.on(event.name, async (...args) => {
             try {
-                if (!args[0].guild) return;
-                const serverExist = await client.database.getServerSettings(args[0].guild.id);
-                if(!serverExist) await client.database.createServerSettings(args[0].guild.id);
-                await event.execute(client, ...args);
+                if (event.name === 'messageCreate') {
+                    await event.execute(...args, { database: client.database });
+                } else {
+                    if (!args[0].guild) return;
+                    const serverExist = await client.database.getServerSettings(args[0].guild.id);
+                    if(!serverExist) await client.database.createServerSettings(args[0].guild.id);
+                    await event.execute(...args, { database: client.database });
+                }
             } catch (error) {
                 console.error(`Error in event ${event.name}:`, error);
             }
