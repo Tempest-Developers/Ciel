@@ -8,16 +8,11 @@ const client = new MongoClient(uri, {
         strict: true,
         deprecationErrors: true,
     },
-    // Add connection stability options
+    // Updated connection options to use only supported options
     connectTimeoutMS: 10000,
     socketTimeoutMS: 45000,
-    waitQueueTimeoutMS: 10000,
-    retryWrites: true,
-    keepAlive: true,
     maxPoolSize: 50,
-    minPoolSize: 5,
-    maxIdleTimeMS: 120000,
-    retryReads: true
+    minPoolSize: 5
 });
 
 let mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB;
@@ -30,23 +25,20 @@ async function connectDB() {
 
     try {
         // Add connection event listeners
-        client.on('connectionReady', () => {
-            console.log('MongoDB connection ready');
-            isConnected = true;
+        client.on('serverDescriptionChanged', () => {
+            console.log('MongoDB server description changed');
         });
 
-        client.on('close', () => {
-            console.log('MongoDB connection closed');
+        client.on('serverHeartbeatFailed', () => {
+            console.log('MongoDB server heartbeat failed');
             isConnected = false;
             // Attempt to reconnect after a delay
             setTimeout(reconnect, 5000);
         });
 
-        client.on('error', (err) => {
-            console.error('MongoDB connection error:', err);
-            if (!isConnected) {
-                setTimeout(reconnect, 5000);
-            }
+        client.on('serverHeartbeatSucceeded', () => {
+            console.log('MongoDB server heartbeat succeeded');
+            isConnected = true;
         });
 
         await client.connect();
