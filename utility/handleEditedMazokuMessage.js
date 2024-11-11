@@ -135,7 +135,6 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         // Send initial countdown message if this is the first time seeing this message
         if (!processedEdits.has(messageId)) {
             processedEdits.set(messageId, Date.now());
-            console.log("Claim Time Detected")
 
             // Create base embed with countdown
             const countdownEmbed = {
@@ -152,7 +151,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             let roleContent = '';
             let roleId = null;
 
-            if(newEmbed.image) console.log("Image Exist in embed")
+            if(newEmbed.image){
+                console.log("Image Exist in embed")
+                console.log(newEmbed.image.url.includes('cdn.mazoku.cc/packs'))
+            }
 
             if (newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
                 const urlParts = newEmbed.image.url.split('/');
