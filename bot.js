@@ -23,31 +23,40 @@ client.commands = new Collection();
 client.slashCommands = new Collection();
 client.config = require('./config.json');
 
-// Initialize database connection
-async function initializeDatabase() {
-    try {
-        const { 
-            mServerDB, 
-            mUserDB, 
-            mServerSettingsDB, 
-            mGateDB, 
-            mGateServerDB 
-        } = await db.connectDB();
+// Initialize database connection with retry logic
+async function initializeDatabase(retries = 5, delay = 5000) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const { 
+                mServerDB, 
+                mUserDB, 
+                mServerSettingsDB, 
+                mGateDB, 
+                mGateServerDB 
+            } = await db.connectDB();
 
-        // Make database collections and methods accessible throughout the bot
-        client.database = {
-            // Spread database methods first
-            ...db,
-            // Then set specific collections so they don't get overwritten
-            servers: mServerDB,
-            users: mUserDB,
-            serverSettings: mServerSettingsDB,
-            mGateDB,
-            mGateServerDB
-        };
-    } catch (err) {
-        console.error('Failed to connect to database:', err);
-        process.exit(1); // Exit if database connection fails
+            // Make database collections and methods accessible throughout the bot
+            client.database = {
+                // Spread database methods first
+                ...db,
+                // Then set specific collections so they don't get overwritten
+                servers: mServerDB,
+                users: mUserDB,
+                serverSettings: mServerSettingsDB,
+                mGateDB,
+                mGateServerDB
+            };
+            
+            console.log('Database initialization successful');
+            return true;
+        } catch (err) {
+            console.error(`Database initialization attempt ${attempt} failed:`, err);
+            if (attempt === retries) {
+                console.error('All database connection attempts failed');
+                return false;
+            }
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
     }
 }
 
@@ -69,7 +78,7 @@ for (const file of slashCommandFiles) {
     client.slashCommands.set(command.data.name, command);
 }
 
-// Event Handler
+// Event Handler with improved error handling
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 
@@ -77,26 +86,77 @@ for (const file of eventFiles) {
     const event = require(path.join(eventsPath, file));
     if (event.once) {
         client.once(event.name, async (...args) => {
-            const serverExist = await client.database.getServerSettings(args[0].guild.id)
-            if(!serverExist) client.database.createServerSettings(args[0].guild.id)
-            if (!args[0].guild) return;
-            event.execute(client,...args);
+            try {
+                if (!args[0].guild) return;
+                const serverExist = await client.database.getServerSettings(args[0].guild.id);
+                if(!serverExist) await client.database.createServerSettings(args[0].guild.id);
+                await event.execute(client, ...args);
+            } catch (error) {
+                console.error(`Error in event ${event.name}:`, error);
+            }
         });
     } else {
         client.on(event.name, async (...args) => {
-            const serverExist = await client.database.getServerSettings(args[0].guild.id)
-            if(!serverExist) client.database.createServerSettings(args[0].guild.id)
-            if (!args[0].guild) return;
-            event.execute(client,...args);
+            try {
+                if (!args[0].guild) return;
+                const serverExist = await client.database.getServerSettings(args[0].guild.id);
+                if(!serverExist) await client.database.createServerSettings(args[0].guild.id);
+                await event.execute(client, ...args);
+            } catch (error) {
+                console.error(`Error in event ${event.name}:`, error);
+            }
         });
     }
 }
 
-// Initialize database before logging in
-initializeDatabase().then(() => {
-    // Use TOKEN_TEST for development
-    client.login(BOT_TOKEN);
-}).catch(err => {
-    console.error('Failed to initialize bot:', err);
-    process.exit(1);
+// Discord client error handling
+client.on('error', error => {
+    console.error('Discord client error:', error);
 });
+
+client.on('disconnect', () => {
+    console.log('Bot disconnected from Discord');
+});
+
+client.on('reconnecting', () => {
+    console.log('Bot reconnecting to Discord');
+});
+
+client.on('warn', info => {
+    console.log('Warning:', info);
+});
+
+// Initialize database and start bot
+async function startBot() {
+    try {
+        const dbInitialized = await initializeDatabase();
+        if (!dbInitialized) {
+            console.error('Failed to initialize database. Exiting...');
+            process.exit(1);
+        }
+
+        await client.login(BOT_TOKEN);
+        console.log('Bot successfully logged in to Discord');
+    } catch (error) {
+        console.error('Error starting bot:', error);
+        process.exit(1);
+    }
+}
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    console.log('Received SIGINT. Cleaning up...');
+    try {
+        await client.destroy();
+        process.exit(0);
+    } catch (error) {
+        console.error('Error during cleanup:', error);
+        process.exit(1);
+    }
+});
+
+process.on('unhandledRejection', error => {
+    console.error('Unhandled promise rejection:', error);
+});
+
+startBot();
