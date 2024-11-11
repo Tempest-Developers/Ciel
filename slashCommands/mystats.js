@@ -3,6 +3,9 @@ const getTierEmoji = require('../utility/getTierEmoji');
 const getLoadBar = require('../utility/getLoadBar');
 const { enrichClaimWithCardData } = require('../utility/cardAPI');
 
+// Create a cooldown collection
+const cooldowns = new Map();
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('mystats')
@@ -30,11 +33,29 @@ module.exports = {
           
     async execute(interaction, { database }) {
         try {
+            // Check cooldown
+            const userId = interaction.user.id;
+            const guildId = interaction.guild.id;
+            const cooldownKey = `${userId}-${guildId}`;
+            const cooldownAmount = 5000; // 5 seconds in milliseconds
+
+            if (cooldowns.has(cooldownKey)) {
+                const expirationTime = cooldowns.get(cooldownKey);
+                const now = Date.now();
+                
+                if (now < expirationTime) {
+                    const timeLeft = (expirationTime - now) / 1000;
+                    return await interaction.reply({
+                        content: `Please wait ${timeLeft.toFixed(1)} more seconds before using this command again.`,
+                        ephemeral: true
+                    });
+                }
+            }
+
             await interaction.deferReply();
 
             const targetUser = interaction.options.getUser('user') || interaction.user;
             const category = interaction.options.getString('category');
-            const guildId = interaction.guild.id;
 
             // Get server settings to check if stats are allowed
             const serverSettings = await database.getServerSettings(guildId);
@@ -289,6 +310,12 @@ module.exports = {
             }
 
             await interaction.editReply({ embeds: [embed] });
+
+            // Set cooldown
+            cooldowns.set(cooldownKey, Date.now() + cooldownAmount);
+
+            // Clean up expired cooldowns
+            setTimeout(() => cooldowns.delete(cooldownKey), cooldownAmount);
 
         } catch (error) {
             console.error('Error in stats command:', error);

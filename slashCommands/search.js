@@ -1,5 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require('discord.js');
 
+// Add cooldown system
+const cooldowns = new Map();
+const COOLDOWN_DURATION = 30000; // 30 seconds in milliseconds
+
 let cachedCards = null;
 let cacheTimestamp = 0;
 let cachedFilteredResults = new Map();
@@ -121,6 +125,23 @@ module.exports = {
     },
 
     async execute(interaction) {
+        // Add cooldown check
+        const { user } = interaction;
+        if (cooldowns.has(user.id)) {
+            const expirationTime = cooldowns.get(user.id);
+            if (Date.now() < expirationTime) {
+                const timeLeft = (expirationTime - Date.now()) / 1000;
+                return await interaction.reply({ 
+                    content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
+                    ephemeral: true 
+                });
+            }
+        }
+
+        // Set cooldown
+        cooldowns.set(user.id, Date.now() + COOLDOWN_DURATION);
+        setTimeout(() => cooldowns.delete(user.id), COOLDOWN_DURATION);
+
         await interaction.deferReply();
         
         try {

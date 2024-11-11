@@ -1,6 +1,10 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const getTierEmoji = require('../utility/getTierEmoji');
 
+// Add cooldown system
+const cooldowns = new Map();
+const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
@@ -35,8 +39,7 @@ module.exports = {
                             { name: 'Super Print (1-10)', value: 'SP' },
                             { name: 'Low Print (11-99)', value: 'LP' },
                             { name: 'Mid Print (100-499)', value: 'MP' },
-                            { name: 'High Print (500-1000)', value: 'HP' },
-                            // { name: 'All Prints', value: 'ALL' }
+                            { name: 'High Print (500-1000)', value: 'HP' }
                         )
                 )
         )
@@ -47,10 +50,29 @@ module.exports = {
         ),
 
     async execute(interaction, { database }) {
+        // Add cooldown check
+        const guildId = interaction.guild.id;
+        const userId = interaction.user.id;
+        const cooldownKey = `${guildId}-${userId}`;
+        
+        if (cooldowns.has(cooldownKey)) {
+            const expirationTime = cooldowns.get(cooldownKey);
+            if (Date.now() < expirationTime) {
+                const timeLeft = (expirationTime - Date.now()) / 1000;
+                return await interaction.reply({ 
+                    content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
+                    ephemeral: true 
+                });
+            }
+        }
+
+        // Set cooldown
+        cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
+        setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
+
         await interaction.deferReply();
 
         try {
-            const guildId = interaction.guild.id;
             const subcommand = interaction.options.getSubcommand();
 
             // Get all users in the server from database
@@ -171,7 +193,6 @@ module.exports = {
             embed.addFields({ name: 'Rankings', value: leaderboardText || 'No data available' });
 
             // Add user's rank if they exist in the data
-            const userId = interaction.user.id;
             const userRank = leaderboardData.findIndex(data => data.userId === userId) + 1;
             const userData = leaderboardData.find(data => data.userId === userId);
 

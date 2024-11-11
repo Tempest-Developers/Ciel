@@ -3,6 +3,10 @@ const getTierEmoji = require('../utility/getTierEmoji');
 const getLoadBar = require('../utility/getLoadBar');
 const { enrichClaimWithCardData } = require('../utility/cardAPI');
 
+// Add cooldown system
+const cooldowns = new Map();
+const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('server')
@@ -20,12 +24,31 @@ module.exports = {
                     { name: 'Print Claim Times', value: 'printtimes' }
                 )),
     async execute(interaction, { database }) {
+        // Add cooldown check
+        const guildId = interaction.guild.id;
+        const userId = interaction.user.id;
+        const cooldownKey = `${guildId}-${userId}`;
+        
+        if (cooldowns.has(cooldownKey)) {
+            const expirationTime = cooldowns.get(cooldownKey);
+            if (Date.now() < expirationTime) {
+                const timeLeft = (expirationTime - Date.now()) / 1000;
+                return await interaction.reply({ 
+                    content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
+                    ephemeral: true 
+                });
+            }
+        }
+
+        // Set cooldown
+        cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
+        setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
+
         let hasDeferred = false;
         try {
             await interaction.deferReply();
             hasDeferred = true;
             
-            const guildId = interaction.guild.id;
             const statType = interaction.options.getString('type');
 
             // Get all server claims
@@ -266,7 +289,7 @@ module.exports = {
                     ephemeral: true
                 });
             }
-            throw error; // Re-throw to be caught by the global handler
+            throw error;
         }
     },
 };

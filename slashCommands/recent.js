@@ -4,6 +4,7 @@ require('dotenv').config();
 const getTierEmoji = require('../utility/getTierEmoji');
 
 const cooldowns = new Map();
+const COOLDOWN_DURATION = 5000; // Changed from 60000 to 5000 (5 seconds)
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,20 +18,20 @@ module.exports = {
 
       // Cooldown check
       const { user } = interaction;
-      const cooldownTime = 60000; // 1 minute in milliseconds
+      const guildId = interaction.guild.id;
       
-      if (!cooldowns.has(interaction.guild.id)) {
-        cooldowns.set(interaction.guild.id, new Map());
+      if (!cooldowns.has(guildId)) {
+        cooldowns.set(guildId, new Map());
       }
       
-      const guildCooldowns = cooldowns.get(interaction.guild.id);
+      const guildCooldowns = cooldowns.get(guildId);
       
       if (guildCooldowns.has(user.id)) {
-        const expirationTime = guildCooldowns.get(user.id) + cooldownTime;
+        const expirationTime = guildCooldowns.get(user.id) + COOLDOWN_DURATION;
         if (Date.now() < expirationTime) {
-          const timeLeft = Math.ceil((expirationTime - Date.now()) / 1000);
+          const timeLeft = (expirationTime - Date.now()) / 1000;
           return await interaction.editReply({ 
-            content: `Please wait <t:${timeLeft}:R> before using this command again.`,
+            content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
             ephemeral: true 
           });
         }
