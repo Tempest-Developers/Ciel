@@ -1,7 +1,7 @@
 require('dotenv').config();
 const findUserId = require('../utility/findUserId');
 const getTierEmoji = require('../utility/getTierEmoji');
-const fetch = require('node-fetch');
+const axios = require('axios');
 
 const GATE_GUILD = '1240866080985976844';
 
@@ -26,8 +26,8 @@ setInterval(() => {
 
 async function getCardInfo(cardId) {
     try {
-        const response = await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`);
-        const data = await response.json();
+        const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`);
+        const data = response.data;
         if (data && data.length > 0) {
             const card = data[0].card;
             return {
@@ -126,7 +126,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     const cardInfo = cardInfoResults[i];
                     if (cardInfo) {
                         const tierEmoji = getTierEmoji('T' + cardInfo.tier);
-                        const versions = await getAvailableVersions(await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardIds[i]}`).then(r => r.json()));
+                        const versions = await getAvailableVersions((await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardIds[i]}`)).data);
                         description += `${letters[i]}: **${cardInfo.name}** *${cardInfo.series}* ${tierEmoji} \`${versions.join(', ')}\`\n`;
                     }
                 }
