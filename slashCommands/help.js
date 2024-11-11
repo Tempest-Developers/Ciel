@@ -34,62 +34,52 @@ module.exports = {
             const helpEmbed = new EmbedBuilder()
                 .setTitle('Available Commands')
                 .setColor('#FFC0CB')
-                .setDescription('Here are the available commands you can use:')
+                .setDescription('Here are the available commands:')
                 .addFields(
                     {
                         name: '`/leaderboard`',
-                        value: 'View server leaderboards with multiple options:\n' +
-                               '• `/leaderboard tier` - Rankings by specific card tier (SSR, SR, R, C)\n' +
-                               '• `/leaderboard print` - Rankings by print ranges (#1-10, #11-50, #51-100, etc.)\n' +
-                               '• `/leaderboard total` - Overall claim rankings for all cards',
+                        value: 'View rankings by tier, print ranges, or total claims',
                         inline: false
                     },
                     {
                         name: '`/mystats`',
-                        value: 'View your personal card collection statistics:\n' +
-                               '• Total cards claimed\n' +
-                               '• Breakdown by tier (SSR to C)\n' +
-                               '• Print number ranges\n' +
-                               '• Collection completion status',
+                        value: 'View your card collection stats and completion status',
                         inline: false
                     },
                     {
                         name: '`/recent`',
-                        value: 'View recent card claims with filtering options:\n' +
-                               '• Filter by specific tier (SSR, SR, R, C)\n' +
-                               '• View claim timestamps\n' +
-                               '• See print numbers\n' +
-                               '• Check who claimed specific cards',
+                        value: 'View recent card claims with tier filters',
                         inline: false
                     },
                     {
                         name: '`/search`',
-                        value: 'Search for specific cards with advanced features:\n' +
-                               '• Autocomplete suggestions as you type\n' +
-                               '• Search by character name\n' +
-                               '• View card details including tier and availability\n' +
-                               '• Check claim status and ownership',
+                        value: 'Search cards by character name with autocomplete',
                         inline: false
                     },
                     {
                         name: '`/server`',
-                        value: 'View comprehensive server statistics:\n' +
-                               '• Total cards claimed on server\n' +
-                               '• Server-wide tier distribution\n' +
-                               '• Print number statistics\n' +
-                               '• Most active collectors\n' +
-                               '• Recent server activity',
+                        value: 'View server-wide card statistics and activity',
+                        inline: false
+                    },
+                    {
+                        name: '`/hightiertole`',
+                        value: 'Toggle notifications for high tier card drops',
+                        inline: false
+                    },
+                    {
+                        name: '🛡️ Admin Commands',
+                        value: '`/allowtierdisplay` - Toggle high tier role ping feature\n`/registerguild` - Register server for bot usage',
                         inline: false
                     }
                 )
-                .setFooter({ text: 'Use these commands to interact with the bot!' });
+                .setFooter({ text: '🛡️ = Requires Admin/Manage Server permission' });
 
-            await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [helpEmbed], ephemeral: false });
         } catch (error) {
             console.error('Error executing help command:', error);
             await interaction.reply({ 
                 content: 'An error occurred while showing the help information.',
-                ephemeral: false 
+                ephemeral: true 
             });
         }
     },

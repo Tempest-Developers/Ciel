@@ -74,6 +74,7 @@ async function getOrCreateHighTierRole(guild) {
 async function buildCardDescription(cardIds) {
     let hasHighTierCard = false;
     let description = '';
+    let lastTier = null;
     const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:'];
     
     // Get card info for all cards at once
@@ -86,12 +87,13 @@ async function buildCardDescription(cardIds) {
             if (cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
                 hasHighTierCard = true;
             }
+            lastTier = cardInfo.tier;
             const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
             description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n Lower Versions Available** ${cardInfo.versions.map(version => `*__${version}__*`).join(', ') || ""}**\n`;
         }
     }
     
-    return { description, hasHighTierCard, tier:cardInfo.tier };
+    return { description, hasHighTierCard, tier: lastTier };
 }
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
@@ -271,4 +273,4 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     } catch (error) {
         console.error('Error handling summon embed edit:', error);
     }
-};
+}
