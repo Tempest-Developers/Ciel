@@ -160,7 +160,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 
 
                 // Add description to embed
-                if (description) {
+                if (description && allowRolePing) {
                     countdownEmbed.description = description;
                 }
 
