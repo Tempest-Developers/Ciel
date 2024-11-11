@@ -10,23 +10,23 @@ module.exports = {
         try {
             const guildId = interaction.guild.id;
             
-            // Get server settings
-            let serverData = await interaction.client.database.mServerSettingsDB.findOne({ serverID: guildId });
+            // Get server settings using the correct property name
+            let serverData = await interaction.client.database.serverSettings.findOne({ serverID: guildId });
             
             if (!serverData) {
-                serverData = await interaction.client.database.mServerSettingsDB.insertOne({
+                serverData = await interaction.client.database.serverSettings.insertOne({
                     serverID: guildId,
                     settings: {
                         allowShowStats: true,
                         allowRolePing: false
                     }
                 });
-                serverData = await interaction.client.database.mServerSettingsDB.findOne({ serverID: guildId });
+                serverData = await interaction.client.database.serverSettings.findOne({ serverID: guildId });
             }
 
             // Toggle the setting
             const newValue = !serverData.settings.allowRolePing;
-            await interaction.client.database.mServerSettingsDB.updateOne(
+            await interaction.client.database.serverSettings.updateOne(
                 { serverID: guildId },
                 { $set: { 'settings.allowRolePing': newValue } }
             );
