@@ -149,7 +149,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             // Check if role pinging is enabled (only for GATE_GUILD)
             let roleContent = '';
             if (guildId === GATE_GUILD) {
-                const serverSettings = await client.database.mServerSettingsDB.findOne({ serverID: guildId });
+                const serverSettings = await client.database.serverSettings.findOne({ serverID: guildId });
                 if (serverSettings?.settings?.allowRolePing) {
                     const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
                     if (highTierRole) {
