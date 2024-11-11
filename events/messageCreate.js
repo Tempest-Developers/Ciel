@@ -3,7 +3,9 @@ const axios = require('axios');
 
 let lastCheck = 0;
 const CHECK_INTERVAL = 60000; // 1 minute in milliseconds
-const GIVEAWAY_CHANNEL = '1245303280599433256';
+const GUILD_CHANNELS = {
+    '1240866080985976844': '1245303280599433256' // Map of guild ID to channel ID
+};
 
 module.exports = {
     name: 'messageCreate',
@@ -77,9 +79,20 @@ module.exports = {
                         embed.addFields({ name: 'Event', value: '🎃' });
                     }
 
-                    // Send winner announcement
-                    const channel = await message.client.channels.fetch(GIVEAWAY_CHANNEL);
-                    await channel.send({ embeds: [embed] });
+                    // Send winner announcement to appropriate guild channels
+                    for (const [guildId, channelId] of Object.entries(GUILD_CHANNELS)) {
+                        try {
+                            const guild = await message.client.guilds.fetch(guildId);
+                            if (guild) {
+                                const channel = await guild.channels.fetch(channelId);
+                                if (channel) {
+                                    await channel.send({ embeds: [embed] });
+                                }
+                            }
+                        } catch (err) {
+                            console.error(`Error sending to guild ${guildId}:`, err);
+                        }
+                    }
 
                     // Mark giveaway as inactive
                     await database.mGiveawayDB.updateOne(
