@@ -3,7 +3,7 @@ const axios = require('axios');
 
 let lastCheck = 0;
 const CHECK_INTERVAL = 60000; // 1 minute in milliseconds
-const GIVEAWAY_CHANNEL = '1245303055004733460';
+const GIVEAWAY_CHANNEL = '1245303280599433256';
 
 module.exports = {
     name: 'messageCreate',
