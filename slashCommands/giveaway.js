@@ -97,29 +97,8 @@ module.exports = {
                             amount
                         );
 
-                        // Create embed for response
-                        const embed = new EmbedBuilder()
-                            .setColor('#0099ff')
-                            .setTitle('🎉 New Giveaway Created!')
-                            .addFields(
-                                { name: 'Item', value: itemData.card.name },
-                                { name: 'Series', value: itemData.card.series },
-                                { name: 'Tier', value: itemData.card.tier },
-                                { name: 'Level', value: level.toString() },
-                                { name: 'Tickets Required', value: amount.toString() },
-                                { name: 'Created By', value: `<@${interaction.user.id}>` }
-                            )
-                            .setImage(itemData.card.cardImageLink.replace('.png', ''))
-                            .setTimestamp();
-
-                        // Send to the guild's giveaway channel
-                        const giveawayChannel = await interaction.guild.channels.fetch(GUILD_CHANNELS[interaction.guild.id]);
-                        if (giveawayChannel) {
-                            await giveawayChannel.send({ embeds: [embed] });
-                        }
-
                         return interaction.reply({ 
-                            content: '✅ Giveaway created successfully!',
+                            content: `✅ Giveaway created successfully!\nGiveaway ID: ${giveaway.giveawayID}\nItem: ${itemData.card.name}`,
                             ephemeral: true 
                         });
                     } catch (error) {

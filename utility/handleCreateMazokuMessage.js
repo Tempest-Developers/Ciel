@@ -1,8 +1,6 @@
 const { DiscordAPIError, EmbedBuilder } = require('discord.js');
 
 const GATE_GUILD = '1240866080985976844';
-// Track users who type during countdown for each message
-const messageParticipants = new Map();
 
 module.exports = async (message, exemptBotId) => {
   try {
@@ -20,26 +18,8 @@ module.exports = async (message, exemptBotId) => {
     // Store the original message ID to track edits
     const originalMessageId = message.id;
 
-    // Calculate timestamps - This runs for all guilds
-    // const countdownTime = Math.floor(Date.now() / 1000) + 19;
-    // // Send countdown message
-    // const countdownMsg = await message.reply(`**Claim card <t:${countdownTime}:R> 📵**`);
-    // // Calculate the next summon time (2 minutes from now)
-    // const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
-    // Edit the countdown message after 19 seconds to show the next summon time
-    // setTimeout(async () => {
-    //   try {
-    //     await countdownMsg.edit(` **Next summon possible <t:${nextSummonTime}:R> 📵**`);
-    //   } catch (error) {
-    //     console.error('Error editing countdown message:', error);
-    //   }
-    // }, 19000);
-
     // Only setup token system for Gate guild
     if (message.guildId === GATE_GUILD) {
-      // Initialize participants array for this message
-      messageParticipants.set(message.id, new Set());
-
       // Set up message collector for 19 seconds
       const filter = m => !m.author.bot; // Collect messages from non-bots
       const collector = message.channel.createMessageCollector({ 
@@ -47,35 +27,29 @@ module.exports = async (message, exemptBotId) => {
         time: 19000 
       });
 
-      collector.on('collect', m => {
-        // Add user to participants for this message
-        const participants = messageParticipants.get(message.id);
-        if (participants) {
-          participants.add(m.author.id);
-        }
-      });
-
       collector.on('end', async collected => {
-        const participants = messageParticipants.get(message.id);
-        if (participants && participants.size > 0) {
+        if (collected.size > 0) {
           try {
-            // Get Gate server data
+            // Get Gate server data first
             const gateServerData = await message.client.database.mGateServerDB.findOne({ serverID: GATE_GUILD });
+            
+            // Check if economy is enabled
             if (!gateServerData || !gateServerData.economyEnabled) {
-              messageParticipants.delete(message.id);
+              console.log('Economy disabled or server data not found');
               return;
             }
 
-            // Convert Set to Array and randomly select a winner
-            const participantsArray = Array.from(participants);
-            const winnerID = participantsArray[Math.floor(Math.random() * participantsArray.length)];
+            // Get unique participants from collected messages
+            const participants = [...new Set(collected.map(m => m.author.id))];
+            
+            // Randomly select a winner
+            const winnerID = participants[Math.floor(Math.random() * participants.length)];
             
             // Generate token reward
             let tokenReward;
             let colorEmbed;
             const rand = Math.random() * 100;
 
-            // utility/handleCreateMazokuMessage.js (77-87)
             if (rand < 5) { // 5% chance of 0 tokens
                 tokenReward = 0;
                 colorEmbed = '#FF0000'; // Red
@@ -92,7 +66,6 @@ module.exports = async (message, exemptBotId) => {
                 tokenReward = 100;
                 colorEmbed = '#FF00FF'; // Magenta
             }
-
 
             if (tokenReward > 0) {
               // Get user data
@@ -120,17 +93,16 @@ module.exports = async (message, exemptBotId) => {
                   .setColor(colorEmbed)
                   .setTitle('🎉 Token Reward')
                   .setDescription(`<@${winnerID}> earned ${tokenReward} <:Slime_Token:1304929154285703179> for participating!`)
-                  .setFooter({ text: `${participants.size} users participated` });
+                  .setFooter({ text: `${participants.length} users participated` });
 
-                const rewardMsg = await message.channel.send({ embeds: [rewardEmbed] });
+                await message.channel.send({ embeds: [rewardEmbed] });
+                console.log(`Awarded ${tokenReward} tokens to user ${winnerID}`);
               }
             }
           } catch (error) {
             console.error('Error handling token reward:', error);
           }
         }
-        // Clean up participants map
-        messageParticipants.delete(message.id);
       });
     }
 
