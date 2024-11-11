@@ -27,13 +27,13 @@ module.exports = async (message, exemptBotId) => {
     // Calculate the next summon time (2 minutes from now)
     const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
     // Edit the countdown message after 19 seconds to show the next summon time
-    setTimeout(async () => {
-      try {
-        await countdownMsg.edit(` **Next summon possible <t:${nextSummonTime}:R> 📵**`);
-      } catch (error) {
-        console.error('Error editing countdown message:', error);
-      }
-    }, 19000);
+    // setTimeout(async () => {
+    //   try {
+    //     await countdownMsg.edit(` **Next summon possible <t:${nextSummonTime}:R> 📵**`);
+    //   } catch (error) {
+    //     console.error('Error editing countdown message:', error);
+    //   }
+    // }, 19000);
 
     // Only setup token system for Gate guild
     if (message.guildId === GATE_GUILD) {

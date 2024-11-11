@@ -1,10 +1,13 @@
 require('dotenv').config();
 const findUserId = require('../utility/findUserId');
+const getTierEmoji = require('../utility/getTierEmoji');
+const fetch = require('node-fetch');
 
 const GATE_GUILD = '1240866080985976844';
 
 // Use a Map to track processed claims with a TTL
 const processedClaims = new Map();
+const processedEdits = new Map();
 
 // Clean up old entries every hour
 setInterval(() => {
@@ -14,7 +17,58 @@ setInterval(() => {
             processedClaims.delete(key);
         }
     }
+    for (const [key, timestamp] of processedEdits.entries()) {
+        if (timestamp < oneHourAgo) {
+            processedEdits.delete(key);
+        }
+    }
 }, 60 * 60 * 1000);
+
+async function getCardInfo(cardId) {
+    try {
+        const response = await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`);
+        const data = await response.json();
+        if (data && data.length > 0) {
+            const card = data[0].card;
+            return {
+                name: card.name,
+                series: card.series,
+                tier: card.tier
+            };
+        }
+    } catch (error) {
+        console.error('Error fetching card info:', error);
+    }
+    return null;
+}
+
+function getAvailableVersions(cardData) {
+    if (!cardData || !cardData.length) return [];
+    const existingVersions = cardData.map(item => item.version);
+    const missingVersions = [];
+    for (let i = 1; i <= 10; i++) {
+        if (!existingVersions.includes(i)) {
+            missingVersions.push(i);
+        }
+    }
+    return missingVersions;
+}
+
+async function getOrCreateHighTierRole(guild) {
+    try {
+        let role = guild.roles.cache.find(r => r.name === 'HighTier');
+        if (!role) {
+            role = await guild.roles.create({
+                name: 'HighTier',
+                reason: 'Created for High Tier card notifications'
+            });
+        }
+        return role;
+    } catch (error) {
+        console.error('Error managing HighTier role:', error);
+        return null;
+    }
+}
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
@@ -43,6 +97,110 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         if (!serverData) {
             await client.database.createServer(guildId);
             serverData = await client.database.getServerData(guildId);
+        }
+
+        // Check for second image edit
+        if (newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
+            const messageId = newMessage.id;
+            if (processedEdits.has(messageId)) {
+                return;
+            }
+            processedEdits.set(messageId, Date.now());
+
+            // Calculate timestamps
+            const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
+
+            if (guildId === GATE_GUILD) {
+                // Extract card IDs from URL
+                const urlParts = newEmbed.image.url.split('/');
+                const cardIds = urlParts.slice(4, 7);
+
+                // Get card info for each ID
+                const cardInfoPromises = cardIds.map(id => getCardInfo(id));
+                const cardInfoResults = await Promise.all(cardInfoPromises);
+
+                // Create description with card info
+                let description = '';
+                const letters = ['A', 'B', 'C'];
+                for (let i = 0; i < cardInfoResults.length; i++) {
+                    const cardInfo = cardInfoResults[i];
+                    if (cardInfo) {
+                        const tierEmoji = getTierEmoji('T' + cardInfo.tier);
+                        const versions = await getAvailableVersions(await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardIds[i]}`).then(r => r.json()));
+                        description += `${letters[i]}: **${cardInfo.name}** *${cardInfo.series}* ${tierEmoji} \`${versions.join(', ')}\`\n`;
+                    }
+                }
+
+                // Create detailed embed for GATE_GUILD
+                const cardEmbed = {
+                    title: 'Card Information',
+                    description: description,
+                    fields: [
+                        {
+                            name: 'Next Summon',
+                            value: `<t:${nextSummonTime}:R> 📵`
+                        }
+                    ],
+                    color: 0x0099ff
+                };
+
+                // Check if role pinging is enabled
+                const serverSettings = await client.database.mServerSettingDB.findOne({ serverID: guildId });
+                let roleContent = '';
+
+                if (serverSettings?.allowRolePing) {
+                    const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
+                    if (highTierRole) {
+                        roleContent = `${highTierRole} `;
+                    }
+                }
+
+                // Send detailed embed with optional role ping
+                const infoMsg = await newMessage.reply({ 
+                    content: roleContent,
+                    embeds: [cardEmbed],
+                    allowedMentions: { roles: [roleContent ? roleContent.trim() : null] }
+                });
+
+                // Update next summon time after 19 seconds
+                setTimeout(async () => {
+                    try {
+                        cardEmbed.fields[0].value = `<t:${nextSummonTime}:R> 📵`;
+                        await infoMsg.edit({ 
+                            content: roleContent,
+                            embeds: [cardEmbed],
+                            allowedMentions: { roles: [roleContent ? roleContent.trim() : null] }
+                        });
+                    } catch (error) {
+                        console.error('Error editing info message:', error);
+                    }
+                }, 19000);
+            } else {
+                // Simple embed for non-GATE_GUILD servers
+                const simpleEmbed = {
+                    title: 'Summon Information',
+                    fields: [
+                        {
+                            name: 'Next Summon',
+                            value: `<t:${nextSummonTime}:R> 📵`
+                        }
+                    ],
+                    color: 0x0099ff
+                };
+
+                // Send simple embed
+                const infoMsg = await newMessage.reply({ embeds: [simpleEmbed] });
+
+                // Update next summon time after 19 seconds
+                setTimeout(async () => {
+                    try {
+                        simpleEmbed.fields[0].value = `<t:${nextSummonTime}:R> 📵`;
+                        await infoMsg.edit({ embeds: [simpleEmbed] });
+                    } catch (error) {
+                        console.error('Error editing info message:', error);
+                    }
+                }, 19000);
+            }
         }
 
         // Process embed fields for claims

@@ -37,7 +37,7 @@ async function connectDB() {
         });
 
         client.on('serverHeartbeatSucceeded', () => {
-            console.log('MongoDB server heartbeat succeeded');
+            // console.log('MongoDB server heartbeat succeeded');
             isConnected = true;
         });
 
