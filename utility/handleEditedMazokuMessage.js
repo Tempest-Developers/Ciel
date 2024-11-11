@@ -84,7 +84,7 @@ async function buildCardDescription(cardIds) {
         const cardInfo = cardInfoResults[i];
         if (cardInfo) {
             console.log(cardInfo.tier)
-            if (cardInfo.tier === 'RT' || cardInfo.tier === 'SRT' || cardInfo.tier === 'SSRT') {
+            if (cardInfo.tier === 'R' || cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
                 hasHighTierCard = true;
             }
             const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
