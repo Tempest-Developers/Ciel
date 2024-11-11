@@ -33,7 +33,8 @@ async function getCardInfo(cardId) {
             return {
                 name: card.name,
                 series: card.series,
-                tier: card.tier
+                tier: card.tier,
+                versions: await getAvailableVersions(data)
             };
         }
     } catch (error) {
@@ -70,6 +71,29 @@ async function getOrCreateHighTierRole(guild) {
     }
 }
 
+async function buildCardDescription(cardIds) {
+    let hasHighTierCard = false;
+    let description = '';
+    const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:'];
+    
+    // Get card info for all cards at once
+    const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id)));
+    
+    // Build description
+    for (let i = 0; i < cardInfoResults.length; i++) {
+        const cardInfo = cardInfoResults[i];
+        if (cardInfo) {
+            if (cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
+                hasHighTierCard = true;
+            }
+            const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
+            description += `${letters[i]}: ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n**${cardInfo.versions.join(', ') || ""}**\n`;
+        }
+    }
+    
+    return { description, hasHighTierCard };
+}
+
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
         // Check if message is from exempt bot
@@ -102,7 +126,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
         // Get server settings
         const serverSettings = await client.database.getServerSettings(guildId);
-        const allowRolePing = serverSettings?.settings?.allowRolePing || false;
+        const allowRolePing = serverSettings?.allowRolePing ?? false;
 
         // Calculate timestamps for all guilds
         const countdownTime = Math.floor(Date.now() / 1000) + 19;
@@ -124,40 +148,28 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 color: 0x0099ff
             };
 
-            // Add card information only if allowRolePing is true
-            if (allowRolePing && newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
+            let roleContent = '';
+            let roleId = null;
+
+            if (newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
                 const urlParts = newEmbed.image.url.split('/');
                 const cardIds = urlParts.slice(4, 7);
 
-                // Get card info for each ID
-                const cardInfoPromises = cardIds.map(id => getCardInfo(id));
-                const cardInfoResults = await Promise.all(cardInfoPromises);
-
-                // Create description with card info
-                let description = '';
-                const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:'];
-                for (let i = 0; i < cardInfoResults.length; i++) {
-                    const cardInfo = cardInfoResults[i];
-                    if (cardInfo) {
-                        const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
-                        const versions = await getAvailableVersions((await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardIds[i]}`)).data);
-                        description += `${letters[i]}: ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n\`${versions.join(', ')?versions.join(', '):""}\`\n`;
-                    }
-                }
-
+                // Wait for all card info and build description
+                const { description, hasHighTierCard } = await buildCardDescription(cardIds);
+                
+                // Add description to embed
                 if (description) {
                     countdownEmbed.description = description;
                 }
-            }
 
-            // Check if role pinging is enabled
-            let roleContent = '';
-            let roleId = null;
-            if (allowRolePing) {
-                const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
-                if (highTierRole) {
-                    roleContent = `<@&${highTierRole.id}>`;
-                    roleId = highTierRole.id;
+                // Only add role ping if allowRolePing is true AND there's a high tier card
+                if (allowRolePing && hasHighTierCard) {
+                    const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
+                    if (highTierRole) {
+                        roleContent = `<@&${highTierRole.id}>`;
+                        roleId = highTierRole.id;
+                    }
                 }
             }
 

@@ -11,8 +11,8 @@ module.exports = {
             const member = interaction.member;
 
             // Check if feature is enabled for this server
-            const serverData = await interaction.client.database.mServerSettingDB.findOne({ serverID: guildId });
-            if (!serverData?.allowRolePing) {
+            const serverData = await interaction.client.database.serverSettings.findOne({ serverID: guildId });
+            if (!serverData?.settings?.allowRolePing) {
                 return await interaction.reply({
                     content: 'High Tier role ping feature is not enabled on this server.',
                     ephemeral: true
