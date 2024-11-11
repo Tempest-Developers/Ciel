@@ -6,16 +6,20 @@ const GATE_GUILD = '1240866080985976844';
 module.exports = {
     name: Events.InteractionCreate,
     once: false,
-    async execute(client, interaction) {
-        // New permission check
-        if (!checkPermissions(interaction.channel, interaction.client.user)) return;
+    async execute(interaction, { database }) {
+        // Get client from interaction
+        const client = interaction.client;
+        if (!client) return;
 
-        if((await checkIfGuildAllowed(client, interaction.guild.id)==false) && interaction.commandName!="registerguild") return;
+        // New permission check
+        if (!checkPermissions(interaction.channel, client.user)) return;
+
+        if((await checkIfGuildAllowed(client, interaction.guild?.id)==false) && interaction.commandName!="registerguild") return;
 
         // Handle button interactions
         if (interaction.isButton()) {
             // Handle button interactions here
-            const buttonHandler = interaction.client.buttons?.get(interaction.customId);
+            const buttonHandler = client.buttons?.get(interaction.customId);
             if (buttonHandler) {
                 try {
                     await buttonHandler.execute(interaction);
@@ -28,7 +32,7 @@ module.exports = {
 
         // Handle autocomplete interactions
         if (interaction.isAutocomplete()) {
-            const command = interaction.client.slashCommands.get(interaction.commandName);
+            const command = client.slashCommands.get(interaction.commandName);
             if (!command || !command.autocomplete ) return;
 
             try {
@@ -41,10 +45,10 @@ module.exports = {
 
         if (!interaction.isChatInputCommand()) return;
 
-        const command = interaction.client.slashCommands.get(interaction.commandName);
+        const command = client.slashCommands.get(interaction.commandName);
         if (!command) return;
 
-        const { developers } = interaction.client.config;
+        const { developers } = client.config;
         const isDeveloper = developers.includes(interaction.user.id);
 
         // Check permissions
@@ -62,7 +66,6 @@ module.exports = {
 
         try {
             // Log the command usage
-            const { logCommand } = interaction.client.database;
             const options = {};
             
             // Collect all command options
@@ -79,7 +82,7 @@ module.exports = {
                 }
             });
 
-            await logCommand(
+            await database.logCommand(
                 interaction.user.id,
                 interaction.user.tag,
                 interaction.guild.id,
@@ -88,7 +91,7 @@ module.exports = {
                 options
             );
 
-            await command.execute(interaction, { database: interaction.client.database });
+            await command.execute(interaction, { database });
         } catch (error) {
             console.error('Command execution error:', error);
             

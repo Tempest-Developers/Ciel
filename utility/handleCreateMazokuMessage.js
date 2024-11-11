@@ -72,19 +72,27 @@ module.exports = async (message, exemptBotId) => {
             
             // Generate token reward
             let tokenReward;
+            let colorEmbed;
             const rand = Math.random() * 100;
 
-            if (rand < 20) { // 20% chance of 0 tokens
+            // utility/handleCreateMazokuMessage.js (77-87)
+            if (rand < 5) { // 5% chance of 0 tokens
                 tokenReward = 0;
-            } else if (rand < 50) { // 30% chance of 1-3 tokens
-                tokenReward = Math.floor(Math.random() * 3) + 1;
-            } else if (rand < 75) { // 25% chance of 4-6 tokens
-                tokenReward = Math.floor(Math.random() * 3) + 4;
-            } else if (rand < 95) { // 20% chance of 7-9 tokens
-                tokenReward = Math.floor(Math.random() * 3) + 7;
-            } else { // 5% chance of 10 tokens
-                tokenReward = 10;
+                colorEmbed = '#FF0000'; // Red
+            } else if (rand < 95) { // 90% chance of 1-5 tokens
+                tokenReward = Math.floor(Math.random() * 5) + 1;
+                colorEmbed = '#00FF00'; // Green
+            } else if (rand < 99) { // 4% chance of 25 tokens
+                tokenReward = 25;
+                colorEmbed = '#FFFF00'; // Yellow
+            } else if (rand < 99.9) { // 0.9% chance of 50 tokens
+                tokenReward = 50;
+                colorEmbed = '#00FFFF'; // Cyan
+            } else { // 0.1% chance of 100 tokens
+                tokenReward = 100;
+                colorEmbed = '#FF00FF'; // Magenta
             }
+
 
             if (tokenReward > 0) {
               // Get user data
@@ -109,17 +117,12 @@ module.exports = async (message, exemptBotId) => {
 
                 // Create and send embed
                 const rewardEmbed = new EmbedBuilder()
-                  .setColor('#00ff00')
+                  .setColor(colorEmbed)
                   .setTitle('🎉 Token Reward')
                   .setDescription(`<@${winnerID}> earned ${tokenReward} <:Slime_Token:1304929154285703179> for participating!`)
                   .setFooter({ text: `${participants.size} users participated` });
 
                 const rewardMsg = await message.channel.send({ embeds: [rewardEmbed] });
-
-                // Delete reward message after 10 seconds
-                // setTimeout(() => {
-                //   rewardMsg.delete().catch(console.error);
-                // }, 10000);
               }
             }
           } catch (error) {
