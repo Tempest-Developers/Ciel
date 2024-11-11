@@ -14,17 +14,21 @@ module.exports = {
             let serverData = await interaction.client.database.mServerSettingsDB.findOne({ serverID: guildId });
             
             if (!serverData) {
-                serverData = await interaction.client.database.mServerSettingsDB.create({
+                serverData = await interaction.client.database.mServerSettingsDB.insertOne({
                     serverID: guildId,
-                    allowRolePing: false
+                    settings: {
+                        allowShowStats: true,
+                        allowRolePing: false
+                    }
                 });
+                serverData = await interaction.client.database.mServerSettingsDB.findOne({ serverID: guildId });
             }
 
             // Toggle the setting
-            const newValue = !serverData.allowRolePing;
+            const newValue = !serverData.settings.allowRolePing;
             await interaction.client.database.mServerSettingsDB.updateOne(
                 { serverID: guildId },
-                { $set: { allowRolePing: newValue } }
+                { $set: { 'settings.allowRolePing': newValue } }
             );
 
             await interaction.reply({
