@@ -87,7 +87,7 @@ async function buildCardDescription(cardIds) {
                 hasHighTierCard = true;
             }
             const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
-            description += `${letters[i]}: ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n**${cardInfo.versions.join(', ') || ""}**\n`;
+            description += `${letters[i]}: ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n **${cardInfo.versions.map(version => `**${version}**`).join(', ')}**`
         }
     }
     
