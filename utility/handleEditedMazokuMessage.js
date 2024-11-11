@@ -145,8 +145,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                         value: `<t:${countdownTime}:R> 📵`
                     }
                 ],
-                color: 0x0099ff
+                color: 0x0099ff,
+                footer: {
+                    text: `Server: ${message.guild.name}`
+                }
             };
+
 
             let roleContent = '';
             let roleId = null;
