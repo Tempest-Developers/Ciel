@@ -131,13 +131,13 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
                 // Create description with card info
                 let description = '';
-                const letters = ['A', 'B', 'C'];
+                const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:'];
                 for (let i = 0; i < cardInfoResults.length; i++) {
                     const cardInfo = cardInfoResults[i];
                     if (cardInfo) {
-                        const tierEmoji = getTierEmoji('T' + cardInfo.tier);
+                        const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
                         const versions = await getAvailableVersions((await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardIds[i]}`)).data);
-                        description += `${letters[i]}: **${cardInfo.name}** *${cardInfo.series}* ${tierEmoji} \`${versions.join(', ')}\`\n`;
+                        description += `\`${letters[i]}\`: ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n\`${versions.join(', ')}\`\n`;
                     }
                 }
 
