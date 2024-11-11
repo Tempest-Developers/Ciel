@@ -83,7 +83,6 @@ async function buildCardDescription(cardIds) {
     for (let i = 0; i < cardInfoResults.length; i++) {
         const cardInfo = cardInfoResults[i];
         if (cardInfo) {
-            console.log(cardInfo.tier)
             if (cardInfo.tier === 'R' || cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
                 hasHighTierCard = true;
             }
@@ -136,6 +135,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         // Send initial countdown message if this is the first time seeing this message
         if (!processedEdits.has(messageId)) {
             processedEdits.set(messageId, Date.now());
+            console.log("Claim Time Detected")
 
             // Create base embed with countdown
             const countdownEmbed = {
@@ -152,9 +152,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             let roleContent = '';
             let roleId = null;
 
+            if(newEmbed.image) console.log("Image Exist in embed")
+
             if (newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
                 const urlParts = newEmbed.image.url.split('/');
                 const cardIds = urlParts.slice(4, 7);
+                console.log(urlParts)
 
                 // Wait for all card info and build description
                 const { description, hasHighTierCard } = await buildCardDescription(cardIds);
