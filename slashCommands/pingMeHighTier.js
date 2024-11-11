@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('pingmehightier')
+        .setName('hightiertole')
         .setDescription('Toggle whether you receive High Tier card notifications'),
 
     async execute(interaction) {
@@ -76,7 +76,7 @@ module.exports = {
             }
 
         } catch (error) {
-            console.error('Error in pingMeHighTier command:', error);
+            console.error('Error in hightiertole command:', error);
             await interaction.reply({
                 content: 'There was an error while executing this command.',
                 ephemeral: true

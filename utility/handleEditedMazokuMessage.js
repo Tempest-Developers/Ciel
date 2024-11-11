@@ -83,6 +83,7 @@ async function buildCardDescription(cardIds) {
     for (let i = 0; i < cardInfoResults.length; i++) {
         const cardInfo = cardInfoResults[i];
         if (cardInfo) {
+            console.log(cardInfo.tier)
             if (cardInfo.tier === 'RT' || cardInfo.tier === 'SRT' || cardInfo.tier === 'SSRT') {
                 hasHighTierCard = true;
             }
@@ -124,9 +125,9 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             serverData = await client.database.getServerData(guildId);
         }
 
-        // Get server settings
-        const serverSettings = await client.database.getServerSettings(guildId);
-        const allowRolePing = serverSettings?.allowRolePing ?? false;
+        // Get server settings - Updated to use correct path
+        const serverSettings = await client.database.serverSettings.findOne({ serverID: guildId });
+        const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
 
         // Calculate timestamps for all guilds
         const countdownTime = Math.floor(Date.now() / 1000) + 19;
@@ -148,7 +149,6 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 color: 0x0099ff
             };
 
-
             let roleContent = '';
             let roleId = null;
 
@@ -158,7 +158,6 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
                 // Wait for all card info and build description
                 const { description, hasHighTierCard } = await buildCardDescription(cardIds);
-                
 
                 // Add description to embed
                 if (description && allowRolePing) {

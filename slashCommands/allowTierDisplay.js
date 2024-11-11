@@ -31,6 +31,8 @@ module.exports = {
                 { $set: { 'settings.allowRolePing': newValue } }
             );
 
+            console.log(interaction.guild.name+" "+newValue)
+
             await interaction.reply({
                 content: `High Tier role ping feature has been ${newValue ? 'enabled' : 'disabled'} for this server.`,
                 ephemeral: true
