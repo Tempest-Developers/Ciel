@@ -214,6 +214,14 @@ module.exports = {
             });
         }
 
+        // Handle null command
+        if (subcommand === 'null') {
+            return interaction.reply({
+                content: 'This command is currently not available.',
+                ephemeral: true
+            });
+        }
+
         // Check if economy is enabled for economy-related commands
         if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take'].includes(subcommand)) {
             return interaction.reply({
