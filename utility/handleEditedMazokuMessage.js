@@ -137,7 +137,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     if (cardInfo) {
                         const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
                         const versions = await getAvailableVersions((await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardIds[i]}`)).data);
-                        description += `\`${letters[i]}\`: ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n\`${versions.join(', ')}\`\n`;
+                        description += `\`${letters[i]}\`: ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n\`${versions.join(', ')?versions.join(', '):""}\`\n`;
                     }
                 }
 
