@@ -39,7 +39,7 @@ module.exports = {
                     {
                         name: '`/leaderboard`',
                         value: 'View server leaderboards with multiple options:\n' +
-                               '• `/leaderboard tier` - Rankings by specific card tier (SSS, SS, S, A, B, C, D)\n' +
+                               '• `/leaderboard tier` - Rankings by specific card tier (SSR, SR, R, C)\n' +
                                '• `/leaderboard print` - Rankings by print ranges (#1-10, #11-50, #51-100, etc.)\n' +
                                '• `/leaderboard total` - Overall claim rankings for all cards',
                         inline: false
@@ -48,7 +48,7 @@ module.exports = {
                         name: '`/mystats`',
                         value: 'View your personal card collection statistics:\n' +
                                '• Total cards claimed\n' +
-                               '• Breakdown by tier (SSS to D)\n' +
+                               '• Breakdown by tier (SSR to C)\n' +
                                '• Print number ranges\n' +
                                '• Collection completion status',
                         inline: false
@@ -56,7 +56,7 @@ module.exports = {
                     {
                         name: '`/recent`',
                         value: 'View recent card claims with filtering options:\n' +
-                               '• Filter by specific tier (SSS, SS, S, A, B, C, D)\n' +
+                               '• Filter by specific tier (SSR, SR, R, C)\n' +
                                '• View claim timestamps\n' +
                                '• See print numbers\n' +
                                '• Check who claimed specific cards',
