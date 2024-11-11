@@ -83,7 +83,7 @@ async function buildCardDescription(cardIds) {
     for (let i = 0; i < cardInfoResults.length; i++) {
         const cardInfo = cardInfoResults[i];
         if (cardInfo) {
-            if (cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
+            if (cardInfo.tier === 'R' || cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
                 hasHighTierCard = true;
             }
             const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
@@ -158,6 +158,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 // Wait for all card info and build description
                 const { description, hasHighTierCard } = await buildCardDescription(cardIds);
                 
+
+                console.log(description)
+                console.log(allowRolePing)
+                console.log(hasHighTierCard)
                 // Add description to embed
                 if (description) {
                     countdownEmbed.description = description;
