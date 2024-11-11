@@ -204,3 +204,40 @@
 
 // API response PNG https://cdn.mazoku.cc/packs/b2cf1dde-5bc2-4daa-b24b-b2b549a6e3e8
 last id is card-id: packs/b2cf1dde-5bc2-4daa-b24b-b2b549a6e3e8
+
+// API response JSON https://api.mazoku.cc/api/get-inventory-item-by-id/d347e92a-569d-4364-85af-484cb5daba4c
+
+item-id d347e92a-569d-4364-85af-484cb5daba4c
+
+{
+  "id": "d347e92a-569d-4364-85af-484cb5daba4c",
+  "type": "Card",
+  "typeId": "ac22a88e-0584-424c-b6e1-4910b762564c",
+  "card": {
+    "id": "ac22a88e-0584-424c-b6e1-4910b762564c",
+    "type": "anime",
+    "tier": "C",
+    "name": "Kaguya Shinomiya",
+    "series": "Kaguya-sama: Love is War",
+    "renderLink": "https://www.zerochan.net/2474582",
+    "psdLink": "https://cdn.discordapp.com/ephemeral-attachments/1273036679296323625/1273331120792145980/Common_Kaguya_Shinomiya.psd?ex=66be3984&is=66bce804&hm=f67ddf885e43f8a38073326687d04a557f40880109bd74d7c702d4d2f268dd06&",
+    "cardImageLink": "https://cdn.mazoku.cc/cards/ac22a88e-0584-424c-b6e1-4910b762564c/card.png",
+    "batchId": 1,
+    "edition": 1,
+    "makers": [
+      "208728616840855555"
+    ],
+    "eventType": null,
+    "artist": null,
+    "isActive": true,
+    "createdDate": "2024-10-01T00:00:00"
+  },
+  "banner": null,
+  "frame": null,
+  "version": 298,
+  "owner": "292675388180791297",
+  "user": null,
+  "obtainedDate": "2024-11-11T20:16:08.36964",
+  "equippedFrame": null,
+  "isLocked": false
+}

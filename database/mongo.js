@@ -15,12 +15,12 @@ const client = new MongoClient(uri, {
     minPoolSize: 5
 });
 
-let mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB;
+let mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB, mGiveawayDB;
 let isConnected = false;
 
 async function connectDB() {
     if (isConnected) {
-        return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB };
+        return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB, mGiveawayDB };
     }
 
     try {
@@ -51,6 +51,7 @@ async function connectDB() {
         mGateDB = client.db('MainDB').collection('mGateDB');
         mGateServerDB = client.db('MainDB').collection('mGateServerDB');
         mCommandLogsDB = client.db('MainDB').collection('mCommandLogsDB');
+        mGiveawayDB = client.db('MainDB').collection('mGiveawayDB');
 
         // Create indexes for unique fields
         await mServerDB.createIndex({ serverID: 1 }, { unique: true });
@@ -58,10 +59,15 @@ async function connectDB() {
         await mServerSettingsDB.createIndex({ serverID: 1 }, { unique: true });
         await mGateDB.createIndex({ userID: 1 }, { unique: true });
         await mGateServerDB.createIndex({ serverID: 1 }, { unique: true });
+        await mGiveawayDB.createIndex({ giveawayID: 1 }, { unique: true });
 
         // Create index for command logs
         await mCommandLogsDB.createIndex({ serverID: 1 });
         await mCommandLogsDB.createIndex({ timestamp: 1 });
+
+        // Create index for giveaway timestamps
+        await mGiveawayDB.createIndex({ timestamp: 1 });
+        await mGiveawayDB.createIndex({ active: 1 });
 
         // Create compound indexes for claims to prevent duplicates
         const tiers = ['CT', 'RT', 'SRT', 'SSRT', 'URT', 'EXT'];
@@ -88,7 +94,26 @@ async function connectDB() {
             "manualClaims.timestamp": 1
         });
 
-        return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB };
+        // Update existing gate users to have 6 currency slots and premium field
+        await mGateDB.updateMany(
+            { 
+                $or: [
+                    { 'currency.5': { $exists: false } },
+                    { premium: { $exists: false } }
+                ]
+            },
+            {
+                $set: {
+                    'premium.active': false,
+                    'premium.expiresAt': null
+                },
+                $push: {
+                    currency: { $each: [0], $slice: 6 }
+                }
+            }
+        );
+
+        return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB, mGiveawayDB };
     } catch (err) {
         console.error('Error connecting to MongoDB:', err);
         isConnected = false;
@@ -119,6 +144,61 @@ async function wrapDbOperation(operation) {
         console.error('Database operation error:', error);
         throw error;
     }
+}
+
+async function createGiveaway(userID, itemID, level, amount) {
+    return wrapDbOperation(async () => {
+        const lastGiveaway = await mGiveawayDB.findOne({}, { sort: { giveawayID: -1 } });
+        const giveawayID = lastGiveaway ? lastGiveaway.giveawayID + 1 : 0;
+
+        return await mGiveawayDB.insertOne({
+            giveawayID,
+            userID,
+            itemID,
+            timestamp: new Date(Date.now() + 24 * 60 * 60 * 1000), // Set end time to 24 hours from now
+            level,
+            amount,
+            active: true,
+            users: [],
+            logs: []
+        });
+    });
+}
+
+async function getGiveaways(active = null) {
+    return wrapDbOperation(async () => {
+        const query = active !== null ? { active } : {};
+        return await mGiveawayDB.find(query).sort({ timestamp: -1 }).toArray();
+    });
+}
+
+async function getGiveaway(giveawayID) {
+    return wrapDbOperation(async () => {
+        return await mGiveawayDB.findOne({ giveawayID });
+    });
+}
+
+async function updateGiveawayTimestamp(giveawayID, newTimestamp) {
+    return wrapDbOperation(async () => {
+        return await mGiveawayDB.updateOne(
+            { giveawayID },
+            { $set: { timestamp: newTimestamp } }
+        );
+    });
+}
+
+async function joinGiveaway(giveawayID, userID, ticketAmount) {
+    return wrapDbOperation(async () => {
+        return await mGiveawayDB.updateOne(
+            { giveawayID },
+            { 
+                $push: { 
+                    users: { userID, amount_tickets: ticketAmount },
+                    logs: { userID, timestamp: new Date() }
+                }
+            }
+        );
+    });
 }
 
 async function logCommand(userID, username, serverID, serverName, commandName, options = {}) {
@@ -272,9 +352,13 @@ async function createGateUser(userID) {
     return wrapDbOperation(async () => {
         return await mGateDB.insertOne({
             userID,
-            currency: [0, 0, 0, 0, 0],
+            currency: [0, 0, 0, 0, 0, 0], // Added 6th slot for tickets
             mission: [],
-            achievements: []
+            achievements: [],
+            premium: {
+                active: false,
+                expiresAt: null
+            }
         });
     });
 }
@@ -460,11 +544,17 @@ module.exports = {
     toggleRegister,
     logCommand,
     getCommandLogs,
+    createGiveaway,
+    getGiveaways,
+    getGiveaway,
+    updateGiveawayTimestamp,
+    joinGiveaway,
     // Export database collections
     mServerDB,
     mUserDB,
     mServerSettingsDB,
     mGateDB,
     mGateServerDB,
-    mCommandLogsDB
+    mCommandLogsDB,
+    mGiveawayDB
 };
