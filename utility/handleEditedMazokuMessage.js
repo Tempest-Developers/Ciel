@@ -83,15 +83,15 @@ async function buildCardDescription(cardIds) {
     for (let i = 0; i < cardInfoResults.length; i++) {
         const cardInfo = cardInfoResults[i];
         if (cardInfo) {
-            if (cardInfo.tier === 'R' || cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
+            if (cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
                 hasHighTierCard = true;
             }
             const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
-            description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n Lower Versions Available**${cardInfo.versions.map(version => `*__${version}__*`).join(', ') || ""}**\n`;
+            description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n Lower Versions Available** ${cardInfo.versions.map(version => `*__${version}__*`).join(', ') || ""}**\n`;
         }
     }
     
-    return { description, hasHighTierCard };
+    return { description, hasHighTierCard, tier:cardInfo.tier };
 }
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
@@ -157,7 +157,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             const cardIds = urlParts.slice(4, 7);
 
             // Wait for all card info and build description
-            const { description, hasHighTierCard } = await buildCardDescription(cardIds);
+            const { description, hasHighTierCard, tier } = await buildCardDescription(cardIds);
 
             // Add description to embed
             if (description && allowRolePing) {
@@ -172,8 +172,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     roleId = highTierRole.id;
                 }
             }
-            console.log(`${newMessage.guild.name} allowed ${allowRolePing} and has ${hasHighTierCard}`)
-            console.log(description)
+            console.log(`${tier} at ${newMessage.guild.name} | Ping${allowRolePing} has ${hasHighTierCard}`)
 
             // Send countdown message
             const countdownMsg = await newMessage.reply({
