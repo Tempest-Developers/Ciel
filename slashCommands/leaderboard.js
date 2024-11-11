@@ -76,7 +76,7 @@ module.exports = {
             const subcommand = interaction.options.getSubcommand();
 
             // Get all users in the server from database
-            const allUsers = await database.mUserDB.find({ serverID: guildId }).toArray();
+            const allUsers = await database.users.find({ serverID: guildId }).toArray();
             if (!allUsers || allUsers.length === 0) {
                 return await interaction.editReply('No user data found for this server.');
             }
@@ -100,7 +100,7 @@ module.exports = {
 
                 leaderboardData = allUsers.map(user => ({
                     userId: user.userID,
-                    count: user.counts[tierIndex[tier]] || 0
+                    count: user.counts?.[tierIndex[tier]] || 0
                 }));
             }
             else if (subcommand === 'print') {
@@ -116,16 +116,20 @@ module.exports = {
                         };
 
                         // Count prints across all tiers
-                        Object.values(user.claims).forEach(tierClaims => {
-                            tierClaims.forEach(claim => {
-                                const print = claim.print;
-                                if (print >= 1 && print <= 10) counts.SP++;
-                                else if (print >= 11 && print <= 99) counts.LP++;
-                                else if (print >= 100 && print <= 499) counts.MP++;
-                                else if (print >= 500 && print <= 1000) counts.HP++;
-                                counts.total++;
+                        if (user.claims) {
+                            Object.values(user.claims).forEach(tierClaims => {
+                                if (Array.isArray(tierClaims)) {
+                                    tierClaims.forEach(claim => {
+                                        const print = claim.print;
+                                        if (print >= 1 && print <= 10) counts.SP++;
+                                        else if (print >= 11 && print <= 99) counts.LP++;
+                                        else if (print >= 100 && print <= 499) counts.MP++;
+                                        else if (print >= 500 && print <= 1000) counts.HP++;
+                                        counts.total++;
+                                    });
+                                }
                             });
-                        });
+                        }
 
                         return {
                             userId: user.userID,
@@ -145,12 +149,16 @@ module.exports = {
                     // Calculate counts for specific print range
                     leaderboardData = allUsers.map(user => {
                         let count = 0;
-                        Object.values(user.claims).forEach(tierClaims => {
-                            tierClaims.forEach(claim => {
-                                const print = claim.print;
-                                if (isInPrintRange(print, range)) count++;
+                        if (user.claims) {
+                            Object.values(user.claims).forEach(tierClaims => {
+                                if (Array.isArray(tierClaims)) {
+                                    tierClaims.forEach(claim => {
+                                        const print = claim.print;
+                                        if (isInPrintRange(print, range)) count++;
+                                    });
+                                }
                             });
-                        });
+                        }
                         return { userId: user.userID, count };
                     });
                 }
@@ -161,7 +169,7 @@ module.exports = {
 
                 leaderboardData = allUsers.map(user => ({
                     userId: user.userID,
-                    count: user.counts.reduce((sum, count) => sum + (count || 0), 0)
+                    count: user.counts ? user.counts.reduce((sum, count) => sum + (count || 0), 0) : 0
                 }));
             }
 
