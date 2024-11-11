@@ -83,7 +83,7 @@ async function buildCardDescription(cardIds) {
     for (let i = 0; i < cardInfoResults.length; i++) {
         const cardInfo = cardInfoResults[i];
         if (cardInfo) {
-            if (cardInfo.tier === 'R' || cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
+            if (cardInfo.tier === 'RT' || cardInfo.tier === 'SRT' || cardInfo.tier === 'SSRT') {
                 hasHighTierCard = true;
             }
             const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
@@ -159,9 +159,6 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 const { description, hasHighTierCard } = await buildCardDescription(cardIds);
                 
 
-                console.log(description)
-                console.log(allowRolePing)
-                console.log(hasHighTierCard)
                 // Add description to embed
                 if (description) {
                     countdownEmbed.description = description;
@@ -175,6 +172,8 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                         roleId = highTierRole.id;
                     }
                 }
+                console.log(`${newMessage.guild.name} allowed ${allowRolePing} and has ${hasHighTierCard}`)
+                console.log(description)
             }
 
             // Send countdown message
