@@ -76,7 +76,7 @@ module.exports = {
             const subcommand = interaction.options.getSubcommand();
 
             // Get all users in the server from database
-            const allUsers = await database.users.find({ serverID: guildId }).toArray();
+            const allUsers = await database.mUserDB.find({ serverID: guildId }).toArray();
             if (!allUsers || allUsers.length === 0) {
                 return await interaction.editReply('No user data found for this server.');
             }
@@ -90,16 +90,24 @@ module.exports = {
                 title = `${getTierEmoji(tier)} ${tier} Leaderboard`;
                 description = `Top 10 players by ${tier} claims`;
 
+                // Map tiers to counts array indices
+                const tierIndex = {
+                    'CT': 0,
+                    'RT': 1,
+                    'SRT': 2,
+                    'SSRT': 3
+                };
+
                 leaderboardData = allUsers.map(user => ({
                     userId: user.userID,
-                    count: user.claims[tier]?.length || 0
+                    count: user.counts[tierIndex[tier]] || 0
                 }));
             }
             else if (subcommand === 'print') {
                 const range = interaction.options.getString('range');
                 if (range === 'ALL') {
                     title = '🖨️ All Prints Leaderboard';
-                    description = 'Top 10 players by print ranges';
+                    description = 'Top 10 players by print ranges (Based on last 50 claims)';
 
                     // Calculate counts for all print ranges
                     leaderboardData = allUsers.map(user => {
@@ -132,7 +140,7 @@ module.exports = {
                         SP: '⭐', LP: '🌟', MP: '💫', HP: '✨'
                     };
                     title = `${rangeEmoji[range]} ${range} Leaderboard`;
-                    description = `Top 10 players by ${range} (${getRangeDescription(range)})`;
+                    description = `Top 10 players by ${range} (${getRangeDescription(range)}) (Based on last 50 claims)`;
 
                     // Calculate counts for specific print range
                     leaderboardData = allUsers.map(user => {
@@ -151,13 +159,10 @@ module.exports = {
                 title = '🏆 Total Claims Leaderboard';
                 description = 'Top 10 players by total claims';
 
-                leaderboardData = allUsers.map(user => {
-                    let total = 0;
-                    Object.values(user.claims).forEach(tierClaims => {
-                        total += tierClaims.length;
-                    });
-                    return { userId: user.userID, count: total };
-                });
+                leaderboardData = allUsers.map(user => ({
+                    userId: user.userID,
+                    count: user.counts.reduce((sum, count) => sum + (count || 0), 0)
+                }));
             }
 
             // Sort data (if not already sorted)
@@ -186,11 +191,18 @@ module.exports = {
                     `${index + 1}. <@${data.userId}> - ${data.count} claims`
                 ).join('\n');
             }
-            if(subcommand == 'print'){
-                leaderboardText += `\n⭐**SP** = v**1**-v**10**\n🌟**LP** = v**11**-v**99**\n💫**MP** = v**101**-v**499**\n✨**HP** = v**500**-v**1000**\n`;
-            }
 
             embed.addFields({ name: 'Rankings', value: leaderboardText || 'No data available' });
+
+            // Add print range information field for print-based leaderboard
+            if (subcommand === 'print') {
+                const printRangeInfo = `**Note:** This data is based on your last 50 claims\n\n` +
+                                     `⭐**SP** = v**1**-v**10**\n` +
+                                     `🌟**LP** = v**11**-v**99**\n` +
+                                     `💫**MP** = v**100**-v**499**\n` +
+                                     `✨**HP** = v**500**-v**1000**`;
+                embed.addFields({ name: 'Print Ranges', value: printRangeInfo });
+            }
 
             // Add user's rank if they exist in the data
             const userRank = leaderboardData.findIndex(data => data.userId === userId) + 1;

@@ -201,3 +201,6 @@
     "createdDate": "2024-11-01T00:00:00"
   },
 ]
+
+// API response PNG https://cdn.mazoku.cc/packs/b2cf1dde-5bc2-4daa-b24b-b2b549a6e3e8
+last id is card-id: packs/b2cf1dde-5bc2-4daa-b24b-b2b549a6e3e8
