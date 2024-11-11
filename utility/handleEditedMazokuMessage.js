@@ -100,6 +100,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             serverData = await client.database.getServerData(guildId);
         }
 
+        // Get server settings
+        const serverSettings = await client.database.getServerSettings(guildId);
+        const allowRolePing = serverSettings?.settings?.allowRolePing || false;
+
         // Calculate timestamps for all guilds
         const countdownTime = Math.floor(Date.now() / 1000) + 19;
         const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
@@ -120,8 +124,8 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 color: 0x0099ff
             };
 
-            // Add card information for GATE_GUILD
-            if (newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
+            // Add card information only if allowRolePing is true
+            if (allowRolePing && newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
                 const urlParts = newEmbed.image.url.split('/');
                 const cardIds = urlParts.slice(4, 7);
 
@@ -146,15 +150,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 }
             }
 
-            // Check if role pinging is enabled (only for GATE_GUILD)
+            // Check if role pinging is enabled
             let roleContent = '';
-            if (guildId === GATE_GUILD) {
-                const serverSettings = await client.database.serverSettings.findOne({ serverID: guildId });
-                if (serverSettings?.settings?.allowRolePing) {
-                    const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
-                    if (highTierRole) {
-                        roleContent = `${highTierRole} `;
-                    }
+            if (allowRolePing) {
+                const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
+                if (highTierRole) {
+                    roleContent = `${highTierRole} `;
                 }
             }
 
