@@ -6,6 +6,11 @@ module.exports = {
         .setDescription('Toggle whether you receive High Tier card notifications'),
 
     async execute(interaction) {
+        return await interaction.reply({
+            content: 'Command unavailable for this server.',
+            ephemeral: true
+        });
+
         try {
             const guildId = interaction.guild.id;
             const member = interaction.member;

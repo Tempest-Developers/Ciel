@@ -7,6 +7,10 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ADMINISTRATOR | PermissionFlagsBits.MANAGE_ROLES | PermissionFlagsBits.MANAGE_MESSAGES),
 
     async execute(interaction) {
+        return await interaction.reply({
+            content: 'Command unavailable for this server.',
+            ephemeral: true
+        });
         try {
             const guildId = interaction.guild.id;
             

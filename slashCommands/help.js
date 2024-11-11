@@ -61,16 +61,16 @@ module.exports = {
                         value: 'View server-wide card statistics and activity',
                         inline: false
                     },
-                    {
-                        name: '`/hightiertole`',
-                        value: 'Toggle notifications for high tier card drops',
-                        inline: false
-                    },
-                    {
-                        name: '🛡️ Admin Commands',
-                        value: '`/allowtierdisplay` - Toggle high tier role ping feature\n`/registerguild` - Register server for bot usage',
-                        inline: false
-                    }
+                    // {
+                    //     name: '`/hightiertole`',
+                    //     value: 'Toggle notifications for high tier card drops',
+                    //     inline: false
+                    // },
+                    // {
+                    //     name: '🛡️ Admin Commands',
+                    //     value: '`/allowtierdisplay` - Toggle high tier role ping feature\n`/registerguild` - Register server for bot usage',
+                    //     inline: false
+                    // }
                 )
                 .setFooter({ text: '🛡️ = Requires Admin/Manage Server permission' });
 

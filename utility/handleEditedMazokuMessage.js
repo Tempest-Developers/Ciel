@@ -57,16 +57,16 @@ function getAvailableVersions(cardData) {
 
 async function getOrCreateHighTierRole(guild) {
     try {
-        let role = guild.roles.cache.find(r => r.name === 'HighTier');
+        let role = guild.roles.cache.find(r => r.name === 'SR-ping');
         if (!role) {
             role = await guild.roles.create({
-                name: 'HighTier',
+                name: 'SR-ping',
                 reason: 'Created for High Tier card notifications'
             });
         }
         return role;
     } catch (error) {
-        console.error('Error managing HighTier role:', error);
+        console.error('Error managing SR-ping role:', error);
         return null;
     }
 }
@@ -131,7 +131,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
 
         // Calculate timestamps for all guilds
-        const countdownTime = Math.floor(Date.now() / 1000) + 19;
+        const countdownTime = Math.floor(Date.now() / 1000) + 17;
         const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
 
         // Only proceed with countdown message if we haven't processed this message ID
@@ -174,7 +174,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     roleId = highTierRole.id;
                 }
             }
-            console.log(`${tier} at ${newMessage.guild.name} | Ping${allowRolePing} has ${hasHighTierCard}`)
+            console.log(`${tier} at ${newMessage.guild.name} | Ping ${allowRolePing} has ${hasHighTierCard}`)
 
             // Send countdown message
             const countdownMsg = await newMessage.reply({
@@ -198,7 +198,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 } catch (error) {
                     console.error('Error editing countdown message:', error);
                 }
-            }, 19000);
+            }, 17000);
         }
 
         // Process embed fields for claims
