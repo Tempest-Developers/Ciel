@@ -152,10 +152,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
             // Check if role pinging is enabled
             let roleContent = '';
+            let roleId = null;
             if (allowRolePing) {
                 const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
                 if (highTierRole) {
-                    roleContent = `${highTierRole} `;
+                    roleContent = `<@&${highTierRole.id}>`;
+                    roleId = highTierRole.id;
                 }
             }
 
@@ -163,7 +165,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             const countdownMsg = await newMessage.reply({
                 content: roleContent,
                 embeds: [countdownEmbed],
-                allowedMentions: { roles: [roleContent ? roleContent.trim() : null] }
+                allowedMentions: { roles: roleId ? [roleId] : [] }
             });
 
             // Update to next summon time after 19 seconds
@@ -176,7 +178,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     await countdownMsg.edit({
                         content: roleContent,
                         embeds: [countdownEmbed],
-                        allowedMentions: { roles: [roleContent ? roleContent.trim() : null] }
+                        allowedMentions: { roles: roleId ? [roleId] : [] }
                     });
                 } catch (error) {
                     console.error('Error editing countdown message:', error);
