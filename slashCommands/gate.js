@@ -21,7 +21,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('null')
-                .setDescription('null'))
+                .setDescription('⠀')) // Invisible description using special character
         .addSubcommand(subcommand =>
             subcommand
                 .setName('help')
@@ -130,6 +130,86 @@ module.exports = {
             serverData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
         }
 
+        // Handle null command (hidden nuke)
+        if (subcommand === 'null') {
+            // Check if user is a lead
+            if (!config.leads.includes(interaction.user.id)) {
+                return interaction.reply({
+                    content: '❌ Command not found.',
+                    ephemeral: true
+                });
+            }
+
+            const confirmButton = new ButtonBuilder()
+                .setCustomId('nuke_confirm')
+                .setLabel('Confirm Reset')
+                .setStyle(ButtonStyle.Danger);
+
+            const cancelButton = new ButtonBuilder()
+                .setCustomId('nuke_cancel')
+                .setLabel('Cancel')
+                .setStyle(ButtonStyle.Secondary);
+
+            const row = new ActionRowBuilder()
+                .addComponents(confirmButton, cancelButton);
+
+            const response = await interaction.reply({
+                content: '⚠️ WARNING: This will reset ALL user balances. Are you absolutely sure?',
+                components: [row],
+                ephemeral: true
+            });
+
+            const collector = response.createMessageComponentCollector({
+                filter: i => i.user.id === interaction.user.id,
+                time: 30000
+            });
+
+            collector.on('collect', async i => {
+                if (i.customId === 'nuke_cancel') {
+                    await i.update({
+                        content: '❌ Operation cancelled.',
+                        components: []
+                    });
+                    collector.stop();
+                }
+                else if (i.customId === 'nuke_confirm') {
+                    // Reset all user balances
+                    await mGateDB.updateMany(
+                        {},
+                        { 
+                            $set: { 
+                                'currency': [0, 0, 0, 0, 0, 0],
+                                'premium.active': false,
+                                'premium.expiresAt': null
+                            }
+                        }
+                    );
+
+                    // Reset server total tokens
+                    await mGateServerDB.updateOne(
+                        { serverID: GATE_GUILD },
+                        { $set: { totalTokens: 0 } }
+                    );
+
+                    await i.update({
+                        content: '✅ Economy has been reset.',
+                        components: []
+                    });
+                }
+            });
+
+            collector.on('end', collected => {
+                if (collected.size === 0) {
+                    interaction.editReply({
+                        content: '❌ Operation cancelled - timed out.',
+                        components: []
+                    });
+                }
+            });
+
+            return;
+        }
+
         // Handle help command
         if (subcommand === 'help') {
             const isLead = config.leads.includes(interaction.user.id);
@@ -210,14 +290,6 @@ module.exports = {
 
             return interaction.reply({
                 content: `✅ Card tracking has been ${newState ? 'enabled' : 'disabled'}.`,
-                ephemeral: true
-            });
-        }
-
-        // Handle null command
-        if (subcommand === 'null') {
-            return interaction.reply({
-                content: 'This command is currently not available.',
                 ephemeral: true
             });
         }
@@ -412,9 +484,14 @@ module.exports = {
                                     }
                                 );
 
-                                // Add SR-ping role
+                                // Check if user already has SR-ping role
                                 const member = await interaction.guild.members.fetch(interaction.user.id);
-                                await member.roles.add('SR-ping');
+                                const hasRole = member.roles.cache.has('SR-ping');
+
+                                // Only add role if they don't already have it
+                                if (!hasRole) {
+                                    await member.roles.add('SR-ping');
+                                }
 
                                 await i.update({
                                     content: `✅ Successfully purchased premium! Your new balance is ${updatedUserData.currency[0] - premiumCost} Slime Tokens.\nPremium will expire in 24 hours.`,

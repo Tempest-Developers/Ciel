@@ -1,8 +1,11 @@
 const { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const axios = require('axios');
+require('dotenv').config();
 
-const MIMS_GUILD = '1240866080985976844';
-const GIVEAWAY_CHANNEL = '1245303055004733460';
+const MIMS_GUILD = process.env.MIMS_GUILD;
+const GUILD_CHANNELS = {
+    '1240866080985976844': '1245303055004733460' // Map of guild ID to channel ID
+};
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -56,6 +59,14 @@ module.exports = {
             });
         }
 
+        // Verify the guild has a configured channel
+        if (!GUILD_CHANNELS[interaction.guild.id]) {
+            return interaction.reply({
+                content: '❌ This guild does not have a configured giveaway channel.',
+                ephemeral: true
+            });
+        }
+
         const { mGiveawayDB } = database;
         const subcommand = interaction.options.getSubcommand();
 
@@ -101,7 +112,16 @@ module.exports = {
                             .setImage(itemData.card.cardImageLink.replace('.png', ''))
                             .setTimestamp();
 
-                        return interaction.reply({ embeds: [embed] });
+                        // Send to the guild's giveaway channel
+                        const giveawayChannel = await interaction.guild.channels.fetch(GUILD_CHANNELS[interaction.guild.id]);
+                        if (giveawayChannel) {
+                            await giveawayChannel.send({ embeds: [embed] });
+                        }
+
+                        return interaction.reply({ 
+                            content: '✅ Giveaway created successfully!',
+                            ephemeral: true 
+                        });
                     } catch (error) {
                         if (error.response && error.response.status === 404) {
                             return interaction.reply({
