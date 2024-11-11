@@ -132,8 +132,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         const countdownTime = Math.floor(Date.now() / 1000) + 19;
         const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
 
-        // Send initial countdown message if this is the first time seeing this message
-        if (!processedEdits.has(messageId)) {
+        // Only proceed with countdown message if we haven't processed this message ID
+        // AND it contains a card pack image
+        if (!processedEdits.has(messageId) && newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
+            // Mark this message as processed only if it contains a card pack
             processedEdits.set(messageId, Date.now());
 
             // Create base embed with countdown
@@ -151,38 +153,27 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             let roleContent = '';
             let roleId = null;
 
-            if(newEmbed.image){
-                console.log(processedEdits.has(messageId))
-                console.log(messageId)
-                console.log("Image Exist in embed")
-                console.log(newEmbed.image.url)
-                console.log(newEmbed.image.url.includes('cdn.mazoku.cc/packs'))
+            const urlParts = newEmbed.image.url.split('/');
+            const cardIds = urlParts.slice(4, 7);
+
+            // Wait for all card info and build description
+            const { description, hasHighTierCard } = await buildCardDescription(cardIds);
+
+            // Add description to embed
+            if (description && allowRolePing) {
+                countdownEmbed.description = description;
             }
 
-            if (newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
-                const urlParts = newEmbed.image.url.split('/');
-                const cardIds = urlParts.slice(4, 7);
-                console.log(urlParts)
-
-                // Wait for all card info and build description
-                const { description, hasHighTierCard } = await buildCardDescription(cardIds);
-
-                // Add description to embed
-                if (description && allowRolePing) {
-                    countdownEmbed.description = description;
+            // Only add role ping if allowRolePing is true AND there's a high tier card
+            if (allowRolePing && hasHighTierCard) {
+                const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
+                if (highTierRole) {
+                    roleContent = `<@&${highTierRole.id}>`;
+                    roleId = highTierRole.id;
                 }
-
-                // Only add role ping if allowRolePing is true AND there's a high tier card
-                if (allowRolePing && hasHighTierCard) {
-                    const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
-                    if (highTierRole) {
-                        roleContent = `<@&${highTierRole.id}>`;
-                        roleId = highTierRole.id;
-                    }
-                }
-                console.log(`${newMessage.guild.name} allowed ${allowRolePing} and has ${hasHighTierCard}`)
-                console.log(description)
             }
+            console.log(`${newMessage.guild.name} allowed ${allowRolePing} and has ${hasHighTierCard}`)
+            console.log(description)
 
             // Send countdown message
             const countdownMsg = await newMessage.reply({
