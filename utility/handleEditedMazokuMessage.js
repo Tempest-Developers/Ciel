@@ -72,7 +72,7 @@ async function getOrCreateHighTierRole(guild) {
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
-        // Check if edit is from exempt bot
+        // Check if message is from exempt bot
         if (oldMessage.author.id !== exemptBotId) {
             return;
         }
@@ -91,6 +91,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
         }
 
         const guildId = newMessage.guild.id;
+        const messageId = newMessage.id;
 
         // Get server data for settings check
         let serverData = await client.database.getServerData(guildId);
@@ -99,19 +100,28 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             serverData = await client.database.getServerData(guildId);
         }
 
-        // Check for second image edit
-        if (newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
-            const messageId = newMessage.id;
-            if (processedEdits.has(messageId)) {
-                return;
-            }
+        // Calculate timestamps for all guilds
+        const countdownTime = Math.floor(Date.now() / 1000) + 19;
+        const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
+
+        // Send initial countdown message if this is the first time seeing this message
+        if (!processedEdits.has(messageId)) {
             processedEdits.set(messageId, Date.now());
 
-            // Calculate timestamps
-            const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
+            // Create base embed with countdown
+            const countdownEmbed = {
+                title: 'Summon Information',
+                fields: [
+                    {
+                        name: 'Claim Time',
+                        value: `<t:${countdownTime}:R> 📵`
+                    }
+                ],
+                color: 0x0099ff
+            };
 
-            if (guildId === GATE_GUILD) {
-                // Extract card IDs from URL
+            // Add card information for GATE_GUILD
+            if (newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
                 const urlParts = newEmbed.image.url.split('/');
                 const cardIds = urlParts.slice(4, 7);
 
@@ -131,76 +141,46 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     }
                 }
 
-                // Create detailed embed for GATE_GUILD
-                const cardEmbed = {
-                    title: 'Card Information',
-                    description: description,
-                    fields: [
-                        {
-                            name: 'Next Summon',
-                            value: `<t:${nextSummonTime}:R> 📵`
-                        }
-                    ],
-                    color: 0x0099ff
-                };
+                if (description) {
+                    countdownEmbed.description = description;
+                }
+            }
 
-                // Check if role pinging is enabled
-                const serverSettings = await client.database.mServerSettingDB.findOne({ serverID: guildId });
-                let roleContent = '';
-
-                if (serverSettings?.allowRolePing) {
+            // Check if role pinging is enabled (only for GATE_GUILD)
+            let roleContent = '';
+            if (guildId === GATE_GUILD) {
+                const serverSettings = await client.database.mServerSettingsDB.findOne({ serverID: guildId });
+                if (serverSettings?.settings?.allowRolePing) {
                     const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
                     if (highTierRole) {
                         roleContent = `${highTierRole} `;
                     }
                 }
-
-                // Send detailed embed with optional role ping
-                const infoMsg = await newMessage.reply({ 
-                    content: roleContent,
-                    embeds: [cardEmbed],
-                    allowedMentions: { roles: [roleContent ? roleContent.trim() : null] }
-                });
-
-                // Update next summon time after 19 seconds
-                setTimeout(async () => {
-                    try {
-                        cardEmbed.fields[0].value = `<t:${nextSummonTime}:R> 📵`;
-                        await infoMsg.edit({ 
-                            content: roleContent,
-                            embeds: [cardEmbed],
-                            allowedMentions: { roles: [roleContent ? roleContent.trim() : null] }
-                        });
-                    } catch (error) {
-                        console.error('Error editing info message:', error);
-                    }
-                }, 19000);
-            } else {
-                // Simple embed for non-GATE_GUILD servers
-                const simpleEmbed = {
-                    title: 'Summon Information',
-                    fields: [
-                        {
-                            name: 'Next Summon',
-                            value: `<t:${nextSummonTime}:R> 📵`
-                        }
-                    ],
-                    color: 0x0099ff
-                };
-
-                // Send simple embed
-                const infoMsg = await newMessage.reply({ embeds: [simpleEmbed] });
-
-                // Update next summon time after 19 seconds
-                setTimeout(async () => {
-                    try {
-                        simpleEmbed.fields[0].value = `<t:${nextSummonTime}:R> 📵`;
-                        await infoMsg.edit({ embeds: [simpleEmbed] });
-                    } catch (error) {
-                        console.error('Error editing info message:', error);
-                    }
-                }, 19000);
             }
+
+            // Send countdown message
+            const countdownMsg = await newMessage.reply({
+                content: roleContent,
+                embeds: [countdownEmbed],
+                allowedMentions: { roles: [roleContent ? roleContent.trim() : null] }
+            });
+
+            // Update to next summon time after 19 seconds
+            setTimeout(async () => {
+                try {
+                    countdownEmbed.fields[0] = {
+                        name: 'Next Summon',
+                        value: `<t:${nextSummonTime}:R> 📵`
+                    };
+                    await countdownMsg.edit({
+                        content: roleContent,
+                        embeds: [countdownEmbed],
+                        allowedMentions: { roles: [roleContent ? roleContent.trim() : null] }
+                    });
+                } catch (error) {
+                    console.error('Error editing countdown message:', error);
+                }
+            }, 19000);
         }
 
         // Process embed fields for claims

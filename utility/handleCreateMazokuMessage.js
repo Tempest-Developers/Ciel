@@ -21,11 +21,11 @@ module.exports = async (message, exemptBotId) => {
     const originalMessageId = message.id;
 
     // Calculate timestamps - This runs for all guilds
-    const countdownTime = Math.floor(Date.now() / 1000) + 19;
-    // Send countdown message
-    const countdownMsg = await message.reply(`**Claim card <t:${countdownTime}:R> 📵**`);
-    // Calculate the next summon time (2 minutes from now)
-    const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
+    // const countdownTime = Math.floor(Date.now() / 1000) + 19;
+    // // Send countdown message
+    // const countdownMsg = await message.reply(`**Claim card <t:${countdownTime}:R> 📵**`);
+    // // Calculate the next summon time (2 minutes from now)
+    // const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
     // Edit the countdown message after 19 seconds to show the next summon time
     // setTimeout(async () => {
     //   try {
