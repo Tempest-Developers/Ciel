@@ -59,13 +59,13 @@ module.exports = {
             });
         }
 
-        // Verify the guild has a configured channel
-        if (!GUILD_CHANNELS[interaction.guild.id]) {
-            return interaction.reply({
-                content: '❌ This guild does not have a configured giveaway channel.',
-                ephemeral: true
-            });
-        }
+        // // Verify the guild has a configured channel
+        // if (!GUILD_CHANNELS[interaction.guild.id]) {
+        //     return interaction.reply({
+        //         content: '❌ This guild does not have a configured giveaway channel.',
+        //         ephemeral: true
+        //     });
+        // }
 
         const { mGiveawayDB } = database;
         const subcommand = interaction.options.getSubcommand();
