@@ -152,7 +152,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             let roleId = null;
 
             if(newEmbed.image){
+                console.log(processedEdits.has(messageId))
+                console.log(messageId)
                 console.log("Image Exist in embed")
+                console.log(newEmbed.image.url)
                 console.log(newEmbed.image.url.includes('cdn.mazoku.cc/packs'))
             }
 
