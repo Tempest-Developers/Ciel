@@ -18,7 +18,22 @@ module.exports = {
 
         // Handle button interactions
         if (interaction.isButton()) {
-            // Handle button interactions here
+            // First try to find a command-specific button handler
+            const commandName = interaction.message?.interaction?.commandName;
+            if (commandName) {
+                const command = client.slashCommands.get(commandName);
+                if (command && command.handleButton) {
+                    try {
+                        await command.handleButton(interaction, { database });
+                        return;
+                    } catch (error) {
+                        console.error(`Error executing button handler for command ${commandName}:`, error);
+                        return;
+                    }
+                }
+            }
+
+            // Fallback to global button handlers if no command-specific handler found
             const buttonHandler = client.buttons?.get(interaction.customId);
             if (buttonHandler) {
                 try {

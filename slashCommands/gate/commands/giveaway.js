@@ -33,7 +33,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
                 .setTitle('🎉 Current Giveaway')
-                .setDescription(`${getTierEmoji(cardData.card.tier+"T")}** ${cardData.card.name} #**${cardData.version}**\n *${cardData.card.series}*`)
+                .setDescription(`${getTierEmoji(cardData.card.tier+"T")}** ${cardData.card.name}** #**${cardData.version}**\n *${cardData.card.series}*`)
                 .setImage(cardData.card.cardImageLink.replace('.png', ''));
 
             // Calculate time left
@@ -57,7 +57,7 @@ module.exports = {
             embed.addFields(
                 {
                     name: 'Giveaway Details', 
-                    value: `**Time Remaining**: <t:${timeStamp}:R>\n**Entries**: ${totalEntries}\n**Requirements**: ${requirementText}`
+                    value: `**Time Remaining**: <t:${timeStamp}:R>\n**Entries**: ${totalEntries}`
                 }
             );
 
@@ -86,11 +86,9 @@ module.exports = {
     },
 
     async handleButton(interaction, { database }) {
-        const { mGiveawayDB } = database;
-
         if (interaction.customId === 'join_giveaway') {
             try {
-                const giveaway = await mGiveawayDB.findOne({ active: true });
+                const giveaway = await database.mGiveawayDB.findOne({ active: true });
                 
                 if (!giveaway) {
                     return interaction.reply({
@@ -138,7 +136,7 @@ module.exports = {
 
         if (interaction.customId === 'confirm_join') {
             try {
-                const giveaway = await mGiveawayDB.findOne({ active: true });
+                const giveaway = await database.mGiveawayDB.findOne({ active: true });
                 
                 if (!giveaway) {
                     return interaction.reply({
@@ -147,7 +145,7 @@ module.exports = {
                     });
                 }
 
-                // Add user to giveaway
+                // Add user to giveaway using the database helper function
                 await database.joinGiveaway(giveaway.giveawayID, interaction.user.id, 1);
 
                 return interaction.reply({
