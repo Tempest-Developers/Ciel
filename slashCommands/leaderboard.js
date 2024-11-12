@@ -22,7 +22,9 @@ module.exports = {
                             { name: 'Common Tier', value: 'CT' },
                             { name: 'Rare Tier', value: 'RT' },
                             { name: 'Super Rare Tier', value: 'SRT' },
-                            { name: 'Super Super Rare Tier', value: 'SSRT' }
+                            { name: 'Super Super Rare Tier', value: 'SSRT' },
+                            { name: 'Ultra Rare Tier', value: 'URT' },
+                            { name: 'Exclusive Tier', value: 'EXT' }
                         )
                 )
         )
@@ -39,7 +41,8 @@ module.exports = {
                             { name: 'Super Print (1-10)', value: 'SP' },
                             { name: 'Low Print (11-99)', value: 'LP' },
                             { name: 'Mid Print (100-499)', value: 'MP' },
-                            { name: 'High Print (500-1000)', value: 'HP' }
+                            { name: 'High Print (500-1000)', value: 'HP' },
+                            { name: 'All Prints', value: 'ALL' }
                         )
                 )
         )
@@ -50,11 +53,10 @@ module.exports = {
         ),
 
     async execute(interaction, { database }) {
-        // Store userId at the beginning
-        const userId = interaction.user.id;
         const guildId = interaction.guild.id;
+        const userId = interaction.user.id;
         const cooldownKey = `${guildId}-${userId}`;
-        
+
         if (cooldowns.has(cooldownKey)) {
             const expirationTime = cooldowns.get(cooldownKey);
             if (Date.now() < expirationTime) {
@@ -66,7 +68,6 @@ module.exports = {
             }
         }
 
-        // Set cooldown
         cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
         setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
 
@@ -75,8 +76,19 @@ module.exports = {
         try {
             const subcommand = interaction.options.getSubcommand();
 
-            // Get all users in the server using mUserDB directly from database parameter
-            const allUsers = await database.mUserDB.find({ serverID: guildId }).toArray();
+            // Get server settings to check if stats are allowed
+            const serverSettings = await database.getServerSettings(guildId);
+            if (!serverSettings?.settings?.allowShowStats) {
+                return await interaction.editReply({
+                    content: 'Stats are currently disabled in this server.',
+                    ephemeral: true
+                });
+            }
+
+            // Get all users in the server
+            const { mUserDB } = await database.connectDB();
+            const allUsers = await mUserDB.find({ serverID: guildId }).toArray();
+            
             if (!allUsers || allUsers.length === 0) {
                 return await interaction.editReply('No user data found for this server.');
             }
@@ -95,16 +107,15 @@ module.exports = {
                     'CT': 0,
                     'RT': 1,
                     'SRT': 2,
-                    'SSRT': 3
+                    'SSRT': 3,
+                    'URT': 4,
+                    'EXT': 5
                 };
 
-                leaderboardData = allUsers
-                    .filter(user => user && user.counts && Array.isArray(user.counts)) // Enhanced validation
-                    .map(user => ({
-                        userId: user.userID,
-                        count: user.counts[tierIndex[tier]] || 0
-                    }))
-                    .filter(data => data && data.userId); // Additional validation
+                leaderboardData = allUsers.map(user => ({
+                    userId: user.userID,
+                    count: user.counts?.[tierIndex[tier]] || 0
+                }));
             }
             else if (subcommand === 'print') {
                 const range = interaction.options.getString('range');
@@ -113,37 +124,44 @@ module.exports = {
                     description = 'Top 10 players by print ranges (Based on last 50 claims)';
 
                     // Calculate counts for all print ranges
-                    leaderboardData = allUsers
-                        .filter(user => user && user.userID) // Enhanced validation
-                        .map(user => {
-                            const counts = {
-                                SP: 0, LP: 0, MP: 0, HP: 0, total: 0
-                            };
+                    leaderboardData = allUsers.map(user => {
+                        const counts = {
+                            SP: 0, LP: 0, MP: 0, HP: 0, total: 0
+                        };
 
-                            // Count prints across all tiers
-                            if (user.claims) {
-                                Object.values(user.claims).forEach(tierClaims => {
-                                    if (Array.isArray(tierClaims)) {
-                                        tierClaims.forEach(claim => {
-                                            if (claim && typeof claim.print === 'number') {
-                                                const print = claim.print;
-                                                if (print >= 1 && print <= 10) counts.SP++;
-                                                else if (print >= 11 && print <= 99) counts.LP++;
-                                                else if (print >= 100 && print <= 499) counts.MP++;
-                                                else if (print >= 500 && print <= 1000) counts.HP++;
-                                                counts.total++;
-                                            }
-                                        });
-                                    }
-                                });
-                            }
+                        // Count prints across all tiers
+                        if (user.claims) {
+                            Object.values(user.claims).forEach(tierClaims => {
+                                if (Array.isArray(tierClaims)) {
+                                    tierClaims.forEach(claim => {
+                                        const print = claim.print;
+                                        if (print >= 1 && print <= 10) counts.SP++;
+                                        else if (print >= 11 && print <= 99) counts.LP++;
+                                        else if (print >= 100 && print <= 499) counts.MP++;
+                                        else if (print >= 500 && print <= 1000) counts.HP++;
+                                        counts.total++;
+                                    });
+                                }
+                            });
+                        }
 
-                            return {
-                                userId: user.userID,
-                                ...counts
-                            };
-                        })
-                        .filter(data => data && data.userId); // Additional validation
+                        // Also include manual claims in the count
+                        if (user.manualClaims) {
+                            user.manualClaims.forEach(claim => {
+                                const print = claim.print;
+                                if (print >= 1 && print <= 10) counts.SP++;
+                                else if (print >= 11 && print <= 99) counts.LP++;
+                                else if (print >= 100 && print <= 499) counts.MP++;
+                                else if (print >= 500 && print <= 1000) counts.HP++;
+                                counts.total++;
+                            });
+                        }
+
+                        return {
+                            userId: user.userID,
+                            ...counts
+                        };
+                    });
 
                     // Sort by total claims
                     leaderboardData.sort((a, b) => b.total - a.total);
@@ -155,45 +173,40 @@ module.exports = {
                     description = `Top 10 players by ${range} (${getRangeDescription(range)}) (Based on last 50 claims)`;
 
                     // Calculate counts for specific print range
-                    leaderboardData = allUsers
-                        .filter(user => user && user.userID) // Enhanced validation
-                        .map(user => {
-                            let count = 0;
-                            if (user.claims) {
-                                Object.values(user.claims).forEach(tierClaims => {
-                                    if (Array.isArray(tierClaims)) {
-                                        tierClaims.forEach(claim => {
-                                            if (claim && typeof claim.print === 'number' && isInPrintRange(claim.print, range)) {
-                                                count++;
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                            return { userId: user.userID, count };
-                        })
-                        .filter(data => data && data.userId); // Additional validation
+                    leaderboardData = allUsers.map(user => {
+                        let count = 0;
+                        if (user.claims) {
+                            Object.values(user.claims).forEach(tierClaims => {
+                                if (Array.isArray(tierClaims)) {
+                                    tierClaims.forEach(claim => {
+                                        const print = claim.print;
+                                        if (isInPrintRange(print, range)) count++;
+                                    });
+                                }
+                            });
+                        }
+                        // Include manual claims in the count
+                        if (user.manualClaims) {
+                            user.manualClaims.forEach(claim => {
+                                const print = claim.print;
+                                if (isInPrintRange(print, range)) count++;
+                            });
+                        }
+                        return { userId: user.userID, count };
+                    });
                 }
             }
             else { // total
                 title = '🏆 Total Claims Leaderboard';
                 description = 'Top 10 players by total claims';
 
-                leaderboardData = allUsers
-                    .filter(user => user && user.counts && Array.isArray(user.counts)) // Enhanced validation
-                    .map(user => ({
-                        userId: user.userID,
-                        count: user.counts.reduce((sum, count) => sum + (count || 0), 0)
-                    }))
-                    .filter(data => data && data.userId); // Additional validation
+                leaderboardData = allUsers.map(user => ({
+                    userId: user.userID,
+                    count: user.counts ? user.counts.reduce((sum, count) => sum + (count || 0), 0) : 0
+                }));
             }
 
-            // Ensure leaderboardData is valid
-            if (!Array.isArray(leaderboardData) || leaderboardData.length === 0) {
-                return await interaction.editReply('No valid leaderboard data found.');
-            }
-
-            // Sort data if needed
+            // Sort data (if not already sorted)
             if (subcommand !== 'print' || interaction.options.getString('range') !== 'ALL') {
                 leaderboardData.sort((a, b) => b.count - a.count);
             }
@@ -210,9 +223,9 @@ module.exports = {
 
             if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
                 leaderboardText = top10.map((data, index) => {
-                    return `${index + 1}. <@${data.userId}>` +
-                           `⭐${data.SP}|🌟${data.LP}|💫${data.MP}|✨${data.HP}` +
-                           `Total: ${data.total}\n`;
+                    return `${index + 1}. <@${data.userId}> ` +
+                           `⭐${data.SP}|🌟${data.LP}|💫${data.MP}|✨${data.HP} ` +
+                           `Total: ${data.total}`;
                 }).join('\n');
             } else {
                 leaderboardText = top10.map((data, index) => 
@@ -232,12 +245,11 @@ module.exports = {
                 embed.addFields({ name: 'Print Ranges', value: printRangeInfo });
             }
 
-            // Add user's rank with additional validation
-            const userIndex = leaderboardData.findIndex(data => data && data.userId === userId);
-            const userRank = userIndex !== -1 ? userIndex + 1 : null;
-            const userData = leaderboardData.find(data => data && data.userId === userId);
+            // Add user's rank if they exist in the data
+            const userRank = leaderboardData.findIndex(data => data.userId === userId) + 1;
+            const userData = leaderboardData.find(data => data.userId === userId);
 
-            if (userRank && userData) {
+            if (userRank > 0 && userData) {  // Only add user stats if they exist in the data
                 let userStats;
                 if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
                     userStats = `**Your Stats:**\n` +
