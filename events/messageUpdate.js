@@ -23,8 +23,6 @@ module.exports = {
 		if (!checkPermissions(oldMessage.channel, client.user)) return;
 
 		if (!(await checkIfGuildAllowed(client, newMessage.guild.id)) || !(await checkIfGuildAllowed(client, oldMessage.guild.id))) return;
-
-        console.log(config.mazokuID)
         // Handle Mazoku messages
         handleEditedMazokuMessage(client, oldMessage, newMessage, config.mazokuID);
 	},
