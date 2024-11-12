@@ -10,21 +10,21 @@ module.exports = {
             .setDescription('Show giveaway details and rewards'),
 
     async execute(interaction, { database }) {
-        const { mGiveawayDB } = database;
-        const serverData = await mGiveawayDB.find().toArray();
-
-        // Check for active giveaways
-        if (!serverData || serverData.length === 0) {
-            return interaction.reply({
-                content: '❌ There are no active giveaways at the moment.',
-                ephemeral: true
-            });
-        }
-
-        // Get the current giveaway
-        const currentGiveaway = serverData[0];
-        
         try {
+            const { mGiveawayDB } = database;
+            const serverData = await mGiveawayDB.find({ active: true }).toArray();
+
+            // Check for active giveaways
+            if (!serverData || serverData.length === 0) {
+                return interaction.reply({
+                    content: '❌ There are no active giveaways at the moment.',
+                    ephemeral: true
+                });
+            }
+
+            // Get the current giveaway
+            const currentGiveaway = serverData[0];
+            
             // Fetch card details from API using axios
             const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${currentGiveaway.itemID}`);
             const cardData = response.data;
@@ -38,17 +38,6 @@ module.exports = {
 
             // Calculate time left
             const timeStamp = currentGiveaway.endTimestamp;
-
-            // Add giveaway details
-            let requirementText = 'No requirements';
-            if (currentGiveaway.level > 0 || currentGiveaway.amount > 0) {
-                if (currentGiveaway.level > 0) {
-                    requirementText = `Level ${currentGiveaway.level} required`;
-                }
-                if (currentGiveaway.amount > 0) {
-                    requirementText += `${currentGiveaway.level > 0 ? ' and ' : ''}${currentGiveaway.amount} tickets required`;
-                }
-            }
 
             // Check if user has already joined
             const userJoined = currentGiveaway.users?.some(user => user.userID === interaction.user.id);
@@ -71,39 +60,45 @@ module.exports = {
             const row = new ActionRowBuilder()
                 .addComponents(joinButton);
 
-            return interaction.reply({
+            await interaction.reply({
                 embeds: [embed],
                 components: [row],
                 ephemeral: true
             });
         } catch (error) {
-            console.error('Error fetching card data:', error);
-            return interaction.reply({
-                content: '❌ Error fetching giveaway details.',
-                ephemeral: true
-            });
+            console.error('Error in giveaway command:', error);
+            if (!interaction.replied) {
+                await interaction.reply({
+                    content: '❌ Error fetching giveaway details.',
+                    ephemeral: true
+                });
+            }
         }
     },
 
     async handleButton(interaction, { database }) {
-        const customId = interaction.customId;
+        if (!interaction.isButton()) return;
 
-        if (customId === 'giveaway_join') {
-            try {
+        try {
+            const customId = interaction.customId;
+
+            if (customId === 'giveaway_join') {
+                await interaction.deferReply({ ephemeral: true });
+                
                 const giveaway = await database.mGiveawayDB.findOne({ active: true });
                 
                 if (!giveaway) {
-                    return interaction.reply({
+                    return interaction.editReply({
                         content: '❌ This giveaway is no longer active.',
-                        ephemeral: true
+                        components: []
                     });
                 }
 
                 // Check if user already joined
                 if (giveaway.users?.some(user => user.userID === interaction.user.id)) {
-                    return interaction.reply({
+                    return interaction.editReply({
                         content: '❌ You have already joined this giveaway!',
-                        ephemeral: true
+                        components: []
                     });
                 }
 
@@ -121,53 +116,72 @@ module.exports = {
                 const row = new ActionRowBuilder()
                     .addComponents(confirmButton, cancelButton);
 
-                // Show confirmation message
-                return interaction.reply({
+                await interaction.editReply({
                     content: 'Are you sure you want to join this giveaway?',
-                    components: [row],
-                    ephemeral: true
+                    components: [row]
                 });
-            } catch (error) {
-                console.error('Error handling join button:', error);
-                return interaction.reply({
-                    content: '❌ An error occurred while joining the giveaway.',
-                    ephemeral: true
-                });
+                return;
             }
-        }
 
-        if (customId === 'giveaway_confirm') {
-            try {
+            if (customId === 'giveaway_confirm') {
+                await interaction.deferReply({ ephemeral: true });
+                
                 const giveaway = await database.mGiveawayDB.findOne({ active: true });
                 
                 if (!giveaway) {
-                    return interaction.reply({
+                    return interaction.editReply({
                         content: '❌ This giveaway is no longer active.',
-                        ephemeral: true
+                        components: []
                     });
                 }
 
-                // Add user to giveaway using the database helper function
-                await database.joinGiveaway(giveaway.giveawayID, interaction.user.id, 1);
+                try {
+                    await database.joinGiveaway(giveaway.giveawayID, interaction.user.id, 1);
+                    return interaction.editReply({
+                        content: '✅ You have successfully joined the giveaway!',
+                        components: []
+                    });
+                } catch (error) {
+                    if (error.message === 'User has already joined this giveaway') {
+                        return interaction.editReply({
+                            content: '❌ You have already joined this giveaway!',
+                            components: []
+                        });
+                    }
+                    if (error.message === 'Giveaway not found or not active') {
+                        return interaction.editReply({
+                            content: '❌ This giveaway is no longer active.',
+                            components: []
+                        });
+                    }
+                    throw error;
+                }
+            }
 
-                return interaction.reply({
-                    content: '✅ You have successfully joined the giveaway!',
-                    ephemeral: true
-                });
-            } catch (error) {
-                console.error('Error confirming join:', error);
-                return interaction.reply({
-                    content: '❌ An error occurred while joining the giveaway.',
-                    ephemeral: true
+            if (customId === 'giveaway_cancel') {
+                await interaction.deferReply({ ephemeral: true });
+                return interaction.editReply({
+                    content: '❌ Giveaway join cancelled.',
+                    components: []
                 });
             }
-        }
-
-        if (customId === 'giveaway_cancel') {
-            return interaction.reply({
-                content: '❌ Giveaway join cancelled.',
-                ephemeral: true
-            });
+        } catch (error) {
+            console.error('Error handling button:', error);
+            try {
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: '❌ An error occurred while processing your request.',
+                        ephemeral: true
+                    });
+                } else {
+                    await interaction.editReply({
+                        content: '❌ An error occurred while processing your request.',
+                        components: []
+                    });
+                }
+            } catch (replyError) {
+                console.error('Error sending error message:', replyError);
+            }
         }
     }
 };

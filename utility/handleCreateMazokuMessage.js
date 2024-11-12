@@ -99,7 +99,7 @@ module.exports = async (message, exemptBotId, database) => {
                                     );
 
                                     // Add to reward message
-                                    rewardMessage += `<@${message.guild.members.cache.get(winnerID)?.user.username}> earned ${tokenReward} <:Slime_Token:1304929154285703179>\n`;
+                                    rewardMessage += `<@${winnerID}> earned ${tokenReward} <:Slime_Token:1304929154285703179>\n`;
                                 }
                             }
                         }
