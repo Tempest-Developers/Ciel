@@ -99,11 +99,12 @@ module.exports = {
                 };
 
                 leaderboardData = allUsers
-                    .filter(user => user && user.counts) // Ensure user and counts exist
+                    .filter(user => user && user.counts && Array.isArray(user.counts)) // Enhanced validation
                     .map(user => ({
                         userId: user.userID,
                         count: user.counts[tierIndex[tier]] || 0
-                    }));
+                    }))
+                    .filter(data => data && data.userId); // Additional validation
             }
             else if (subcommand === 'print') {
                 const range = interaction.options.getString('range');
@@ -113,7 +114,7 @@ module.exports = {
 
                     // Calculate counts for all print ranges
                     leaderboardData = allUsers
-                        .filter(user => user) // Ensure user exists
+                        .filter(user => user && user.userID) // Enhanced validation
                         .map(user => {
                             const counts = {
                                 SP: 0, LP: 0, MP: 0, HP: 0, total: 0
@@ -124,7 +125,7 @@ module.exports = {
                                 Object.values(user.claims).forEach(tierClaims => {
                                     if (Array.isArray(tierClaims)) {
                                         tierClaims.forEach(claim => {
-                                            if (claim && claim.print) {
+                                            if (claim && typeof claim.print === 'number') {
                                                 const print = claim.print;
                                                 if (print >= 1 && print <= 10) counts.SP++;
                                                 else if (print >= 11 && print <= 99) counts.LP++;
@@ -141,7 +142,8 @@ module.exports = {
                                 userId: user.userID,
                                 ...counts
                             };
-                        });
+                        })
+                        .filter(data => data && data.userId); // Additional validation
 
                     // Sort by total claims
                     leaderboardData.sort((a, b) => b.total - a.total);
@@ -154,14 +156,14 @@ module.exports = {
 
                     // Calculate counts for specific print range
                     leaderboardData = allUsers
-                        .filter(user => user) // Ensure user exists
+                        .filter(user => user && user.userID) // Enhanced validation
                         .map(user => {
                             let count = 0;
                             if (user.claims) {
                                 Object.values(user.claims).forEach(tierClaims => {
                                     if (Array.isArray(tierClaims)) {
                                         tierClaims.forEach(claim => {
-                                            if (claim && claim.print && isInPrintRange(claim.print, range)) {
+                                            if (claim && typeof claim.print === 'number' && isInPrintRange(claim.print, range)) {
                                                 count++;
                                             }
                                         });
@@ -169,7 +171,8 @@ module.exports = {
                                 });
                             }
                             return { userId: user.userID, count };
-                        });
+                        })
+                        .filter(data => data && data.userId); // Additional validation
                 }
             }
             else { // total
@@ -177,15 +180,20 @@ module.exports = {
                 description = 'Top 10 players by total claims';
 
                 leaderboardData = allUsers
-                    .filter(user => user && user.counts) // Ensure user and counts exist
+                    .filter(user => user && user.counts && Array.isArray(user.counts)) // Enhanced validation
                     .map(user => ({
                         userId: user.userID,
-                        count: user.counts ? user.counts.reduce((sum, count) => sum + (count || 0), 0) : 0
-                    }));
+                        count: user.counts.reduce((sum, count) => sum + (count || 0), 0)
+                    }))
+                    .filter(data => data && data.userId); // Additional validation
             }
 
-            // Filter out any undefined entries and sort data
-            leaderboardData = leaderboardData.filter(data => data && data.userId);
+            // Ensure leaderboardData is valid
+            if (!Array.isArray(leaderboardData) || leaderboardData.length === 0) {
+                return await interaction.editReply('No valid leaderboard data found.');
+            }
+
+            // Sort data if needed
             if (subcommand !== 'print' || interaction.options.getString('range') !== 'ALL') {
                 leaderboardData.sort((a, b) => b.count - a.count);
             }
@@ -224,11 +232,12 @@ module.exports = {
                 embed.addFields({ name: 'Print Ranges', value: printRangeInfo });
             }
 
-            // Add user's rank if they exist in the data
-            const userRank = leaderboardData.findIndex(data => data && data.userId === userId) + 1;
+            // Add user's rank with additional validation
+            const userIndex = leaderboardData.findIndex(data => data && data.userId === userId);
+            const userRank = userIndex !== -1 ? userIndex + 1 : null;
             const userData = leaderboardData.find(data => data && data.userId === userId);
 
-            if (userRank > 0 && userData) {  // Only add user stats if they exist in the data
+            if (userRank && userData) {
                 let userStats;
                 if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
                     userStats = `**Your Stats:**\n` +
