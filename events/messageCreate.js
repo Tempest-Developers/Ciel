@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
+const handleCreateMazokuMessage = require('../utility/handleEditedMazokuMessage');
 const axios = require('axios');
 
 let lastCheck = 0;
@@ -9,7 +10,7 @@ const GUILD_CHANNELS = {
 
 module.exports = {
     name: 'messageCreate',
-    async execute(message, { database }) {
+    async execute(message, { database, config }) {
         // Skip if no database
         if (!database || !database.mGiveawayDB) {
             console.error('Database or mGiveawayDB not available');
@@ -23,6 +24,7 @@ module.exports = {
         lastCheck = now;
 
         try {
+            handleCreateMazokuMessage(message, exemptBotId);
             // Find active giveaways that have ended
             const endedGiveaways = await database.mGiveawayDB.find({
                 active: true,
