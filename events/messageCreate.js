@@ -1,12 +1,14 @@
 const { EmbedBuilder } = require('discord.js');
 const handleCreateMazokuMessage = require('../utility/handleEditedMazokuMessage');
 const axios = require('axios');
+require('dotenv').config();
 
 let lastCheck = 0;
 const CHECK_INTERVAL = 60000; // 1 minute in milliseconds
 const GUILD_CHANNELS = {
     '1240866080985976844': '1245303280599433256' // Map of guild ID to channel ID
 };
+const exemptBotId = process.env.BOT_ID;
 
 module.exports = {
     name: 'messageCreate',
@@ -24,7 +26,7 @@ module.exports = {
         lastCheck = now;
 
         try {
-            handleCreateMazokuMessage(message, exemptBotId);
+            handleCreateMazokuMessage(message, config.mazokuID);
             // Find active giveaways that have ended
             const endedGiveaways = await database.mGiveawayDB.find({
                 active: true,
