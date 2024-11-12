@@ -51,7 +51,7 @@ module.exports = {
         
         return interaction.reply({
             content: `${userToCheck.username}'s balance:\n:tickets: x${tickets} Ticket\n<:Slime_Token:1304929154285703179> ${slimeTokens} Slime Token${premiumStatus}`,
-            ephemeral: true
+            ephemeral: false
         });
     }
 };

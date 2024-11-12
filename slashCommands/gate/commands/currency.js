@@ -141,7 +141,7 @@ module.exports = {
 
                 return interaction.reply({
                     content: `✅ Successfully took ${amount} Slime Tokens from ${targetUser.username}. Their new balance is ${newBalance} Slime Tokens.`,
-                    ephemeral: true
+                    ephemeral: false
                 });
             } else if (type === 'tickets') {
                 const currentTickets = userData.currency[5] || 0;
@@ -159,7 +159,7 @@ module.exports = {
 
                 return interaction.reply({
                     content: `✅ Successfully took ${amount} Tickets from ${targetUser.username}. They now have ${currentTickets - amount} Tickets.`,
-                    ephemeral: true
+                    ephemeral: false
                 });
             }
         }

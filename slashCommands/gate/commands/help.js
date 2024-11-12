@@ -41,11 +41,11 @@ module.exports = {
                 '**Cooldown**: 10 seconds', inline: false },
             { name: 'Information', value:
                 '• Earn 0-10 Slime Tokens from claiming cards\n' +
-                '• Maximum balance: 25,000 Slime Tokens\n' +
-                '• Regular ticket: 500 Slime Tokens\n' +
-                '• Special Gift Ticket: 500 Slime Tokens\n' +
-                '• Premium (1 day): 1000 Slime Tokens\n' +
-                '• Premium benefits: SR-ping role', inline: false }
+                '• Maximum balance: 30,000 Slime Tokens\n' +
+                '• Regular ticket: 2000 Slime Tokens\n' +
+                '• Special Gift Ticket: 1500 Slime Tokens\n' +
+                '• Premium (1 day): 500 Slime Tokens\n' +
+                '• Premium benefits: High-Tier-Ping role', inline: false }
         );
 
         return interaction.reply({

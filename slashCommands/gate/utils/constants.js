@@ -4,9 +4,9 @@ module.exports = {
     LEAD_COOLDOWN: 5, // 5 seconds for leads
     USER_COOLDOWN: 10, // 10 seconds for regular users
     COSTS: {
-        TICKET: 500,
-        PREMIUM: 1000,
-        GIFT_TICKET: 500
+        TICKET: 2000,
+        PREMIUM: 500,
+        GIFT_TICKET: 1500
     },
-    MAX_TOKENS: 25000
+    MAX_TOKENS: 30000
 };

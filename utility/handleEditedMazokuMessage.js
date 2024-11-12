@@ -57,19 +57,23 @@ function getAvailableVersions(cardData) {
 
 async function getOrCreateHighTierRole(guild) {
     try {
-        let role = guild.roles.cache.find(r => r.name === 'SR-ping');
+        let role = guild.roles.cache.find(r => r.id === '1305567492277796908' || r.name === 'High-Tier-Ping');
         if (!role) {
-            role = await guild.roles.create({
-                name: 'SR-ping',
-                reason: 'Created for High Tier card notifications'
-            });
+            role = await guild.roles.fetch('1305567492277796908').catch(() => null);
+            if (!role) {
+                role = await guild.roles.create({
+                    name: 'High-Tier-Ping',
+                    reason: 'Created for High-Tier-Ping cardnotifications'
+                });
+            }
         }
         return role;
     } catch (error) {
-        console.error('Error managing SR-ping role:', error);
+        console.error('Error managing High-Tier-Ping role:', error);
         return null;
     }
 }
+
 
 async function buildCardDescription(cardIds) {
     let hasHighTierCard = false;

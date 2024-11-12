@@ -11,7 +11,7 @@ module.exports = {
 
     async execute(interaction, { database }) {
         try {
-            const { mGiveawayDB } = database;
+            const { mGiveawayDB, mGateDB } = database;
             const serverData = await mGiveawayDB.find({ active: true }).toArray();
 
             // Check for active giveaways
@@ -24,6 +24,10 @@ module.exports = {
 
             // Get the current giveaway
             const currentGiveaway = serverData[0];
+            
+            // Get user's ticket count
+            const userData = await mGateDB.findOne({ userID: interaction.user.id });
+            const userTickets = userData?.currency[5] || 0;
             
             // Fetch card details from API using axios
             const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${currentGiveaway.itemID}`);
@@ -42,11 +46,14 @@ module.exports = {
             // Check if user has already joined
             const userJoined = currentGiveaway.users?.some(user => user.userID === interaction.user.id);
             const totalEntries = currentGiveaway.users?.reduce((sum, user) => sum + user.amount_tickets, 0) || 0;
+            const userEntries = userJoined ? 
+                currentGiveaway.users.find(user => user.userID === interaction.user.id).amount_tickets : 
+                0;
 
             embed.addFields(
                 {
                     name: 'Giveaway Details', 
-                    value: `**Time Remaining**: <t:${timeStamp}:R>\n**Entries**: ${totalEntries}`
+                    value: `**Time Remaining**: <t:${timeStamp}:R>\n**Total Entries**: ${totalEntries}\n**Your Entries**: ${userEntries}\n**Your Available Tickets**: ${userTickets}`
                 }
             );
 
@@ -55,7 +62,7 @@ module.exports = {
                 .setCustomId('giveaway_join')
                 .setLabel(userJoined ? 'Already Joined' : 'Join Giveaway')
                 .setStyle(userJoined ? ButtonStyle.Secondary : ButtonStyle.Primary)
-                .setDisabled(userJoined);
+                .setDisabled(userJoined || userTickets === 0);
 
             const row = new ActionRowBuilder()
                 .addComponents(joinButton);
@@ -94,40 +101,54 @@ module.exports = {
                     });
                 }
 
-                // Check if user already joined
-                if (giveaway.users?.some(user => user.userID === interaction.user.id)) {
+                // Get user's ticket count
+                const userData = await database.mGateDB.findOne({ userID: interaction.user.id });
+                const userTickets = userData?.currency[5] || 0;
+
+                if (userTickets === 0) {
                     return interaction.editReply({
-                        content: '❌ You have already joined this giveaway!',
+                        content: '❌ You don\'t have any tickets! Use `/gate buy ticket` to purchase tickets.',
                         components: []
                     });
                 }
 
-                // Create confirm button
-                const confirmButton = new ButtonBuilder()
-                    .setCustomId('giveaway_confirm')
-                    .setLabel('Confirm Join')
-                    .setStyle(ButtonStyle.Success);
+                // Create ticket amount buttons
+                const oneTicketBtn = new ButtonBuilder()
+                    .setCustomId('giveaway_1_ticket')
+                    .setLabel('1 Ticket')
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(userTickets < 1);
+
+                const fiveTicketBtn = new ButtonBuilder()
+                    .setCustomId('giveaway_5_tickets')
+                    .setLabel('5 Tickets')
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(userTickets < 5);
+
+                const allTicketsBtn = new ButtonBuilder()
+                    .setCustomId('giveaway_all_tickets')
+                    .setLabel(`All Tickets (${userTickets})`)
+                    .setStyle(ButtonStyle.Primary);
 
                 const cancelButton = new ButtonBuilder()
                     .setCustomId('giveaway_cancel')
                     .setLabel('Cancel')
-                    .setStyle(ButtonStyle.Danger);
+                    .setStyle(ButtonStyle.Secondary);
 
                 const row = new ActionRowBuilder()
-                    .addComponents(confirmButton, cancelButton);
+                    .addComponents(oneTicketBtn, fiveTicketBtn, allTicketsBtn, cancelButton);
 
                 await interaction.editReply({
-                    content: 'Are you sure you want to join this giveaway?',
+                    content: `You have ${userTickets} tickets. How many would you like to use?`,
                     components: [row]
                 });
                 return;
             }
 
-            if (customId === 'giveaway_confirm') {
+            if (customId.startsWith('giveaway_') && customId !== 'giveaway_cancel') {
                 await interaction.deferReply({ ephemeral: true });
                 
                 const giveaway = await database.mGiveawayDB.findOne({ active: true });
-                
                 if (!giveaway) {
                     return interaction.editReply({
                         content: '❌ This giveaway is no longer active.',
@@ -135,33 +156,39 @@ module.exports = {
                     });
                 }
 
+                let ticketAmount;
+                if (customId === 'giveaway_1_ticket') ticketAmount = 1;
+                else if (customId === 'giveaway_5_tickets') ticketAmount = 5;
+                else if (customId === 'giveaway_all_tickets') {
+                    const userData = await database.mGateDB.findOne({ userID: interaction.user.id });
+                    ticketAmount = userData?.currency[5] || 0;
+                }
+
                 try {
-                    await database.joinGiveaway(giveaway.giveawayID, interaction.user.id, 1);
+                    await database.joinGiveaway(giveaway.giveawayID, interaction.user.id, ticketAmount);
                     return interaction.editReply({
-                        content: '✅ You have successfully joined the giveaway!',
+                        content: `✅ Successfully joined the giveaway with ${ticketAmount} ticket${ticketAmount > 1 ? 's' : ''}!`,
                         components: []
                     });
                 } catch (error) {
-                    if (error.message === 'User has already joined this giveaway') {
-                        return interaction.editReply({
-                            content: '❌ You have already joined this giveaway!',
-                            components: []
-                        });
+                    let errorMessage = '❌ Failed to join giveaway.';
+                    if (error.message === 'Not enough tickets') {
+                        errorMessage = '❌ You don\'t have enough tickets!';
+                    } else if (error.message === 'User has already joined this giveaway') {
+                        errorMessage = '❌ You have already joined this giveaway!';
+                    } else if (error.message === 'Giveaway not found or not active') {
+                        errorMessage = '❌ This giveaway is no longer active.';
                     }
-                    if (error.message === 'Giveaway not found or not active') {
-                        return interaction.editReply({
-                            content: '❌ This giveaway is no longer active.',
-                            components: []
-                        });
-                    }
-                    throw error;
+                    return interaction.editReply({
+                        content: errorMessage,
+                        components: []
+                    });
                 }
             }
 
             if (customId === 'giveaway_cancel') {
-                await interaction.deferReply({ ephemeral: true });
-                return interaction.editReply({
-                    content: '❌ Giveaway join cancelled.',
+                await interaction.update({
+                    content: '❌ Cancelled joining the giveaway.',
                     components: []
                 });
             }
