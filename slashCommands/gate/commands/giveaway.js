@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const axios = require('axios');
 const { GATE_GUILD } = require('../utils/constants');
-const getTierEmoji = require('../utils/getTierEmoji');
+const getTierEmoji = require('../../../utility/getTierEmoji');
 
 module.exports = {
     subcommand: subcommand =>
