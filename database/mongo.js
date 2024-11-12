@@ -66,7 +66,7 @@ async function connectDB() {
         await mCommandLogsDB.createIndex({ timestamp: 1 });
 
         // Create index for giveaway timestamps
-        await mGiveawayDB.createIndex({ timestamp: 1 });
+        await mGiveawayDB.createIndex({ endTimestamp: 1 });
         await mGiveawayDB.createIndex({ active: 1 });
 
         // Create compound indexes for claims to prevent duplicates
@@ -113,6 +113,18 @@ async function connectDB() {
             }
         );
 
+        // Update existing giveaways to use endTimestamp instead of timestamp
+        await mGiveawayDB.updateMany(
+            { endTimestamp: { $exists: false }, timestamp: { $exists: true } },
+            [{
+                $set: {
+                    endTimestamp: "$timestamp",
+                    createdAt: new Date(),
+                    timestamp: "$$REMOVE"
+                }
+            }]
+        );
+
         return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB, mGiveawayDB };
     } catch (err) {
         console.error('Error connecting to MongoDB:', err);
@@ -146,7 +158,7 @@ async function wrapDbOperation(operation) {
     }
 }
 
-async function createGiveaway(userID, itemID, level, amount) {
+async function createGiveaway(userID, itemID, level, amount, endTimestamp) {
     return wrapDbOperation(async () => {
         const lastGiveaway = await mGiveawayDB.findOne({}, { sort: { giveawayID: -1 } });
         const giveawayID = lastGiveaway ? lastGiveaway.giveawayID + 1 : 0;
@@ -155,7 +167,8 @@ async function createGiveaway(userID, itemID, level, amount) {
             giveawayID,
             userID,
             itemID,
-            timestamp: new Date(Date.now() + 24 * 60 * 60 * 1000), // Set end time to 24 hours from now
+            createdAt: new Date(),
+            endTimestamp,
             level,
             amount,
             active: true,
@@ -168,7 +181,7 @@ async function createGiveaway(userID, itemID, level, amount) {
 async function getGiveaways(active = null) {
     return wrapDbOperation(async () => {
         const query = active !== null ? { active } : {};
-        return await mGiveawayDB.find(query).sort({ timestamp: -1 }).toArray();
+        return await mGiveawayDB.find(query).sort({ endTimestamp: -1 }).toArray();
     });
 }
 
@@ -182,7 +195,7 @@ async function updateGiveawayTimestamp(giveawayID, newTimestamp) {
     return wrapDbOperation(async () => {
         return await mGiveawayDB.updateOne(
             { giveawayID },
-            { $set: { timestamp: newTimestamp } }
+            { $set: { endTimestamp: newTimestamp } }
         );
     });
 }

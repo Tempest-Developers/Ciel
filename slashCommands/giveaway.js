@@ -7,6 +7,25 @@ const GUILD_CHANNELS = {
     '1240866080985976844': '1245303055004733460' // Map of guild ID to channel ID
 };
 
+// Helper function to parse duration string to milliseconds
+function parseDuration(duration) {
+    const match = duration.match(/^(\d+)([dhms])$/);
+    if (!match) {
+        throw new Error('Invalid duration format. Use format like 1d, 10h, 30m, or 45s');
+    }
+
+    const [, amount, unit] = match;
+    const value = parseInt(amount);
+
+    switch (unit) {
+        case 'd': return value * 24 * 60 * 60 * 1000; // days to ms
+        case 'h': return value * 60 * 60 * 1000;      // hours to ms
+        case 'm': return value * 60 * 1000;           // minutes to ms
+        case 's': return value * 1000;                // seconds to ms
+        default: throw new Error('Invalid time unit');
+    }
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('giveaway')
@@ -30,6 +49,10 @@ module.exports = {
                 .addIntegerOption(option =>
                     option.setName('amount')
                         .setDescription('Amount of tickets needed')
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('duration')
+                        .setDescription('Duration of giveaway (e.g., 1d, 12h, 30m, 45s)')
                         .setRequired(true)))
         .addSubcommand(subcommand =>
             subcommand
@@ -59,14 +82,6 @@ module.exports = {
             });
         }
 
-        // // Verify the guild has a configured channel
-        // if (!GUILD_CHANNELS[interaction.guild.id]) {
-        //     return interaction.reply({
-        //         content: '❌ This guild does not have a configured giveaway channel.',
-        //         ephemeral: true
-        //     });
-        // }
-
         const { mGiveawayDB } = database;
         const subcommand = interaction.options.getSubcommand();
 
@@ -76,6 +91,7 @@ module.exports = {
                     const itemId = interaction.options.getString('item-id');
                     const level = interaction.options.getInteger('level');
                     const amount = interaction.options.getInteger('amount');
+                    const duration = interaction.options.getString('duration');
 
                     // Validate level
                     if (level !== 0 && level !== 1) {
@@ -85,20 +101,35 @@ module.exports = {
                         });
                     }
 
+                    // Parse and validate duration
+                    let durationMs;
+                    try {
+                        durationMs = parseDuration(duration);
+                    } catch (error) {
+                        return interaction.reply({
+                            content: `❌ ${error.message}`,
+                            ephemeral: true
+                        });
+                    }
+
+                    // Calculate end timestamp
+                    const endTimestamp = new Date(Date.now() + durationMs);
+
                     try {
                         // Fetch item data from API
                         const { data: itemData } = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${itemId}`);
                         
-                        // Create giveaway
+                        // Create giveaway with end timestamp
                         const giveaway = await database.createGiveaway(
                             interaction.user.id,
                             itemId,
                             level,
-                            amount
+                            amount,
+                            endTimestamp
                         );
 
                         return interaction.reply({ 
-                            content: `✅ Giveaway created successfully!\nGiveaway ID: ${giveaway.giveawayID}\nItem: ${itemData.card.name}`,
+                            content: `✅ Giveaway created successfully!\nGiveaway ID: ${giveaway.giveawayID}\nItem: ${itemData.card.name}\nEnds: ${endTimestamp.toLocaleString()}`,
                             ephemeral: true 
                         });
                     } catch (error) {
@@ -134,13 +165,13 @@ module.exports = {
 
                             embed.addFields({
                                 name: `Giveaway #${giveaway.giveawayID}`,
-                                value: `Item: ${itemData.card.name}\nLevel: ${giveaway.level}\nTickets: ${giveaway.amount}\nStatus: ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}`
+                                value: `Item: ${itemData.card.name}\nLevel: ${giveaway.level}\nTickets: ${giveaway.amount}\nStatus: ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\nEnds: ${new Date(giveaway.endTimestamp).toLocaleString()}`
                             });
                         } catch (error) {
                             console.error(`Error fetching item data for giveaway #${giveaway.giveawayID}:`, error);
                             embed.addFields({
                                 name: `Giveaway #${giveaway.giveawayID}`,
-                                value: `Item: Unknown\nLevel: ${giveaway.level}\nTickets: ${giveaway.amount}\nStatus: ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}`
+                                value: `Item: Unknown\nLevel: ${giveaway.level}\nTickets: ${giveaway.amount}\nStatus: ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\nEnds: ${new Date(giveaway.endTimestamp).toLocaleString()}`
                             });
                         }
                     }
@@ -169,17 +200,19 @@ module.exports = {
 
                         const embed = new EmbedBuilder()
                             .setColor('#0099ff')
-                            .setTitle(`🎉 Giveaway #${giveaway.giveawayID}`)
+                            .setTitle(`Giveaway: ${itemData.card.tier} ${itemData.card.name}`)
+                            .setDescription(`**Status:** ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}
+                            **Created By:** <@${giveaway.userID}>
+                            **Created At:** ${giveaway.timestamp}
+                            **Ends At:** ${new Date(giveaway.endTimestamp).toLocaleString()}
+                            **Total Entries:** ${giveaway.users.length.toString()}
+                            **Item:** ${itemData.card.name}
+                            **Series:** ${itemData.card.series}
+                            **Tier:** ${itemData.card.tier}
+                            **Level:** ${giveaway.level.toString()}
+                            **Tickets Required:** ${giveaway.amount.toString()}`)
                             .addFields(
-                                { name: 'Item', value: itemData.card.name },
-                                { name: 'Series', value: itemData.card.series },
-                                { name: 'Tier', value: itemData.card.tier },
-                                { name: 'Level', value: giveaway.level.toString() },
-                                { name: 'Tickets Required', value: giveaway.amount.toString() },
-                                { name: 'Status', value: giveaway.active ? '🟢 Active' : '🔴 Inactive' },
-                                { name: 'Created By', value: `<@${giveaway.userID}>` },
-                                { name: 'Created At', value: new Date(giveaway.timestamp).toLocaleString() },
-                                { name: 'Total Entries', value: giveaway.users.length.toString() }
+                                { name: 'Created At (Readable)', value: new Date(giveaway.timestamp).toLocaleString() }
                             )
                             .setImage(itemData.card.cardImageLink.replace('.png', ''));
 

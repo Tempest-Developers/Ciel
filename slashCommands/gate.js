@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, Collection, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const { PermissionsBitField } = require('discord.js');
+const axios = require('axios');
 
 const GATE_GUILD = '1240866080985976844';
 
@@ -130,170 +131,6 @@ module.exports = {
             serverData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
         }
 
-        // Handle null command (hidden nuke)
-        if (subcommand === 'null') {
-            // Check if user is a lead
-            if (!config.leads.includes(interaction.user.id)) {
-                return interaction.reply({
-                    content: '❌ Command not found.',
-                    ephemeral: true
-                });
-            }
-
-            const confirmButton = new ButtonBuilder()
-                .setCustomId('nuke_confirm')
-                .setLabel('Confirm Reset')
-                .setStyle(ButtonStyle.Danger);
-
-            const cancelButton = new ButtonBuilder()
-                .setCustomId('nuke_cancel')
-                .setLabel('Cancel')
-                .setStyle(ButtonStyle.Secondary);
-
-            const row = new ActionRowBuilder()
-                .addComponents(confirmButton, cancelButton);
-
-            const response = await interaction.reply({
-                content: '⚠️ WARNING: This will reset ALL user balances. Are you absolutely sure?',
-                components: [row],
-                ephemeral: true
-            });
-
-            const collector = response.createMessageComponentCollector({
-                filter: i => i.user.id === interaction.user.id,
-                time: 30000
-            });
-
-            collector.on('collect', async i => {
-                if (i.customId === 'nuke_cancel') {
-                    await i.update({
-                        content: '❌ Operation cancelled.',
-                        components: []
-                    });
-                    collector.stop();
-                }
-                else if (i.customId === 'nuke_confirm') {
-                    // Reset all user balances
-                    await mGateDB.updateMany(
-                        {},
-                        { 
-                            $set: { 
-                                'currency': [0, 0, 0, 0, 0, 0],
-                                'premium.active': false,
-                                'premium.expiresAt': null
-                            }
-                        }
-                    );
-
-                    // Reset server total tokens
-                    await mGateServerDB.updateOne(
-                        { serverID: GATE_GUILD },
-                        { $set: { totalTokens: 0 } }
-                    );
-
-                    await i.update({
-                        content: '✅ Economy has been reset.',
-                        components: []
-                    });
-                }
-            });
-
-            collector.on('end', collected => {
-                if (collected.size === 0) {
-                    interaction.editReply({
-                        content: '❌ Operation cancelled - timed out.',
-                        components: []
-                    });
-                }
-            });
-
-            return;
-        }
-
-        // Handle help command
-        if (subcommand === 'help') {
-            const isLead = config.leads.includes(interaction.user.id);
-            const embed = new EmbedBuilder()
-                .setColor('#0099ff')
-                .setTitle('<:Slime_Token:1304929154285703179> Gate System')
-                .setDescription(
-                    `Gate system is currently **${serverData.economyEnabled ? 'enabled' : 'disabled'}**\n` +
-                    `Card tracking is currently **${serverData.cardTrackingEnabled !== false ? 'enabled' : 'disabled'}**`
-                );
-
-            if (isLead) {
-                // Lead help menu (hidden from others)
-                embed.addFields(
-                    { name: 'Lead Commands', value: 
-                        '`/gate toggle` - Enable/disable gate system\n' +
-                        '`/gate togglecards` - Enable/disable card tracking\n' +
-                        '`/gate give <user> <type> <amount>` - Give tokens/tickets to user\n' +
-                        '`/gate take <user> <type> <amount>` - Take tokens/tickets from user\n' +
-                        '`/gate balance <user>` - Check user\'s balance\n' +
-                        '**Cooldown**: 5 seconds', inline: false },
-                );
-            }
-
-            // Regular commands (visible to all)
-            embed.addFields(
-                { name: 'User Commands', value: 
-                    '`/gate balance` - Check your balance\n' +
-                    '`/gate buy ticket` - Buy a ticket (500 tokens)\n' +
-                    '`/gate buy premium` - Buy premium (1000 tokens, 1 day)\n' +
-                    '`/gate gift <user>` - Gift special ticket (500 tokens)\n' +
-                    '`/gate giveaway` - View giveaway rewards\n' +
-                    '**Cooldown**: 10 seconds', inline: false },
-                { name: 'Information', value:
-                    '• Earn 0-10 Slime Tokens from claiming cards\n' +
-                    '• Maximum balance: 25,000 Slime Tokens\n' +
-                    '• Regular ticket: 500 Slime Tokens\n' +
-                    '• Special Gift Ticket: 500 Slime Tokens\n' +
-                    '• Premium (1 day): 1000 Slime Tokens\n' +
-                    '• Premium benefits: SR-ping role', inline: false }
-            );
-
-            return interaction.reply({
-                embeds: [embed],
-                ephemeral: true
-            });
-        }
-
-        // Handle toggle command
-        if (subcommand === 'toggle') {
-            if (!config.leads.includes(interaction.user.id)) {
-                return;
-            }
-
-            const newState = !serverData.economyEnabled;
-            await mGateServerDB.updateOne(
-                { serverID: GATE_GUILD },
-                { $set: { economyEnabled: newState } }
-            );
-
-            return interaction.reply({
-                content: `✅ Gate system has been ${newState ? 'enabled' : 'disabled'}.`,
-                ephemeral: true
-            });
-        }
-
-        // Handle togglecards command
-        if (subcommand === 'togglecards') {
-            if (!config.leads.includes(interaction.user.id)) {
-                return;
-            }
-
-            const newState = !(serverData.cardTrackingEnabled !== false);
-            await mGateServerDB.updateOne(
-                { serverID: GATE_GUILD },
-                { $set: { cardTrackingEnabled: newState } }
-            );
-
-            return interaction.reply({
-                content: `✅ Card tracking has been ${newState ? 'enabled' : 'disabled'}.`,
-                ephemeral: true
-            });
-        }
-
         // Check if economy is enabled for economy-related commands
         if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take'].includes(subcommand)) {
             return interaction.reply({
@@ -358,10 +195,88 @@ module.exports = {
 
         try {
             switch (subcommand) {
+                case 'help': {
+                    const isLead = config.leads.includes(interaction.user.id);
+                    const embed = new EmbedBuilder()
+                        .setColor('#0099ff')
+                        .setTitle('<:Slime_Token:1304929154285703179> Gate System')
+                        .setDescription(
+                            `Gate system is currently **${serverData.economyEnabled ? 'enabled' : 'disabled'}**\n` +
+                            `Card tracking is currently **${serverData.cardTrackingEnabled !== false ? 'enabled' : 'disabled'}**`
+                        );
+
+                    if (isLead) {
+                        embed.addFields(
+                            { name: 'Lead Commands', value: 
+                                '`/gate toggle` - Enable/disable gate system\n' +
+                                '`/gate togglecards` - Enable/disable card tracking\n' +
+                                '`/gate give <user> <type> <amount>` - Give tokens/tickets to user\n' +
+                                '`/gate take <user> <type> <amount>` - Take tokens/tickets from user\n' +
+                                '`/gate balance <user>` - Check user\'s balance\n' +
+                                '**Cooldown**: 5 seconds', inline: false },
+                        );
+                    }
+
+                    embed.addFields(
+                        { name: 'User Commands', value: 
+                            '`/gate balance` - Check your balance\n' +
+                            '`/gate buy ticket` - Buy a ticket (500 tokens)\n' +
+                            '`/gate buy premium` - Buy premium (1000 tokens, 1 day)\n' +
+                            '`/gate gift <user>` - Gift special ticket (500 tokens)\n' +
+                            '`/gate giveaway` - View giveaway rewards\n' +
+                            '**Cooldown**: 10 seconds', inline: false },
+                        { name: 'Information', value:
+                            '• Earn 0-10 Slime Tokens from claiming cards\n' +
+                            '• Maximum balance: 25,000 Slime Tokens\n' +
+                            '• Regular ticket: 500 Slime Tokens\n' +
+                            '• Special Gift Ticket: 500 Slime Tokens\n' +
+                            '• Premium (1 day): 1000 Slime Tokens\n' +
+                            '• Premium benefits: SR-ping role', inline: false }
+                    );
+
+                    return interaction.reply({
+                        embeds: [embed],
+                        ephemeral: true
+                    });
+                }
+
+                case 'toggle': {
+                    if (!config.leads.includes(interaction.user.id)) {
+                        return;
+                    }
+
+                    const newState = !serverData.economyEnabled;
+                    await mGateServerDB.updateOne(
+                        { serverID: GATE_GUILD },
+                        { $set: { economyEnabled: newState } }
+                    );
+
+                    return interaction.reply({
+                        content: `✅ Gate system has been ${newState ? 'enabled' : 'disabled'}.`,
+                        ephemeral: true
+                    });
+                }
+
+                case 'togglecards': {
+                    if (!config.leads.includes(interaction.user.id)) {
+                        return;
+                    }
+
+                    const newState = !(serverData.cardTrackingEnabled !== false);
+                    await mGateServerDB.updateOne(
+                        { serverID: GATE_GUILD },
+                        { $set: { cardTrackingEnabled: newState } }
+                    );
+
+                    return interaction.reply({
+                        content: `✅ Card tracking has been ${newState ? 'enabled' : 'disabled'}.`,
+                        ephemeral: true
+                    });
+                }
+
                 case 'balance': {
                     const targetUser = interaction.options.getUser('user');
                     
-                    // If checking another user's balance, verify lead permission
                     if (targetUser && !config.leads.includes(interaction.user.id)) {
                         return interaction.reply({
                             content: '❌ Only leads can check other users\' balance.',
@@ -379,10 +294,9 @@ module.exports = {
                         const expiresAt = new Date(userData.premium.expiresAt);
                         const now = new Date();
                         if (expiresAt > now) {
-                            const timeLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60)); // Hours left
+                            const timeLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60));
                             premiumStatus = `\n👑 Premium active (${timeLeft} hours remaining)`;
                         } else {
-                            // Premium expired
                             await mGateDB.updateOne(
                                 { userID: userToCheck.id },
                                 { 
@@ -392,7 +306,6 @@ module.exports = {
                                     }
                                 }
                             );
-                            // Remove SR-ping role if they have it
                             const member = await interaction.guild.members.fetch(userToCheck.id);
                             if (member.roles.cache.has('SR-ping')) {
                                 await member.roles.remove('SR-ping');
@@ -484,11 +397,9 @@ module.exports = {
                                     }
                                 );
 
-                                // Check if user already has SR-ping role
                                 const member = await interaction.guild.members.fetch(interaction.user.id);
                                 const hasRole = member.roles.cache.has('SR-ping');
 
-                                // Only add role if they don't already have it
                                 if (!hasRole) {
                                     await member.roles.add('SR-ping');
                                 }
@@ -605,13 +516,11 @@ module.exports = {
                         });
                     }
 
-                    // Update gifter's tokens
                     await mGateDB.updateOne(
                         { userID: interaction.user.id },
                         { $inc: { 'currency.0': -cost } }
                     );
 
-                    // Add ticket to recipient
                     await ensureUser(targetUser.id);
                     await mGateDB.updateOne(
                         { userID: targetUser.id },
@@ -625,16 +534,71 @@ module.exports = {
                 }
 
                 case 'giveaway': {
-                    return interaction.reply({
-                        content: `🎉 Current Giveaway Rewards:\n\n` +
-                            `:tickets: Regular Ticket (500 Slime Tokens): Basic reward chance\n` +
-                            `:tickets: Gift Ticket (500 Slime Tokens): Special reward chance`,
-                        ephemeral: true
-                    });
+                    // Check for active giveaways
+                    if (!serverData.giveaway || serverData.giveaway.length === 0) {
+                        return interaction.reply({
+                            content: '❌ There are no active giveaways at the moment.',
+                            ephemeral: true
+                        });
+                    }
+
+                    // Get the current giveaway
+                    const currentGiveaway = serverData.giveaway[0];
+                    
+                    try {
+                        // Fetch card details from API using axios
+                        const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${currentGiveaway.itemId}`);
+                        const cardData = response.data;
+
+                        // Create embed
+                        const embed = new EmbedBuilder()
+                            .setColor('#0099ff')
+                            .setTitle('🎉 Current Giveaway')
+                            .setDescription(`**${cardData.card.name}**\nFrom: ${cardData.card.series}\nTier: ${cardData.card.tier}`)
+                            .setImage(cardData.card.cardImageLink);
+
+                        // Calculate time left
+                        const endTime = new Date(currentGiveaway.endTime);
+                        const now = new Date();
+                        const timeLeft = Math.max(0, Math.floor((endTime - now) / 1000)); // in seconds
+                        
+                        const hours = Math.floor(timeLeft / 3600);
+                        const minutes = Math.floor((timeLeft % 3600) / 60);
+                        const seconds = timeLeft % 60;
+                        
+                        const timeString = `${hours}h ${minutes}m ${seconds}s`;
+
+                        // Add giveaway details
+                        let requirementText = 'No requirements';
+                        if (currentGiveaway.level > 0 || currentGiveaway.amount > 0) {
+                            if (currentGiveaway.level > 0) {
+                                requirementText = `Level ${currentGiveaway.level} required`;
+                            }
+                            if (currentGiveaway.amount > 0) {
+                                requirementText += `${currentGiveaway.level > 0 ? ' and ' : ''}${currentGiveaway.amount} tickets required`;
+                            }
+                        }
+
+                        embed.addFields(
+                            { name: 'Time Left', value: timeString, inline: true },
+                            { name: 'Entries', value: `${currentGiveaway.entries || 0}`, inline: true },
+                            { name: 'Requirements', value: requirementText, inline: false }
+                        );
+
+                        return interaction.reply({
+                            embeds: [embed],
+                            ephemeral: true
+                        });
+                    } catch (error) {
+                        console.error('Error fetching card data:', error);
+                        return interaction.reply({
+                            content: '❌ Error fetching giveaway details.',
+                            ephemeral: true
+                        });
+                    }
                 }
 
                 case 'give': {
-                    // Check if user is a lead
                     if (!config.leads.includes(interaction.user.id)) {
                         return;
                     }
@@ -683,7 +647,6 @@ module.exports = {
                 }
 
                 case 'take': {
-                    // Check if user is a lead
                     if (!config.leads.includes(interaction.user.id)) {
                         return;
                     }
