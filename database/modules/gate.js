@@ -28,7 +28,26 @@ async function createGateServer(serverID) {
     });
 }
 
+async function updateUserCurrency(userID, currencyIndex, amount) {
+    return wrapDbOperation(async () => {
+        const update = {};
+        update[`currency.${currencyIndex}`] = amount;
+        return await mGateDB.updateOne(
+            { userID },
+            { $inc: update }
+        );
+    });
+}
+
+async function getGateUser(userID) {
+    return wrapDbOperation(async () => {
+        return await mGateDB.findOne({ userID });
+    });
+}
+
 module.exports = {
     createGateUser,
-    createGateServer
+    createGateServer,
+    updateUserCurrency,
+    getGateUser
 };

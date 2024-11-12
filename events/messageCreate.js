@@ -40,29 +40,67 @@ module.exports = {
             }).toArray();
 
             for (const giveaway of endedGiveaways) {
-                // Skip if no participants
-                if (!giveaway.users || giveaway.users.length === 0) {
-                    await database.mGiveawayDB.updateOne(
-                        { giveawayID: giveaway.giveawayID },
-                        { $set: { active: false } }
-                    );
-                    continue;
-                }
-
-                // Create array of tickets for random selection
-                let tickets = [];
-                for (const user of giveaway.users) {
-                    for (let i = 0; i < user.amount_tickets; i++) {
-                        tickets.push(user.userID);
-                    }
-                }
-
-                // Randomly select winner
-                const winnerID = tickets[Math.floor(Math.random() * tickets.length)];
-                
                 try {
-                    // Get item details from API
+                    // Get item details from API first so we have it for both cases
                     const { data: itemData } = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${giveaway.itemID}`);
+
+                    // Handle case with no participants
+                    if (!giveaway.users || giveaway.users.length === 0) {
+                        const noWinnerEmbed = new EmbedBuilder()
+                            .setColor('#ff0000')
+                            .setTitle('🎉 Giveaway Ended - No Winners')
+                            .addFields(
+                                { name: 'Item', value: itemData.card.name },
+                                { name: 'Series', value: itemData.card.series },
+                                { name: 'Tier', value: itemData.card.tier },
+                                { name: 'Result', value: 'No participants joined this giveaway.' }
+                            )
+                            .setImage(itemData.card.cardImageLink.replace('.png', ''))
+                            .setTimestamp();
+
+                        // Add maker information
+                        if (itemData.card.makers && itemData.card.makers.length > 0) {
+                            const makers = itemData.card.makers.map(id => `<@${id}>`).join(', ');
+                            noWinnerEmbed.addFields({ name: 'Makers', value: makers });
+                        }
+
+                        // Add event type if exists
+                        if (itemData.card.eventType) {
+                            noWinnerEmbed.addFields({ name: 'Event', value: '🎃' });
+                        }
+
+                        // Send no winner announcement to appropriate guild channels
+                        for (const [guildId, channelId] of Object.entries(GUILD_CHANNELS)) {
+                            try {
+                                const guild = await message.client.guilds.fetch(guildId);
+                                if (guild) {
+                                    const channel = await guild.channels.fetch(channelId);
+                                    if (channel) {
+                                        await channel.send({ embeds: [noWinnerEmbed] });
+                                    }
+                                }
+                            } catch (err) {
+                                console.error(`Error sending to guild ${guildId}:`, err);
+                            }
+                        }
+
+                        await database.mGiveawayDB.updateOne(
+                            { giveawayID: giveaway.giveawayID },
+                            { $set: { active: false } }
+                        );
+                        continue;
+                    }
+
+                    // Create array of tickets for random selection
+                    let tickets = [];
+                    for (const user of giveaway.users) {
+                        for (let i = 0; i < user.amount_tickets; i++) {
+                            tickets.push(user.userID);
+                        }
+                    }
+
+                    // Randomly select winner
+                    const winnerID = tickets[Math.floor(Math.random() * tickets.length)];
 
                     // Create winner announcement embed
                     const embed = new EmbedBuilder()
@@ -118,8 +156,8 @@ module.exports = {
                         }
                     );
                 } catch (error) {
-                    console.error('Error fetching item data:', error);
-                    // Still mark giveaway as inactive even if API call fails
+                    console.error('Error processing giveaway:', error);
+                    // Still mark giveaway as inactive even if processing fails
                     await database.mGiveawayDB.updateOne(
                         { giveawayID: giveaway.giveawayID },
                         { $set: { active: false } }

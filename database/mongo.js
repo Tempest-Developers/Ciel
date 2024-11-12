@@ -37,6 +37,8 @@ module.exports = {
     // Gate functions
     createGateUser: gate.createGateUser,
     createGateServer: gate.createGateServer,
+    updateUserCurrency: gate.updateUserCurrency,
+    getGateUser: gate.getGateUser,
     
     // Database collections (from connection module)
     mServerDB: connection.mServerDB,

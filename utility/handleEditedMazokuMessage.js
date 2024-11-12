@@ -74,7 +74,6 @@ async function getOrCreateHighTierRole(guild) {
     }
 }
 
-
 async function buildCardDescription(cardIds) {
     let hasHighTierCard = false;
     let description = '';
@@ -130,8 +129,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             serverData = await client.database.getServerData(guildId);
         }
 
-        // Get server settings - Updated to use correct path
-        const serverSettings = await client.database.serverSettings.findOne({ serverID: guildId });
+        // Get server settings using the correct method
+        let serverSettings = await client.database.getServerSettings(guildId);
+        if (!serverSettings) {
+            await client.database.createServerSettings(guildId);
+            serverSettings = await client.database.getServerSettings(guildId);
+        }
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
 
         // Calculate timestamps for all guilds
@@ -164,11 +167,6 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
 
             // Wait for all card info and build description
             const { description, hasHighTierCard, tier } = await buildCardDescription(cardIds);
-
-            // Add description to embed
-            // if (description && allowRolePing) {
-            //     countdownEmbed.description = description;
-            // }
 
             // Add description to embed
             if (description && allowRolePing) {

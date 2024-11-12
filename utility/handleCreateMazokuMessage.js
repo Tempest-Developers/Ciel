@@ -32,7 +32,11 @@ module.exports = async (message, exemptBotId, database) => {
                 if (collected.size > 0) {
                     try {
                         // Get Gate server data first
-                        const gateServerData = await database.mGateServerDB.findOne({ serverID: GATE_GUILD });
+                        let gateServerData = await database.getServerData(GATE_GUILD);
+                        if (!gateServerData) {
+                            await database.createGateServer(GATE_GUILD);
+                            gateServerData = await database.getServerData(GATE_GUILD);
+                        }
                         
                         // Check if economy is enabled
                         if (!gateServerData || !gateServerData.economyEnabled) {
@@ -77,12 +81,12 @@ module.exports = async (message, exemptBotId, database) => {
                             }
 
                             if (tokenReward > 0) {
-                                // Get user data
-                                let userData = await database.mGateDB.findOne({ userID: winnerID });
+                                // Get user data using the new getGateUser function
+                                let userData = await database.getGateUser(winnerID);
                                 
                                 if (!userData) {
                                     await database.createGateUser(winnerID);
-                                    userData = await database.mGateDB.findOne({ userID: winnerID });
+                                    userData = await database.getGateUser(winnerID);
                                 }
 
                                 // Check max token limit
@@ -92,11 +96,8 @@ module.exports = async (message, exemptBotId, database) => {
                                 }
 
                                 if (tokenReward > 0) {
-                                    // Update tokens
-                                    await database.mGateDB.updateOne(
-                                        { userID: winnerID },
-                                        { $inc: { 'currency.0': tokenReward } }
-                                    );
+                                    // Update tokens using the new updateUserCurrency function
+                                    await database.updateUserCurrency(winnerID, 0, tokenReward);
 
                                     // Add to reward message
                                     rewardMessage += `<@${winnerID}> earned ${tokenReward} <:Slime_Token:1304929154285703179>\n`;
