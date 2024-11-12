@@ -63,7 +63,7 @@ module.exports = {
 
             // Create join button
             const joinButton = new ButtonBuilder()
-                .setCustomId('join_giveaway')
+                .setCustomId('giveaway_join')
                 .setLabel(userJoined ? 'Already Joined' : 'Join Giveaway')
                 .setStyle(userJoined ? ButtonStyle.Secondary : ButtonStyle.Primary)
                 .setDisabled(userJoined);
@@ -86,7 +86,9 @@ module.exports = {
     },
 
     async handleButton(interaction, { database }) {
-        if (interaction.customId === 'join_giveaway') {
+        const customId = interaction.customId;
+
+        if (customId === 'giveaway_join') {
             try {
                 const giveaway = await database.mGiveawayDB.findOne({ active: true });
                 
@@ -107,12 +109,12 @@ module.exports = {
 
                 // Create confirm button
                 const confirmButton = new ButtonBuilder()
-                    .setCustomId('confirm_join')
+                    .setCustomId('giveaway_confirm')
                     .setLabel('Confirm Join')
                     .setStyle(ButtonStyle.Success);
 
                 const cancelButton = new ButtonBuilder()
-                    .setCustomId('cancel_join')
+                    .setCustomId('giveaway_cancel')
                     .setLabel('Cancel')
                     .setStyle(ButtonStyle.Danger);
 
@@ -134,7 +136,7 @@ module.exports = {
             }
         }
 
-        if (interaction.customId === 'confirm_join') {
+        if (customId === 'giveaway_confirm') {
             try {
                 const giveaway = await database.mGiveawayDB.findOne({ active: true });
                 
@@ -161,7 +163,7 @@ module.exports = {
             }
         }
 
-        if (interaction.customId === 'cancel_join') {
+        if (customId === 'giveaway_cancel') {
             return interaction.reply({
                 content: '❌ Giveaway join cancelled.',
                 ephemeral: true

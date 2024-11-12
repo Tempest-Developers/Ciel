@@ -85,44 +85,43 @@ module.exports = {
             }
         } catch (error) {
             console.error('Error in gate command:', error);
-            return interaction.reply({
-                content: '❌ An error occurred while processing your command.',
-                ephemeral: true
-            });
+            if (!interaction.replied) {
+                return interaction.reply({
+                    content: '❌ An error occurred while processing your command.',
+                    ephemeral: true
+                });
+            }
         }
     },
 
-    // Add button interaction handler
-    async handleButton(interaction, { database, config }) {
+    async handleButton(interaction, { database }) {
         // Silently ignore if not in Gate Guild
         if (interaction.guild.id !== GATE_GUILD) {
             return;
         }
 
-        // Extract the command name from the message that created the button
-        const commandName = interaction.message?.interaction?.commandName;
-        if (commandName !== 'gate') return;
-
-        // Get the subcommand name from the original interaction
-        const subcommandName = interaction.message?.interaction?.options?.getSubcommand();
-        if (!subcommandName) return;
-
         try {
-            // Route the button interaction to the appropriate subcommand
-            switch (subcommandName) {
-                case 'giveaway':
-                    if (giveawayCommand.handleButton) {
-                        return await giveawayCommand.handleButton(interaction, { database });
-                    }
-                    break;
-                // Add other subcommands with button handlers here
+            // For giveaway buttons
+            if (interaction.customId.startsWith('giveaway_')) {
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.deferReply({ ephemeral: true });
+                }
+                await giveawayCommand.handleButton(interaction, { database });
+                return;
             }
         } catch (error) {
-            console.error('Error handling button interaction:', error);
-            return interaction.reply({
-                content: '❌ An error occurred while processing your interaction.',
-                ephemeral: true
-            });
+            console.error('Error handling button:', error);
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({
+                    content: '❌ An error occurred while processing your interaction.',
+                    ephemeral: true
+                });
+            } else if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '❌ An error occurred while processing your interaction.',
+                    ephemeral: true
+                });
+            }
         }
     }
 };

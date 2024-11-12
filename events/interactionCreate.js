@@ -21,25 +21,19 @@ module.exports = {
             try {
                 // Get the original command name from the message that created the button
                 const commandName = interaction.message?.interaction?.commandName;
-                if (!commandName) return;
-
-                // Get the command module
-                const command = client.slashCommands.get(commandName);
-                if (!command) return;
-
-                // If the command has a button handler, use it
-                if (command.handleButton) {
-                    await command.handleButton(interaction, { database });
+                if (commandName === 'gate') {
+                    const command = client.slashCommands.get(commandName);
+                    if (command?.handleButton) {
+                        await command.handleButton(interaction, { database });
+                    }
                 }
             } catch (error) {
                 console.error('Error handling button interaction:', error);
-                try {
+                if (!interaction.replied) {
                     await interaction.reply({
                         content: '❌ An error occurred while processing your interaction.',
                         ephemeral: true
                     });
-                } catch (replyError) {
-                    console.error('Error sending error message:', replyError);
                 }
             }
             return;
@@ -114,23 +108,13 @@ module.exports = {
             const errorMessage = 'There was an error while executing this command!';
             
             try {
-                // Check the interaction state and respond appropriately
-                if (interaction.deferred) {
-                    // If the interaction was deferred, edit the deferred reply
-                    await interaction.editReply({
-                        content: errorMessage,
-                        ephemeral: true
-                    });
-                } else if (!interaction.replied) {
-                    // If the interaction hasn't been replied to at all, send a new reply
+                if (!interaction.replied) {
                     await interaction.reply({
                         content: errorMessage,
                         ephemeral: true
                     });
                 }
-                // If the interaction was already replied to, we don't need to do anything
             } catch (replyError) {
-                // If we fail to send the error message, log it but don't throw
                 console.error('Failed to send error message:', replyError);
             }
         }
