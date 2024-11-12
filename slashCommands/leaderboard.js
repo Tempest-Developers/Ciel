@@ -98,10 +98,12 @@ module.exports = {
                     'SSRT': 3
                 };
 
-                leaderboardData = allUsers.map(user => ({
-                    userId: user.userID,
-                    count: user.counts?.[tierIndex[tier]] || 0
-                }));
+                leaderboardData = allUsers
+                    .filter(user => user && user.counts) // Ensure user and counts exist
+                    .map(user => ({
+                        userId: user.userID,
+                        count: user.counts[tierIndex[tier]] || 0
+                    }));
             }
             else if (subcommand === 'print') {
                 const range = interaction.options.getString('range');
@@ -110,32 +112,36 @@ module.exports = {
                     description = 'Top 10 players by print ranges (Based on last 50 claims)';
 
                     // Calculate counts for all print ranges
-                    leaderboardData = allUsers.map(user => {
-                        const counts = {
-                            SP: 0, LP: 0, MP: 0, HP: 0, total: 0
-                        };
+                    leaderboardData = allUsers
+                        .filter(user => user) // Ensure user exists
+                        .map(user => {
+                            const counts = {
+                                SP: 0, LP: 0, MP: 0, HP: 0, total: 0
+                            };
 
-                        // Count prints across all tiers
-                        if (user.claims) {
-                            Object.values(user.claims).forEach(tierClaims => {
-                                if (Array.isArray(tierClaims)) {
-                                    tierClaims.forEach(claim => {
-                                        const print = claim.print;
-                                        if (print >= 1 && print <= 10) counts.SP++;
-                                        else if (print >= 11 && print <= 99) counts.LP++;
-                                        else if (print >= 100 && print <= 499) counts.MP++;
-                                        else if (print >= 500 && print <= 1000) counts.HP++;
-                                        counts.total++;
-                                    });
-                                }
-                            });
-                        }
+                            // Count prints across all tiers
+                            if (user.claims) {
+                                Object.values(user.claims).forEach(tierClaims => {
+                                    if (Array.isArray(tierClaims)) {
+                                        tierClaims.forEach(claim => {
+                                            if (claim && claim.print) {
+                                                const print = claim.print;
+                                                if (print >= 1 && print <= 10) counts.SP++;
+                                                else if (print >= 11 && print <= 99) counts.LP++;
+                                                else if (print >= 100 && print <= 499) counts.MP++;
+                                                else if (print >= 500 && print <= 1000) counts.HP++;
+                                                counts.total++;
+                                            }
+                                        });
+                                    }
+                                });
+                            }
 
-                        return {
-                            userId: user.userID,
-                            ...counts
-                        };
-                    });
+                            return {
+                                userId: user.userID,
+                                ...counts
+                            };
+                        });
 
                     // Sort by total claims
                     leaderboardData.sort((a, b) => b.total - a.total);
@@ -147,33 +153,39 @@ module.exports = {
                     description = `Top 10 players by ${range} (${getRangeDescription(range)}) (Based on last 50 claims)`;
 
                     // Calculate counts for specific print range
-                    leaderboardData = allUsers.map(user => {
-                        let count = 0;
-                        if (user.claims) {
-                            Object.values(user.claims).forEach(tierClaims => {
-                                if (Array.isArray(tierClaims)) {
-                                    tierClaims.forEach(claim => {
-                                        const print = claim.print;
-                                        if (isInPrintRange(print, range)) count++;
-                                    });
-                                }
-                            });
-                        }
-                        return { userId: user.userID, count };
-                    });
+                    leaderboardData = allUsers
+                        .filter(user => user) // Ensure user exists
+                        .map(user => {
+                            let count = 0;
+                            if (user.claims) {
+                                Object.values(user.claims).forEach(tierClaims => {
+                                    if (Array.isArray(tierClaims)) {
+                                        tierClaims.forEach(claim => {
+                                            if (claim && claim.print && isInPrintRange(claim.print, range)) {
+                                                count++;
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                            return { userId: user.userID, count };
+                        });
                 }
             }
             else { // total
                 title = '🏆 Total Claims Leaderboard';
                 description = 'Top 10 players by total claims';
 
-                leaderboardData = allUsers.map(user => ({
-                    userId: user.userID,
-                    count: user.counts ? user.counts.reduce((sum, count) => sum + (count || 0), 0) : 0
-                }));
+                leaderboardData = allUsers
+                    .filter(user => user && user.counts) // Ensure user and counts exist
+                    .map(user => ({
+                        userId: user.userID,
+                        count: user.counts ? user.counts.reduce((sum, count) => sum + (count || 0), 0) : 0
+                    }));
             }
 
-            // Sort data (if not already sorted)
+            // Filter out any undefined entries and sort data
+            leaderboardData = leaderboardData.filter(data => data && data.userId);
             if (subcommand !== 'print' || interaction.options.getString('range') !== 'ALL') {
                 leaderboardData.sort((a, b) => b.count - a.count);
             }
@@ -213,8 +225,8 @@ module.exports = {
             }
 
             // Add user's rank if they exist in the data
-            const userRank = leaderboardData.findIndex(data => data.userId === userId) + 1;
-            const userData = leaderboardData.find(data => data.userId === userId);
+            const userRank = leaderboardData.findIndex(data => data && data.userId === userId) + 1;
+            const userData = leaderboardData.find(data => data && data.userId === userId);
 
             if (userRank > 0 && userData) {  // Only add user stats if they exist in the data
                 let userStats;
