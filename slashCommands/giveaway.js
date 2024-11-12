@@ -204,7 +204,7 @@ module.exports = {
                             .setDescription(`**Status:** ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}
                             **Created By:** <@${giveaway.userID}>
                             **Created At:** ${giveaway.timestamp}
-                            **Ends At:** ${new Date(giveaway.endTimestamp).toLocaleString()}
+                            **Ends At:** <t:${(giveaway.endTimestamp)}:R>
                             **Total Entries:** ${giveaway.users.length.toString()}
                             **Item:** ${itemData.card.name}
                             **Series:** ${itemData.card.series}
