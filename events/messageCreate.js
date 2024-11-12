@@ -1,18 +1,18 @@
 const { EmbedBuilder } = require('discord.js');
-const handleCreateMazokuMessage = require('../utility/handleEditedMazokuMessage');
+const handleCreateMazokuMessage = require('../utility/handleCreateMazokuMessage');
 const axios = require('axios');
 require('dotenv').config();
+const config = require('../config.json');
 
 let lastCheck = 0;
 const CHECK_INTERVAL = 60000; // 1 minute in milliseconds
 const GUILD_CHANNELS = {
     '1240866080985976844': '1245303280599433256' // Map of guild ID to channel ID
 };
-const exemptBotId = process.env.BOT_ID;
 
 module.exports = {
     name: 'messageCreate',
-    async execute(message, { database, config }) {
+    async execute(message, { database }) {
         // Skip if no database
         if (!database || !database.mGiveawayDB) {
             console.error('Database or mGiveawayDB not available');
@@ -24,7 +24,6 @@ module.exports = {
             return;
         }
         lastCheck = now;
-
         try {
             handleCreateMazokuMessage(message, config.mazokuID);
             // Find active giveaways that have ended

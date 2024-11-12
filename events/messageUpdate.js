@@ -1,11 +1,12 @@
 const { Events } = require('discord.js');
 const handleEditedMazokuMessage = require('../utility/handleEditedMazokuMessage');
 const { checkPermissions, checkIfGuildAllowed } = require('../utility/auth');
+const config = require('../config.json');
 
 module.exports = {
 	name: Events.MessageUpdate,
 	once: false,
-	async execute(oldMessage, newMessage, { database, config }) {
+	async execute(oldMessage, newMessage, { database }) {
         // Check if messages exist and have necessary properties
         if (!oldMessage?.author || !newMessage?.author) return;
         if (!oldMessage?.guild || !newMessage?.guild) return;
@@ -23,6 +24,7 @@ module.exports = {
 
 		if (!(await checkIfGuildAllowed(client, newMessage.guild.id)) || !(await checkIfGuildAllowed(client, oldMessage.guild.id))) return;
 
+        console.log(config.mazokuID)
         // Handle Mazoku messages
         handleEditedMazokuMessage(client, oldMessage, newMessage, config.mazokuID);
 	},
