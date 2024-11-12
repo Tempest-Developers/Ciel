@@ -98,10 +98,63 @@ async function getServerSettings(serverID) {
     });
 }
 
+async function addServerClaim(serverID, claim) {
+    return wrapDbOperation(async () => {
+        const { mServerDB } = await connectDB();
+        const claimData = {
+            claimedID: claim.claimedID,
+            userID: claim.userID,
+            serverID,
+            cardName: claim.cardName,
+            cardID: claim.cardID,
+            owner: claim.owner,
+            artist: claim.artist,
+            print: claim.print,
+            tier: claim.tier,
+            timestamp: claim.timestamp
+        };
+
+        const serverUpdate = await mServerDB.findOneAndUpdate(
+            {
+                serverID,
+                [`claims.${claim.tier}`]: {
+                    $not: {
+                        $elemMatch: {
+                            claimedID: claim.claimedID,
+                            cardID: claim.cardID,
+                            timestamp: claim.timestamp
+                        }
+                    }
+                }
+            },
+            {
+                $push: {
+                    [`claims.${claim.tier}`]: {
+                        $each: [claimData],
+                        $slice: -100
+                    }
+                },
+                $inc: { [`counts.${getTierIndex(claim.tier)}`]: 1 }
+            }
+        );
+
+        return { 
+            claimData, 
+            updated: serverUpdate.lastErrorObject?.n > 0 
+        };
+    });
+}
+
+function getTierIndex(tier) {
+    const tiers = ['CT', 'RT', 'SRT', 'SSRT', 'URT', 'EXT'];
+    return tiers.indexOf(tier);
+}
+
 module.exports = {
     createServer,
     createServerSettings,
     toggleRegister,
     getServerData,
-    getServerSettings
+    getServerSettings,
+    addServerClaim
 };

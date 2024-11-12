@@ -266,8 +266,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                             : true;
 
                         if (shouldTrackCards) {
-                            await client.database.addClaim(guildId, userId, cardClaimed);
-                            console.log(`Updated ${userId} - ${cardClaimed.owner} player | Server ${guildId} - ${newMessage.guild.name} Database`);
+                            // Update both player and server databases
+                            await Promise.all([
+                                client.database.addClaim(guildId, userId, cardClaimed),
+                                client.database.addServerClaim(guildId, cardClaimed)
+                            ]);
+                            console.log(`Updated ${userId} - ${cardClaimed.owner} player and server | Server ${guildId} - ${newMessage.guild.name} Database`);
                         }
                     } catch (error) {
                         console.error('Error processing claim:', error);
