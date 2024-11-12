@@ -167,12 +167,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             // }
 
             // Add description to embed
-            if (description) {
+            if (description && allowRolePing) {
                 countdownEmbed.description = description;
             }
 
             // Only add role ping if allowRolePing is true AND there's a high tier card
-            if (allowRolePing && hasHighTierCard) {
+            if (newMessage.guild.name==GATE_GUILD && hasHighTierCard) {
                 const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
                 if (highTierRole) {
                     roleContent = `<@&${highTierRole.id}>`;
