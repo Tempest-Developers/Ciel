@@ -27,6 +27,7 @@ module.exports = {
     toggleRegister: server.toggleRegister,
     getServerData: server.getServerData,
     getServerSettings: server.getServerSettings,
+    addServerClaim: server.addServerClaim,
     
     // Player functions
     createPlayer: player.createPlayer,
