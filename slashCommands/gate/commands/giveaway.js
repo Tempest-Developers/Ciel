@@ -43,6 +43,8 @@ module.exports = {
 
             // Calculate time left
             const timeStamp = currentGiveaway.endTimestamp;
+            const now = Math.floor(Date.now() / 1000);
+            const hasExpired = now >= timeStamp;
 
             // Check if user has already joined
             const userJoined = currentGiveaway.users?.some(user => user.userID === interaction.user.id);
@@ -63,7 +65,7 @@ module.exports = {
                 .setCustomId('giveaway_join')
                 .setLabel(userJoined ? 'Already Joined' : 'Join Giveaway')
                 .setStyle(userJoined ? ButtonStyle.Secondary : ButtonStyle.Primary)
-                .setDisabled(userJoined || userTickets === 0);
+                .setDisabled(userJoined || userTickets === 0 || hasExpired);
 
             const row = new ActionRowBuilder()
                 .addComponents(joinButton);
@@ -91,7 +93,7 @@ module.exports = {
             const customId = interaction.customId;
 
             if (customId === 'giveaway_join') {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferUpdate();
                 
                 const giveaways = await database.getGiveaways(true);
                 const giveaway = giveaways[0];
@@ -99,6 +101,15 @@ module.exports = {
                 if (!giveaway) {
                     return interaction.editReply({
                         content: '❌ This giveaway is no longer active.',
+                        components: []
+                    });
+                }
+
+                // Check if giveaway has expired
+                const now = Math.floor(Date.now() / 1000);
+                if (now >= giveaway.endTimestamp) {
+                    return interaction.editReply({
+                        content: '❌ This giveaway has expired.',
                         components: []
                     });
                 }
@@ -148,13 +159,22 @@ module.exports = {
             }
 
             if (customId.startsWith('giveaway_') && customId !== 'giveaway_cancel') {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferUpdate();
                 
                 const giveaways = await database.getGiveaways(true);
                 const giveaway = giveaways[0];
                 if (!giveaway) {
                     return interaction.editReply({
                         content: '❌ This giveaway is no longer active.',
+                        components: []
+                    });
+                }
+
+                // Check if giveaway has expired
+                const now = Math.floor(Date.now() / 1000);
+                if (now >= giveaway.endTimestamp) {
+                    return interaction.editReply({
+                        content: '❌ This giveaway has expired.',
                         components: []
                     });
                 }
