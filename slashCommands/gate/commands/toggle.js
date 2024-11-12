@@ -15,11 +15,12 @@ module.exports = {
                 });
             }
 
-            const { mGateServerDB } = database;
-            const serverData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
+            // Use gate functions from mongo.js
+            const serverData = await database.mongo.getGateServer(GATE_GUILD);
             const newState = !serverData.economyEnabled;
 
-            await mGateServerDB.updateOne(
+            // Update using gate server functions
+            await database.mongo.mGateServerDB.updateOne(
                 { serverID: GATE_GUILD },
                 { $set: { economyEnabled: newState } }
             );
@@ -45,11 +46,12 @@ module.exports = {
                 });
             }
 
-            const { mGateServerDB } = database;
-            const serverData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
+            // Use gate functions from mongo.js
+            const serverData = await database.mongo.getGateServer(GATE_GUILD);
             const newState = !(serverData.cardTrackingEnabled !== false);
 
-            await mGateServerDB.updateOne(
+            // Update using gate server functions
+            await database.mongo.mGateServerDB.updateOne(
                 { serverID: GATE_GUILD },
                 { $set: { cardTrackingEnabled: newState } }
             );

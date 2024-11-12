@@ -7,8 +7,8 @@ module.exports = {
             .setDescription('Show gate system commands and information'),
 
     async execute(interaction, { database, config }) {
-        const { mGateServerDB } = database;
-        const serverData = await mGateServerDB.findOne({ serverID: interaction.guild.id });
+        // Use gate functions from mongo.js
+        const serverData = await database.mongo.getGateServer(interaction.guild.id);
         const isLead = config.leads.includes(interaction.user.id);
 
         const embed = new EmbedBuilder()

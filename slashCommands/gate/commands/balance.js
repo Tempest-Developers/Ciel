@@ -1,5 +1,4 @@
 const { SR_PING_ROLE } = require('../utils/constants');
-const { ensureUser } = require('../utils/database');
 
 module.exports = {
     subcommand: subcommand =>
@@ -20,9 +19,16 @@ module.exports = {
             });
         }
 
-        const { mGateDB } = database;
         const userToCheck = targetUser || interaction.user;
-        const userData = await ensureUser(userToCheck.id, mGateDB);
+        
+        // Use gate functions from mongo.js
+        let userData = await database.mongo.getGateUser(userToCheck.id);
+        if (!userData) {
+            // Create user if they don't exist
+            await database.mongo.createGateUser(userToCheck.id);
+            userData = await database.mongo.getGateUser(userToCheck.id);
+        }
+
         const slimeTokens = userData.currency[0];
         const tickets = userData.currency[5] || 0;
         
@@ -33,7 +39,8 @@ module.exports = {
             if (expiresAt > now) {
                 premiumStatus = `\n👑 Premium expires <t:${Math.floor(expiresAt.getTime() / 1000)}:R>`;
             } else {
-                await mGateDB.updateOne(
+                // Update premium status using gate functions
+                await database.mongo.mGateDB.updateOne(
                     { userID: userToCheck.id },
                     { 
                         $set: { 

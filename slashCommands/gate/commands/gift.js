@@ -1,5 +1,4 @@
 const { COSTS } = require('../utils/constants');
-const { ensureUser } = require('../utils/database');
 
 module.exports = {
     subcommand: subcommand =>
@@ -12,8 +11,13 @@ module.exports = {
                     .setRequired(true)),
 
     async execute(interaction, { database }) {
-        const { mGateDB } = database;
-        const userData = await ensureUser(interaction.user.id, mGateDB);
+        // Use gate functions from mongo.js
+        let userData = await database.mongo.getGateUser(interaction.user.id);
+        if (!userData) {
+            await database.mongo.createGateUser(interaction.user.id);
+            userData = await database.mongo.getGateUser(interaction.user.id);
+        }
+
         const targetUser = interaction.options.getUser('user');
         const cost = COSTS.GIFT_TICKET;
 
@@ -24,13 +28,18 @@ module.exports = {
             });
         }
 
-        await mGateDB.updateOne(
+        // Update sender's balance
+        await database.mongo.mGateDB.updateOne(
             { userID: interaction.user.id },
             { $inc: { 'currency.0': -cost } }
         );
 
-        await ensureUser(targetUser.id, mGateDB);
-        await mGateDB.updateOne(
+        // Ensure target user exists and update their balance
+        let targetUserData = await database.mongo.getGateUser(targetUser.id);
+        if (!targetUserData) {
+            await database.mongo.createGateUser(targetUser.id);
+        }
+        await database.mongo.mGateDB.updateOne(
             { userID: targetUser.id },
             { $inc: { 'currency.5': 1 } }
         );

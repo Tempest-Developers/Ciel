@@ -1,5 +1,4 @@
 const { MAX_TOKENS } = require('../utils/constants');
-const { ensureUser } = require('../utils/database');
 
 module.exports = {
     give: {
@@ -32,7 +31,6 @@ module.exports = {
                 });
             }
 
-            const { mGateDB } = database;
             const targetUser = interaction.options.getUser('user');
             const type = interaction.options.getString('type');
             const amount = interaction.options.getInteger('amount');
@@ -44,8 +42,12 @@ module.exports = {
                 });
             }
 
-            await ensureUser(targetUser.id, mGateDB);
-            const userData = await mGateDB.findOne({ userID: targetUser.id });
+            // Use gate functions from mongo.js
+            let userData = await database.mongo.getGateUser(targetUser.id);
+            if (!userData) {
+                await database.mongo.createGateUser(targetUser.id);
+                userData = await database.mongo.getGateUser(targetUser.id);
+            }
 
             if (type === 'tokens') {
                 const newBalance = userData.currency[0] + amount;
@@ -56,7 +58,7 @@ module.exports = {
                     });
                 }
 
-                await mGateDB.updateOne(
+                await database.mongo.mGateDB.updateOne(
                     { userID: targetUser.id },
                     { $inc: { 'currency.0': amount } }
                 );
@@ -66,7 +68,7 @@ module.exports = {
                     ephemeral: true
                 });
             } else if (type === 'tickets') {
-                await mGateDB.updateOne(
+                await database.mongo.mGateDB.updateOne(
                     { userID: targetUser.id },
                     { $inc: { 'currency.5': amount } }
                 );
@@ -110,7 +112,6 @@ module.exports = {
                 });
             }
 
-            const { mGateDB } = database;
             const targetUser = interaction.options.getUser('user');
             const type = interaction.options.getString('type');
             const amount = interaction.options.getInteger('amount');
@@ -122,8 +123,12 @@ module.exports = {
                 });
             }
 
-            await ensureUser(targetUser.id, mGateDB);
-            const userData = await mGateDB.findOne({ userID: targetUser.id });
+            // Use gate functions from mongo.js
+            let userData = await database.mongo.getGateUser(targetUser.id);
+            if (!userData) {
+                await database.mongo.createGateUser(targetUser.id);
+                userData = await database.mongo.getGateUser(targetUser.id);
+            }
 
             if (type === 'tokens') {
                 const newBalance = userData.currency[0] - amount;
@@ -134,7 +139,7 @@ module.exports = {
                     });
                 }
 
-                await mGateDB.updateOne(
+                await database.mongo.mGateDB.updateOne(
                     { userID: targetUser.id },
                     { $inc: { 'currency.0': -amount } }
                 );
@@ -152,7 +157,7 @@ module.exports = {
                     });
                 }
 
-                await mGateDB.updateOne(
+                await database.mongo.mGateDB.updateOne(
                     { userID: targetUser.id },
                     { $inc: { 'currency.5': -amount } }
                 );

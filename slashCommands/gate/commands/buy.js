@@ -1,6 +1,5 @@
 const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const { SR_PING_ROLE, COSTS } = require('../utils/constants');
-const { ensureUser } = require('../utils/database');
 
 module.exports = {
     subcommand: subcommand =>
@@ -18,8 +17,14 @@ module.exports = {
 
     async execute(interaction, { database }) {
         const type = interaction.options.getString('type');
-        const { mGateDB } = database;
-        const userData = await ensureUser(interaction.user.id, mGateDB);
+        
+        // Use gate functions from mongo.js
+        let userData = await database.mongo.getGateUser(interaction.user.id);
+        if (!userData) {
+            await database.mongo.createGateUser(interaction.user.id);
+            userData = await database.mongo.getGateUser(interaction.user.id);
+        }
+
         const currentSlimeTokens = userData.currency[0];
 
         if (type === 'premium') {
@@ -72,7 +77,7 @@ module.exports = {
                     collector.stop();
                 }
                 else if (i.customId === 'premium_confirm') {
-                    const updatedUserData = await mGateDB.findOne({ userID: interaction.user.id });
+                    const updatedUserData = await database.mongo.getGateUser(interaction.user.id);
                     if (updatedUserData.currency[0] < premiumCost) {
                         await i.update({
                             content: `❌ You don't have enough Slime Tokens! You need ${premiumCost} Slime Tokens but only have ${updatedUserData.currency[0]}.`,
@@ -84,7 +89,7 @@ module.exports = {
                     const expiresAt = new Date();
                     expiresAt.setDate(expiresAt.getDate() + 1);
 
-                    await mGateDB.updateOne(
+                    await database.mongo.mGateDB.updateOne(
                         { userID: interaction.user.id },
                         {
                             $inc: { 'currency.0': -premiumCost },
@@ -163,7 +168,7 @@ module.exports = {
                     collector.stop();
                 }
                 else if (i.customId === 'buy_confirm') {
-                    const updatedUserData = await mGateDB.findOne({ userID: interaction.user.id });
+                    const updatedUserData = await database.mongo.getGateUser(interaction.user.id);
                     if (updatedUserData.currency[0] < ticketCost) {
                         await i.update({
                             content: `❌ You don't have enough Slime Tokens! You need ${ticketCost} Slime Tokens but only have ${updatedUserData.currency[0]}.`,
@@ -172,7 +177,7 @@ module.exports = {
                         return;
                     }
 
-                    await mGateDB.updateOne(
+                    await database.mongo.mGateDB.updateOne(
                         { userID: interaction.user.id },
                         {
                             $inc: { 

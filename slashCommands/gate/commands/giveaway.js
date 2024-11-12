@@ -11,11 +11,11 @@ module.exports = {
 
     async execute(interaction, { database }) {
         try {
-            const { mGiveawayDB, mGateDB } = database;
-            const serverData = await mGiveawayDB.find({ active: true }).toArray();
+            // Use giveaway functions from mongo.js
+            const giveaways = await database.mongo.getGiveaways(true); // true for active only
 
             // Check for active giveaways
-            if (!serverData || serverData.length === 0) {
+            if (!giveaways || giveaways.length === 0) {
                 return interaction.reply({
                     content: '❌ There are no active giveaways at the moment.',
                     ephemeral: true
@@ -23,10 +23,14 @@ module.exports = {
             }
 
             // Get the current giveaway
-            const currentGiveaway = serverData[0];
+            const currentGiveaway = giveaways[0];
             
-            // Get user's ticket count
-            const userData = await mGateDB.findOne({ userID: interaction.user.id });
+            // Get user's ticket count using gate functions
+            let userData = await database.mongo.getGateUser(interaction.user.id);
+            if (!userData) {
+                await database.mongo.createGateUser(interaction.user.id);
+                userData = await database.mongo.getGateUser(interaction.user.id);
+            }
             const userTickets = userData?.currency[5] || 0;
             
             // Fetch card details from API using axios
@@ -92,7 +96,8 @@ module.exports = {
             if (customId === 'giveaway_join') {
                 await interaction.deferReply({ ephemeral: true });
                 
-                const giveaway = await database.mGiveawayDB.findOne({ active: true });
+                const giveaways = await database.mongo.getGiveaways(true);
+                const giveaway = giveaways[0];
                 
                 if (!giveaway) {
                     return interaction.editReply({
@@ -101,8 +106,12 @@ module.exports = {
                     });
                 }
 
-                // Get user's ticket count
-                const userData = await database.mGateDB.findOne({ userID: interaction.user.id });
+                // Get user's ticket count using gate functions
+                let userData = await database.mongo.getGateUser(interaction.user.id);
+                if (!userData) {
+                    await database.mongo.createGateUser(interaction.user.id);
+                    userData = await database.mongo.getGateUser(interaction.user.id);
+                }
                 const userTickets = userData?.currency[5] || 0;
 
                 if (userTickets === 0) {
@@ -148,7 +157,8 @@ module.exports = {
             if (customId.startsWith('giveaway_') && customId !== 'giveaway_cancel') {
                 await interaction.deferReply({ ephemeral: true });
                 
-                const giveaway = await database.mGiveawayDB.findOne({ active: true });
+                const giveaways = await database.mongo.getGiveaways(true);
+                const giveaway = giveaways[0];
                 if (!giveaway) {
                     return interaction.editReply({
                         content: '❌ This giveaway is no longer active.',
@@ -160,12 +170,12 @@ module.exports = {
                 if (customId === 'giveaway_1_ticket') ticketAmount = 1;
                 else if (customId === 'giveaway_5_tickets') ticketAmount = 5;
                 else if (customId === 'giveaway_all_tickets') {
-                    const userData = await database.mGateDB.findOne({ userID: interaction.user.id });
+                    const userData = await database.mongo.getGateUser(interaction.user.id);
                     ticketAmount = userData?.currency[5] || 0;
                 }
 
                 try {
-                    await database.joinGiveaway(giveaway.giveawayID, interaction.user.id, ticketAmount);
+                    await database.mongo.joinGiveaway(giveaway.giveawayID, interaction.user.id, ticketAmount);
                     return interaction.editReply({
                         content: `✅ Successfully joined the giveaway with ${ticketAmount} ticket${ticketAmount > 1 ? 's' : ''}!`,
                         components: []

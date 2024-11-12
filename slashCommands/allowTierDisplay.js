@@ -16,26 +16,17 @@ module.exports = {
             //     });
             // }
             
-            // Get server settings using the correct property name
-            let serverData = await interaction.client.database.serverSettings.findOne({ serverID: guildId });
+            // Get server settings using mongo function
+            let serverData = await interaction.client.mongo.getServerSettings(guildId);
             
             if (!serverData) {
-                serverData = await interaction.client.database.serverSettings.insertOne({
-                    serverID: guildId,
-                    settings: {
-                        allowShowStats: true,
-                        allowRolePing: false
-                    }
-                });
-                serverData = await interaction.client.database.serverSettings.findOne({ serverID: guildId });
+                await interaction.client.mongo.createServerSettings(guildId);
+                serverData = await interaction.client.mongo.getServerSettings(guildId);
             }
 
             // Toggle the setting
             const newValue = !serverData.settings.allowRolePing;
-            await interaction.client.database.serverSettings.updateOne(
-                { serverID: guildId },
-                { $set: { 'settings.allowRolePing': newValue } }
-            );
+            await interaction.client.mongo.toggleRegister(guildId);
 
             console.log(interaction.guild.name+" "+newValue)
 
