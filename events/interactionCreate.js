@@ -49,6 +49,7 @@ module.exports = {
         if (!command) return;
 
         const { developers } = client.config;
+        const config = client.config
         const isDeveloper = developers.includes(interaction.user.id);
 
         // Check permissions
@@ -91,7 +92,7 @@ module.exports = {
                 options
             );
 
-            await command.execute(interaction, { database });
+            await command.execute(interaction, { database, config });
         } catch (error) {
             console.error('Command execution error:', error);
             
