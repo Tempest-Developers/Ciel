@@ -16,17 +16,17 @@ module.exports = {
             //     });
             // }
             
-            // Get server settings using mongo function
-            let serverData = await interaction.client.mongo.getServerSettings(guildId);
+            // Get server settings using database function
+            let serverData = await interaction.client.database.getServerSettings(guildId);
             
             if (!serverData) {
-                await interaction.client.mongo.createServerSettings(guildId);
-                serverData = await interaction.client.mongo.getServerSettings(guildId);
+                await interaction.client.database.createServerSettings(guildId);
+                serverData = await interaction.client.database.getServerSettings(guildId);
             }
 
             // Toggle the setting
             const newValue = !serverData.settings.allowRolePing;
-            await interaction.client.mongo.toggleRegister(guildId);
+            await interaction.client.database.toggleRegister(guildId);
 
             console.log(interaction.guild.name+" "+newValue)
 

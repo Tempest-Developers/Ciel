@@ -50,9 +50,9 @@ module.exports = {
         ),
 
     async execute(interaction, { database }) {
-        // Add cooldown check
-        const guildId = interaction.guild.id;
+        // Store userId at the beginning
         const userId = interaction.user.id;
+        const guildId = interaction.guild.id;
         const cooldownKey = `${guildId}-${userId}`;
         
         if (cooldowns.has(cooldownKey)) {
