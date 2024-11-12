@@ -22,7 +22,7 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('null')
-                .setDescription('⠀')) // Invisible description using special character
+                .setDescription('null')) // Invisible description using special character
         .addSubcommand(subcommand =>
             subcommand
                 .setName('help')
