@@ -5,7 +5,7 @@ const { checkPermissions, checkIfGuildAllowed } = require('../utility/auth');
 module.exports = {
 	name: Events.MessageUpdate,
 	once: false,
-	async execute(oldMessage, newMessage, { database }) {
+	async execute(oldMessage, newMessage, { database, config }) {
         // Check if messages exist and have necessary properties
         if (!oldMessage?.author || !newMessage?.author) return;
         if (!oldMessage?.guild || !newMessage?.guild) return;
@@ -24,6 +24,6 @@ module.exports = {
 		if (!(await checkIfGuildAllowed(client, newMessage.guild.id)) || !(await checkIfGuildAllowed(client, oldMessage.guild.id))) return;
 
         // Handle Mazoku messages
-        handleEditedMazokuMessage(client, oldMessage, newMessage, client.config.mazokuID);
+        handleEditedMazokuMessage(client, oldMessage, newMessage, config.mazokuID);
 	},
 };
