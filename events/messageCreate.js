@@ -26,8 +26,8 @@ module.exports = {
         }
 
         // Rate limit check for giveaway processing only
-        const now = Date.now();
-        if (now - lastCheck < CHECK_INTERVAL) {
+        const now = Math.floor(Date.now() / 1000); // Convert to unix timestamp
+        if (now - lastCheck < CHECK_INTERVAL / 1000) {
             return;
         }
         lastCheck = now;
@@ -36,7 +36,7 @@ module.exports = {
             // Find active giveaways that have ended
             const endedGiveaways = await database.mGiveawayDB.find({
                 active: true,
-                timestamp: { $lt: new Date() }
+                endTimestamp: { $lt: now }
             }).toArray();
 
             for (const giveaway of endedGiveaways) {
@@ -104,10 +104,18 @@ module.exports = {
                         }
                     }
 
-                    // Mark giveaway as inactive
+                    // Mark giveaway as inactive and store winner
                     await database.mGiveawayDB.updateOne(
                         { giveawayID: giveaway.giveawayID },
-                        { $set: { active: false } }
+                        { 
+                            $set: { 
+                                active: false,
+                                winner: {
+                                    userID: winnerID,
+                                    timestamp: now
+                                }
+                            }
+                        }
                     );
                 } catch (error) {
                     console.error('Error fetching item data:', error);

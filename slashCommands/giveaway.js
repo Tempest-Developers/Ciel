@@ -113,8 +113,8 @@ module.exports = {
                     }
 
                     // Calculate end timestamp
-                    const endTimestamp = new Date(Date.now() + durationMs);
-
+                    const endTimestamp = Math.floor((new Date(Date.now() + durationMs)).getTime() / 1000);
+;
                     try {
                         // Fetch item data from API
                         const { data: itemData } = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${itemId}`);
