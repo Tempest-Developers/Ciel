@@ -25,7 +25,7 @@ module.exports = {
         
         try {
             // Fetch card details from API using axios
-            const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${currentGiveaway.itemId}`);
+            const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${currentGiveaway.itemID}`);
             const cardData = response.data;
 
             // Create embed
