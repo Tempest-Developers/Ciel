@@ -42,63 +42,79 @@ module.exports = async (message, exemptBotId) => {
             // Get unique participants from collected messages
             const participants = [...new Set(collected.map(m => m.author.id))];
             
-            // Randomly select a winner
-            const winnerID = participants[Math.floor(Math.random() * participants.length)];
+            // Determine number of winners (1-3)
+            const numWinners = Math.floor(Math.random() * 3) + 1;
             
-            // Generate token reward
-            let tokenReward;
-            let colorEmbed;
-            const rand = Math.random() * 100;
-
-            if (rand < 5) { // 5% chance of 0 tokens
-                tokenReward = 0;
-                colorEmbed = '#FF0000'; // Red
-            } else if (rand < 95) { // 90% chance of 1-5 tokens
-                tokenReward = Math.floor(Math.random() * 5) + 1;
-                colorEmbed = '#00FF00'; // Green
-            } else if (rand < 99) { // 4% chance of 25 tokens
-                tokenReward = 25;
-                colorEmbed = '#FFFF00'; // Yellow
-            } else if (rand < 99.9) { // 0.9% chance of 50 tokens
-                tokenReward = 50;
-                colorEmbed = '#00FFFF'; // Cyan
-            } else { // 0.1% chance of 100 tokens
-                tokenReward = 100;
-                colorEmbed = '#FF00FF'; // Magenta
+            // Randomly select winners without duplicates
+            const winners = [];
+            const participantsCopy = [...participants];
+            for (let i = 0; i < numWinners && participantsCopy.length > 0; i++) {
+              const winnerIndex = Math.floor(Math.random() * participantsCopy.length);
+              winners.push(participantsCopy.splice(winnerIndex, 1)[0]);
             }
 
-            if (tokenReward > 0) {
-              // Get user data
-              let userData = await message.client.database.mGateDB.findOne({ userID: winnerID });
-              if (!userData) {
-                await message.client.database.createGateUser(winnerID);
-                userData = await message.client.database.mGateDB.findOne({ userID: winnerID });
-              }
+            // Process each winner
 
-              // Check max token limit
-              const currentTokens = userData.currency[0];
-              if (currentTokens + tokenReward > 25000) {
-                tokenReward = Math.max(0, 25000 - currentTokens);
+            let rewardMessage = '';
+            let colorEmbed;
+
+            for (const winnerID of winners) {
+              // Generate token reward with adjusted probabilities
+              let tokenReward;
+              const rand = Math.random() * 100;
+
+              if (rand < 0.001) { // 0.1% chance of 100 tokens
+                tokenReward = 100;
+                colorEmbed = '#FF00FF'; // Magenta
+              } else if (rand < 0.01) { // 0.9% chance of 50 tokens
+                tokenReward = 50;
+                colorEmbed = '#00FFFF'; // Cyan
+              } else if (rand < 0.1) { // 9% chance of 25 tokens
+                tokenReward = 25;
+                colorEmbed = '#FFFF00'; // Yellow
+              } else { // 90.1% chance of 0-5 tokens
+                tokenReward = Math.floor(Math.random() * 6);
+                colorEmbed = '#00FF00'; // Green
               }
 
               if (tokenReward > 0) {
-                // Update tokens
-                await message.client.database.mGateDB.updateOne(
-                  { userID: winnerID },
-                  { $inc: { 'currency.0': tokenReward } }
-                );
+                // Get user data
+                let userData = await message.client.database.mGateDB.findOne({ userID: winnerID });
+                if (!userData) {
+                  await message.client.database.createGateUser(winnerID);
+                  userData = await message.client.database.mGateDB.findOne({ userID: winnerID });
+                }
 
-                // Create and send embed
-                const rewardEmbed = new EmbedBuilder()
-                  .setColor(colorEmbed)
-                  .setTitle('🎉 Token Reward')
-                  .setDescription(`<@${winnerID}> earned ${tokenReward} <:Slime_Token:1304929154285703179> for participating!`)
-                  .setFooter({ text: `${participants.length} users participated` });
+                // Check max token limit
+                const currentTokens = userData.currency[0];
+                if (currentTokens + tokenReward > 25000) {
+                  tokenReward = Math.max(0, 25000 - currentTokens);
+                }
 
-                await message.channel.send({ embeds: [rewardEmbed] });
-                console.log(`Awarded ${tokenReward} tokens to user ${winnerID}`);
+                if (tokenReward > 0) {
+                  // Update tokens
+                  await message.client.database.mGateDB.updateOne(
+                    { userID: winnerID },
+                    { $inc: { 'currency.0': tokenReward } }
+                  );
+
+                  // Add to reward message
+                  rewardMessage += `${message.client.users.cache.get(winnerID).username} earned ${tokenReward} <:Slime_Token:1304929154285703179> for participating!\n`;
+                }
               }
             }
+
+            if (rewardMessage) {
+              const rewardEmbed = new EmbedBuilder()
+                .setColor(colorEmbed)
+                .setTitle('🎉 Token Rewards')
+                .setDescription(rewardMessage)
+                .setFooter({ text: `${participants.length} users participated` });
+
+              await message.channel.send({ embeds: [rewardEmbed] });
+              console.log(`Awarded tokens to ${winners.length} winners`);
+            }
+
           } catch (error) {
             console.error('Error handling token reward:', error);
           }

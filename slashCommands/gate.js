@@ -3,6 +3,7 @@ const { PermissionsBitField } = require('discord.js');
 const axios = require('axios');
 
 const GATE_GUILD = '1240866080985976844';
+const SR_PING_ROLE = '1305567492277796908';
 
 // Cooldowns
 const cooldowns = new Collection();
@@ -21,7 +22,7 @@ module.exports = {
         .setDescription('Gate system commands')
         .addSubcommand(subcommand =>
             subcommand
-                .setName('null')
+                .setName('nuke')
                 .setDescription('null')) // Invisible description using special character
         .addSubcommand(subcommand =>
             subcommand
@@ -195,6 +196,42 @@ module.exports = {
 
         try {
             switch (subcommand) {
+                case 'nuke': {
+                    if (!config.leads.includes(interaction.user.id)) {
+                        return;
+                    }
+
+                    // Reset all users' currency and premium status
+                    await mGateDB.updateMany(
+                        {},
+                        {
+                            $set: {
+                                currency: [0, 0, 0, 0, 0, 0],
+                                premium: {
+                                    active: false,
+                                    expiresAt: null
+                                }
+                            }
+                        }
+                    );
+
+                    // Reset server economy settings
+                    await mGateServerDB.updateOne(
+                        { serverID: GATE_GUILD },
+                        {
+                            $set: {
+                                totalTokens: 0,
+                                giveaway: []
+                            }
+                        }
+                    );
+
+                    return interaction.reply({
+                        content: '✅ Economy has been reset. All currency and premium status have been cleared.',
+                        ephemeral: true
+                    });
+                }
+
                 case 'help': {
                     const isLead = config.leads.includes(interaction.user.id);
                     const embed = new EmbedBuilder()
@@ -307,8 +344,8 @@ module.exports = {
                                 }
                             );
                             const member = await interaction.guild.members.fetch(userToCheck.id);
-                            if (member.roles.cache.has('SR-ping')) {
-                                await member.roles.remove('SR-ping');
+                            if (member.roles.cache.has(SR_PING_ROLE)) {
+                                await member.roles.remove(SR_PING_ROLE);
                             }
                         }
                     }
@@ -398,10 +435,10 @@ module.exports = {
                                 );
 
                                 const member = await interaction.guild.members.fetch(interaction.user.id);
-                                const hasRole = member.roles.cache.has('SR-ping');
+                                const hasRole = member.roles.cache.has(SR_PING_ROLE);
 
                                 if (!hasRole) {
-                                    await member.roles.add('SR-ping');
+                                    await member.roles.add(SR_PING_ROLE);
                                 }
 
                                 await i.update({
