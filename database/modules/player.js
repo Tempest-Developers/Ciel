@@ -1,4 +1,4 @@
-const { wrapDbOperation, mUserDB } = require('./connection');
+const { wrapDbOperation, connectDB } = require('./connection');
 
 function getTierIndex(tier) {
     const tiers = ['CT', 'RT', 'SRT', 'SSRT', 'URT', 'EXT'];
@@ -7,6 +7,7 @@ function getTierIndex(tier) {
 
 async function createPlayer(userID, serverID) {
     return wrapDbOperation(async () => {
+        const { mUserDB } = await connectDB();
         return await mUserDB.insertOne({
             userID,
             serverID,
@@ -26,6 +27,7 @@ async function createPlayer(userID, serverID) {
 
 async function addClaim(serverID, userID, claim) {
     return wrapDbOperation(async () => {
+        const { mUserDB } = await connectDB();
         const claimData = {
             claimedID: claim.claimedID,
             userID,
@@ -73,6 +75,7 @@ async function addClaim(serverID, userID, claim) {
 
 async function addManualClaim(serverID, userID, claim) {
     return wrapDbOperation(async () => {
+        const { mUserDB } = await connectDB();
         const claimData = {
             claimedID: claim.claimedID,
             userID,
@@ -120,6 +123,7 @@ async function addManualClaim(serverID, userID, claim) {
 
 async function getPlayerData(userID, serverID) {
     return wrapDbOperation(async () => {
+        const { mUserDB } = await connectDB();
         return await mUserDB.findOne({ userID, serverID });
     });
 }

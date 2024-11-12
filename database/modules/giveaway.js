@@ -1,7 +1,8 @@
-const { wrapDbOperation, mGiveawayDB, mGateDB } = require('./connection');
+const { wrapDbOperation, connectDB } = require('./connection');
 
 async function createGiveaway(userID, itemID, level, amount, endTimestamp) {
     return wrapDbOperation(async () => {
+        const { mGiveawayDB } = await connectDB();
         const lastGiveaway = await mGiveawayDB.findOne({}, { sort: { giveawayID: -1 } });
         const giveawayID = lastGiveaway ? lastGiveaway.giveawayID + 1 : 0;
 
@@ -22,6 +23,7 @@ async function createGiveaway(userID, itemID, level, amount, endTimestamp) {
 
 async function getGiveaways(active = null) {
     return wrapDbOperation(async () => {
+        const { mGiveawayDB } = await connectDB();
         const query = active !== null ? { active } : {};
         return await mGiveawayDB.find(query).sort({ endTimestamp: -1 }).toArray();
     });
@@ -29,12 +31,14 @@ async function getGiveaways(active = null) {
 
 async function getGiveaway(giveawayID) {
     return wrapDbOperation(async () => {
+        const { mGiveawayDB } = await connectDB();
         return await mGiveawayDB.findOne({ giveawayID });
     });
 }
 
 async function updateGiveawayTimestamp(giveawayID, newTimestamp) {
     return wrapDbOperation(async () => {
+        const { mGiveawayDB } = await connectDB();
         return await mGiveawayDB.updateOne(
             { giveawayID },
             { $set: { endTimestamp: newTimestamp } }
@@ -44,6 +48,8 @@ async function updateGiveawayTimestamp(giveawayID, newTimestamp) {
 
 async function joinGiveaway(giveawayID, userID, ticketAmount) {
     return wrapDbOperation(async () => {
+        const { mGateDB, mGiveawayDB } = await connectDB();
+        
         // Get user's ticket balance
         const userData = await mGateDB.findOne({ userID });
         if (!userData) {

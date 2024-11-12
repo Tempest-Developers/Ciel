@@ -1,8 +1,9 @@
-const { wrapDbOperation, mCommandLogsDB } = require('./connection');
+const { wrapDbOperation, connectDB } = require('./connection');
 
 async function logCommand(userID, username, serverID, serverName, commandName, options = {}) {
     return wrapDbOperation(async () => {
         try {
+            const { mCommandLogsDB } = await connectDB();
             return await mCommandLogsDB.insertOne({
                 userID,
                 username,
@@ -14,6 +15,7 @@ async function logCommand(userID, username, serverID, serverName, commandName, o
             });
         } catch (error) {
             console.error('Error logging command:', error);
+            throw error;
         }
     });
 }
@@ -21,6 +23,7 @@ async function logCommand(userID, username, serverID, serverName, commandName, o
 async function getCommandLogs(serverID = null, page = 1, limit = 10) {
     return wrapDbOperation(async () => {
         try {
+            const { mCommandLogsDB } = await connectDB();
             const query = serverID ? { serverID } : {};
             const skip = (page - 1) * limit;
             

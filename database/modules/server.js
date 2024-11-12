@@ -1,7 +1,8 @@
-const { wrapDbOperation, mServerDB, mServerSettingsDB } = require('./connection');
+const { wrapDbOperation, connectDB } = require('./connection');
 
 async function createServer(serverID) {
     return wrapDbOperation(async () => {
+        const { mServerDB } = await connectDB();
         return await mServerDB.insertOne({
             serverID,
             counts: [0, 0, 0, 0, 0, 0],
@@ -21,6 +22,7 @@ async function createServer(serverID) {
 async function createServerSettings(serverID) {
     return wrapDbOperation(async () => {
         try {
+            const { mServerSettingsDB } = await connectDB();
             const existingSettings = await mServerSettingsDB.findOne({ serverID });
             if (existingSettings) {
                 return await mServerSettingsDB.updateOne(
@@ -60,6 +62,7 @@ async function createServerSettings(serverID) {
 async function toggleRegister(serverID) {
     return wrapDbOperation(async () => {
         try {
+            const { mServerSettingsDB } = await connectDB();
             const serverSettings = await mServerSettingsDB.findOne({ serverID });
 
             if (!serverSettings) {
@@ -83,12 +86,14 @@ async function toggleRegister(serverID) {
 
 async function getServerData(serverID) {
     return wrapDbOperation(async () => {
+        const { mServerDB } = await connectDB();
         return await mServerDB.findOne({ serverID });
     });
 }
 
 async function getServerSettings(serverID) {
     return wrapDbOperation(async () => {
+        const { mServerSettingsDB } = await connectDB();
         return await mServerSettingsDB.findOne({ serverID });
     });
 }

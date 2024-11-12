@@ -1,7 +1,8 @@
-const { wrapDbOperation, mGateDB, mGateServerDB } = require('./connection');
+const { wrapDbOperation, connectDB } = require('./connection');
 
 async function createGateUser(userID) {
     return wrapDbOperation(async () => {
+        const { mGateDB } = await connectDB();
         return await mGateDB.insertOne({
             userID,
             currency: [0, 0, 0, 0, 0, 0], // Added 6th slot for tickets
@@ -17,6 +18,7 @@ async function createGateUser(userID) {
 
 async function createGateServer(serverID) {
     return wrapDbOperation(async () => {
+        const { mGateServerDB } = await connectDB();
         return await mGateServerDB.insertOne({
             serverID,
             economyEnabled: false,
@@ -30,6 +32,7 @@ async function createGateServer(serverID) {
 
 async function updateUserCurrency(userID, currencyIndex, amount) {
     return wrapDbOperation(async () => {
+        const { mGateDB } = await connectDB();
         const update = {};
         update[`currency.${currencyIndex}`] = amount;
         return await mGateDB.updateOne(
@@ -41,6 +44,7 @@ async function updateUserCurrency(userID, currencyIndex, amount) {
 
 async function getGateUser(userID) {
     return wrapDbOperation(async () => {
+        const { mGateDB } = await connectDB();
         return await mGateDB.findOne({ userID });
     });
 }
