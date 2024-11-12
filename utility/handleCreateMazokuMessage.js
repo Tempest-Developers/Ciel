@@ -72,7 +72,7 @@ module.exports = async (message, exemptBotId, database) => {
                                 tokenReward = 25;
                                 colorEmbed = '#FFFF00'; // Yellow
                             } else { // 90.1% chance of 0-5 tokens
-                                tokenReward = Math.floor(Math.random() * 6);
+                                tokenReward = Math.floor(Math.random() * 3);
                                 colorEmbed = '#00FF00'; // Green
                             }
 
