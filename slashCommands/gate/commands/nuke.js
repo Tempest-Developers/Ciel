@@ -49,12 +49,8 @@ module.exports = {
                 collector.stop();
             }
             else if (i.customId === 'nuke_confirm') {
-                // Reset all users' currency and premium status using gate functions
-                const gateDB = database.mongo.mGateDB;
-                const gateServerDB = database.mongo.mGateServerDB;
-                
-                // Reset all users
-                await gateDB.updateMany(
+                // Reset all users' currency and premium status
+                await database.mGateDB.updateMany(
                     {},
                     {
                         $set: {
@@ -68,7 +64,7 @@ module.exports = {
                 );
 
                 // Reset server economy settings
-                await gateServerDB.updateOne(
+                await database.mGateServerDB.updateOne(
                     { serverID: GATE_GUILD },
                     {
                         $set: {

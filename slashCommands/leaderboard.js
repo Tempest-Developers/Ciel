@@ -75,8 +75,8 @@ module.exports = {
         try {
             const subcommand = interaction.options.getSubcommand();
 
-            // Get all users in the server using player functions from mongo.js
-            const allUsers = await database.mongo.mUserDB.find({ serverID: guildId }).toArray();
+            // Get all users in the server using mUserDB directly from database parameter
+            const allUsers = await database.mUserDB.find({ serverID: guildId }).toArray();
             if (!allUsers || allUsers.length === 0) {
                 return await interaction.editReply('No user data found for this server.');
             }

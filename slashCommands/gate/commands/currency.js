@@ -1,4 +1,5 @@
 const { MAX_TOKENS } = require('../utils/constants');
+const { ensureUser } = require('../utils/database');
 
 module.exports = {
     give: {
@@ -42,12 +43,8 @@ module.exports = {
                 });
             }
 
-            // Use gate functions from mongo.js
-            let userData = await database.mongo.getGateUser(targetUser.id);
-            if (!userData) {
-                await database.mongo.createGateUser(targetUser.id);
-                userData = await database.mongo.getGateUser(targetUser.id);
-            }
+            // Use ensureUser utility function
+            const userData = await ensureUser(targetUser.id, database.mGateDB);
 
             if (type === 'tokens') {
                 const newBalance = userData.currency[0] + amount;
@@ -58,7 +55,7 @@ module.exports = {
                     });
                 }
 
-                await database.mongo.mGateDB.updateOne(
+                await database.mGateDB.updateOne(
                     { userID: targetUser.id },
                     { $inc: { 'currency.0': amount } }
                 );
@@ -68,7 +65,7 @@ module.exports = {
                     ephemeral: true
                 });
             } else if (type === 'tickets') {
-                await database.mongo.mGateDB.updateOne(
+                await database.mGateDB.updateOne(
                     { userID: targetUser.id },
                     { $inc: { 'currency.5': amount } }
                 );
@@ -123,12 +120,8 @@ module.exports = {
                 });
             }
 
-            // Use gate functions from mongo.js
-            let userData = await database.mongo.getGateUser(targetUser.id);
-            if (!userData) {
-                await database.mongo.createGateUser(targetUser.id);
-                userData = await database.mongo.getGateUser(targetUser.id);
-            }
+            // Use ensureUser utility function
+            const userData = await ensureUser(targetUser.id, database.mGateDB);
 
             if (type === 'tokens') {
                 const newBalance = userData.currency[0] - amount;
@@ -139,7 +132,7 @@ module.exports = {
                     });
                 }
 
-                await database.mongo.mGateDB.updateOne(
+                await database.mGateDB.updateOne(
                     { userID: targetUser.id },
                     { $inc: { 'currency.0': -amount } }
                 );
@@ -157,7 +150,7 @@ module.exports = {
                     });
                 }
 
-                await database.mongo.mGateDB.updateOne(
+                await database.mGateDB.updateOne(
                     { userID: targetUser.id },
                     { $inc: { 'currency.5': -amount } }
                 );

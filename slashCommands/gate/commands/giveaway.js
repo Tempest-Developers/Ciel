@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const axios = require('axios');
 const { GATE_GUILD } = require('../utils/constants');
 const getTierEmoji = require('../../../utility/getTierEmoji');
+const { ensureUser } = require('../utils/database');
 
 module.exports = {
     subcommand: subcommand =>
@@ -11,8 +12,8 @@ module.exports = {
 
     async execute(interaction, { database }) {
         try {
-            // Use giveaway functions from mongo.js
-            const giveaways = await database.mongo.getGiveaways(true); // true for active only
+            // Get active giveaways
+            const giveaways = await database.getGiveaways(true); // true for active only
 
             // Check for active giveaways
             if (!giveaways || giveaways.length === 0) {
@@ -25,12 +26,8 @@ module.exports = {
             // Get the current giveaway
             const currentGiveaway = giveaways[0];
             
-            // Get user's ticket count using gate functions
-            let userData = await database.mongo.getGateUser(interaction.user.id);
-            if (!userData) {
-                await database.mongo.createGateUser(interaction.user.id);
-                userData = await database.mongo.getGateUser(interaction.user.id);
-            }
+            // Get user's ticket count using ensureUser
+            const userData = await ensureUser(interaction.user.id, database.mGateDB);
             const userTickets = userData?.currency[5] || 0;
             
             // Fetch card details from API using axios
@@ -96,7 +93,7 @@ module.exports = {
             if (customId === 'giveaway_join') {
                 await interaction.deferReply({ ephemeral: true });
                 
-                const giveaways = await database.mongo.getGiveaways(true);
+                const giveaways = await database.getGiveaways(true);
                 const giveaway = giveaways[0];
                 
                 if (!giveaway) {
@@ -106,12 +103,8 @@ module.exports = {
                     });
                 }
 
-                // Get user's ticket count using gate functions
-                let userData = await database.mongo.getGateUser(interaction.user.id);
-                if (!userData) {
-                    await database.mongo.createGateUser(interaction.user.id);
-                    userData = await database.mongo.getGateUser(interaction.user.id);
-                }
+                // Get user's ticket count using ensureUser
+                const userData = await ensureUser(interaction.user.id, database.mGateDB);
                 const userTickets = userData?.currency[5] || 0;
 
                 if (userTickets === 0) {
@@ -157,7 +150,7 @@ module.exports = {
             if (customId.startsWith('giveaway_') && customId !== 'giveaway_cancel') {
                 await interaction.deferReply({ ephemeral: true });
                 
-                const giveaways = await database.mongo.getGiveaways(true);
+                const giveaways = await database.getGiveaways(true);
                 const giveaway = giveaways[0];
                 if (!giveaway) {
                     return interaction.editReply({
@@ -170,12 +163,12 @@ module.exports = {
                 if (customId === 'giveaway_1_ticket') ticketAmount = 1;
                 else if (customId === 'giveaway_5_tickets') ticketAmount = 5;
                 else if (customId === 'giveaway_all_tickets') {
-                    const userData = await database.mongo.getGateUser(interaction.user.id);
+                    const userData = await ensureUser(interaction.user.id, database.mGateDB);
                     ticketAmount = userData?.currency[5] || 0;
                 }
 
                 try {
-                    await database.mongo.joinGiveaway(giveaway.giveawayID, interaction.user.id, ticketAmount);
+                    await database.joinGiveaway(giveaway.giveawayID, interaction.user.id, ticketAmount);
                     return interaction.editReply({
                         content: `✅ Successfully joined the giveaway with ${ticketAmount} ticket${ticketAmount > 1 ? 's' : ''}!`,
                         components: []

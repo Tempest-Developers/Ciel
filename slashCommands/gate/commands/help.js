@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
+const { getServerData } = require('../utils/database');
 
 module.exports = {
     subcommand: subcommand =>
@@ -7,8 +8,8 @@ module.exports = {
             .setDescription('Show gate system commands and information'),
 
     async execute(interaction, { database, config }) {
-        // Use gate functions from mongo.js
-        const serverData = await database.mongo.getGateServer(interaction.guild.id);
+        // Use getServerData utility function
+        const serverData = await getServerData(interaction.guild.id, database.mGateServerDB);
         const isLead = config.leads.includes(interaction.user.id);
 
         const embed = new EmbedBuilder()

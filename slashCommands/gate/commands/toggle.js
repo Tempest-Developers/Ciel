@@ -1,4 +1,5 @@
 const { GATE_GUILD } = require('../utils/constants');
+const { getServerData } = require('../utils/database');
 
 module.exports = {
     toggle: {
@@ -15,12 +16,12 @@ module.exports = {
                 });
             }
 
-            // Use gate functions from mongo.js
-            const serverData = await database.mongo.getGateServer(GATE_GUILD);
+            // Use getServerData utility function
+            const serverData = await getServerData(GATE_GUILD, database.mGateServerDB);
             const newState = !serverData.economyEnabled;
 
-            // Update using gate server functions
-            await database.mongo.mGateServerDB.updateOne(
+            // Update server data directly using mGateServerDB
+            await database.mGateServerDB.updateOne(
                 { serverID: GATE_GUILD },
                 { $set: { economyEnabled: newState } }
             );
@@ -46,12 +47,12 @@ module.exports = {
                 });
             }
 
-            // Use gate functions from mongo.js
-            const serverData = await database.mongo.getGateServer(GATE_GUILD);
+            // Use getServerData utility function
+            const serverData = await getServerData(GATE_GUILD, database.mGateServerDB);
             const newState = !(serverData.cardTrackingEnabled !== false);
 
-            // Update using gate server functions
-            await database.mongo.mGateServerDB.updateOne(
+            // Update server data directly using mGateServerDB
+            await database.mGateServerDB.updateOne(
                 { serverID: GATE_GUILD },
                 { $set: { cardTrackingEnabled: newState } }
             );
