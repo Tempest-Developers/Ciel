@@ -1,290 +1,276 @@
 require('dotenv').config();
-const { ButtonBuilder, ActionRowBuilder, ButtonStyle, DiscordAPIError } = require('discord.js');
 const findUserId = require('../utility/findUserId');
-let lastTimestamps = {};
-let lastRemberedEmbed = "";
+const getTierEmoji = require('../utility/getTierEmoji');
+const axios = require('axios');
+
+const GATE_GUILD = '1240866080985976844';
+
+// Use a Map to track processed claims with a TTL
+const processedClaims = new Map();
+const processedEdits = new Map();
+
+// Clean up old entries every hour
+setInterval(() => {
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    for (const [key, timestamp] of processedClaims.entries()) {
+        if (timestamp < oneHourAgo) {
+            processedClaims.delete(key);
+        }
+    }
+    for (const [key, timestamp] of processedEdits.entries()) {
+        if (timestamp < oneHourAgo) {
+            processedEdits.delete(key);
+        }
+    }
+}, 60 * 60 * 1000);
+
+async function getCardInfo(cardId) {
+    try {
+        const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`);
+        const data = response.data;
+        if (data && data.length > 0) {
+            const card = data[0].card;
+            return {
+                name: card.name,
+                series: card.series,
+                tier: card.tier,
+                versions: await getAvailableVersions(data)
+            };
+        }
+    } catch (error) {
+        console.error('Error fetching card info:', error);
+    }
+    return null;
+}
+
+function getAvailableVersions(cardData) {
+    if (!cardData || !cardData.length) return [];
+    const existingVersions = cardData.map(item => item.version);
+    const missingVersions = [];
+    for (let i = 1; i <= 10; i++) {
+        if (!existingVersions.includes(i)) {
+            missingVersions.push(i);
+        }
+    }
+    return missingVersions;
+}
+
+async function getOrCreateHighTierRole(guild) {
+    try {
+        let role = guild.roles.cache.find(r => r.name === 'SR-ping');
+        if (!role) {
+            role = await guild.roles.create({
+                name: 'SR-ping',
+                reason: 'Created for High Tier card notifications'
+            });
+        }
+        return role;
+    } catch (error) {
+        console.error('Error managing SR-ping role:', error);
+        return null;
+    }
+}
+
+async function buildCardDescription(cardIds) {
+    let hasHighTierCard = false;
+    let description = '';
+    let lastTier = null;
+    const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:'];
+    
+    // Get card info for all cards at once
+    const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id)));
+    
+    // Build description
+    for (let i = 0; i < cardInfoResults.length; i++) {
+        const cardInfo = cardInfoResults[i];
+        if (cardInfo) {
+            if (cardInfo.tier === 'SR' || cardInfo.tier === 'SSR') {
+                hasHighTierCard = true;
+            }
+            lastTier = cardInfo.tier;
+            const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
+            description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n Lower Versions Available** ${cardInfo.versions.map(version => `*__${version}__*`).join(', ') || ""}**\n`;
+        }
+    }
+    
+    return { description, hasHighTierCard, tier: lastTier };
+}
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
-        const database = client.database;
-
-        // Check if edit is from exempt bot
+        // Check if message is from exempt bot
         if (oldMessage.author.id !== exemptBotId) {
             return;
         }
 
-        // Check if edit is from exempt bot
-        if (!oldMessage.embeds.length) {
-            return;
-        }
-
         // Check if message has embeds
-        if (!newMessage.embeds.length) {
+        if (!oldMessage.embeds.length || !newMessage.embeds.length) {
             return;
         }
 
-        // Get the new embed
+        // Get the embeds
         const oldEmbed = oldMessage.embeds[0];
         const newEmbed = newMessage.embeds[0];
 
-        if(lastRemberedEmbed==oldEmbed){
-            return;
-        }else{
-            lastRemberedEmbed=oldMessage.embeds[0];
-        }
-
-        if (!oldEmbed.title || !oldEmbed.title.includes('Automatic Summon!')) {
+        if (!oldEmbed.title || !oldEmbed.title.includes("Automatic Summon!")) {
             return;
         }
 
-        // Initialize an array to store embed data
-        const serverClaims = [];
+        const guildId = newMessage.guild.id;
+        const messageId = newMessage.id;
 
-        // Check if any field has the keyword "made by"
-        newEmbed.fields.forEach(async (field) => {
+        // Get server data for settings check
+        let serverData = await client.database.getServerData(guildId);
+        if (!serverData) {
+            await client.database.createServer(guildId);
+            serverData = await client.database.getServerData(guildId);
+        }
+
+        // Get server settings - Updated to use correct path
+        const serverSettings = await client.database.serverSettings.findOne({ serverID: guildId });
+        const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
+
+        // Calculate timestamps for all guilds
+        const countdownTime = Math.floor(Date.now() / 1000) + 17;
+        const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
+
+        // Only proceed with countdown message if we haven't processed this message ID
+        // AND it contains a card pack image
+        if (!processedEdits.has(messageId) && newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
+            // Mark this message as processed only if it contains a card pack
+            processedEdits.set(messageId, Date.now());
+
+            // Create base embed with countdown
+            const countdownEmbed = {
+                title: 'Summon Information',
+                fields: [
+                    {
+                        name: 'Claim Time',
+                        value: `<t:${countdownTime}:R> 📵`
+                    }
+                ],
+                color: 0x0099ff
+            };
+
+            let roleContent = '';
+            let roleId = null;
+
+            const urlParts = newEmbed.image.url.split('/');
+            const cardIds = urlParts.slice(4, 7);
+
+            // Wait for all card info and build description
+            const { description, hasHighTierCard, tier } = await buildCardDescription(cardIds);
+
+            // Add description to embed
+            if (description && allowRolePing) {
+                countdownEmbed.description = description;
+            }
+
+            // Only add role ping if allowRolePing is true AND there's a high tier card
+            if (allowRolePing && hasHighTierCard) {
+                const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
+                if (highTierRole) {
+                    roleContent = `<@&${highTierRole.id}>`;
+                    roleId = highTierRole.id;
+                }
+            }
+            console.log(`${tier} at ${newMessage.guild.name} | Ping ${allowRolePing} has ${hasHighTierCard}`)
+
+            // Send countdown message
+            const countdownMsg = await newMessage.reply({
+                content: roleContent,
+                embeds: [countdownEmbed],
+                allowedMentions: { roles: roleId ? [roleId] : [] }
+            });
+
+            // Update to next summon time after 19 seconds
+            setTimeout(async () => {
+                try {
+                    countdownEmbed.fields[0] = {
+                        name: 'Next Summon',
+                        value: `<t:${nextSummonTime}:R> 📵`
+                    };
+                    await countdownMsg.edit({
+                        content: roleContent,
+                        embeds: [countdownEmbed],
+                        allowedMentions: { roles: roleId ? [roleId] : [] }
+                    });
+                } catch (error) {
+                    console.error('Error editing countdown message:', error);
+                }
+            }, 17000);
+        }
+
+        // Process embed fields for claims
+        for (const field of newEmbed.fields) {
             if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
-                // Format the title part
                 const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
                 if (match) {
-                    const guildId = newMessage.guild.id;
-                    const timestamp = newEmbed.timestamp;
+                    // Get the username of who claimed the card
+                    const claimer = field.name.split(" ")[2];
+                    const userId = await findUserId(client, claimer);
 
-                    if (!lastTimestamps[guildId]) {
-                        lastTimestamps[guildId] = new Date().toISOString();
+                    // Validate tier is one of CT, RT, SRT, SSRT
+                    const tier = match[1];
+                    if (!['CT', 'RT', 'SRT', 'SSRT'].includes(tier)) {
+                        console.log(`Skipping claim for unsupported tier: ${tier}`);
+                        continue;
                     }
 
-                    if (!lastTimestamps[guildId] || timestamp > lastTimestamps[guildId]) {
-                        lastTimestamps[guildId] = timestamp;
-                        const cardClaimed = {
-                            tier: match[1],
-                            claimedID: match[2],
-                            cardName: match[3],
-                            print: match[4],
-                            timestamp: newEmbed.timestamp,
-                            fieldName: field.name,
-                            fieldValue: field.value
-                        };
+                    const cardClaimed = {
+                        claimedID: match[2],
+                        userID: userId,
+                        serverID: guildId,
+                        cardName: match[3],
+                        cardID: newEmbed.image.url.split("/")[4],
+                        owner: claimer,
+                        artist: field.value.split(" ")[3],
+                        print: match[4],
+                        tier: tier,
+                        timestamp: newEmbed.timestamp
+                    };
 
-                        serverClaims.push(cardClaimed);
-                        console.warn(`GUILD: ${newMessage.guild.name} | ${newMessage.guild.id}`);
-                        console.log('Formatted Title:', cardClaimed);
+                    // Create unique key for this claim
+                    const claimKey = `${cardClaimed.cardID}-${cardClaimed.userID}-${cardClaimed.serverID}-${cardClaimed.timestamp}`;
 
-                        const serverId = newMessage.guild.id;
-                        const serverData = await database.getServerData(serverId);
+                    // Check if we've already processed this claim recently
+                    if (processedClaims.has(claimKey)) {
+                        console.log(`Skipping duplicate claim: ${claimKey}`);
+                        continue;
+                    }
 
-                        if (serverData) {
-                            let existingClaims = serverData.claims ? serverData.claims : [];
-                            let existingCT = serverData.tierCounts[0] || 0;
-                            let existingRT = serverData.tierCounts[1] || 0;
-                            let existingSR = serverData.tierCounts[2] || 0;
-                            let existingSSR = serverData.tierCounts[3] || 0;
+                    // Mark this claim as processed with current timestamp
+                    processedClaims.set(claimKey, Date.now());
 
-                            const nextUniqueId = existingClaims.length;
-                            const existingIndex = existingClaims.findIndex(ec => ec.uniqueId === nextUniqueId);
+                    console.warn(`GUILD: ${newMessage.guild.name} | ${newMessage.guild.id}`);
+                    console.log('Card Claimed:', cardClaimed);
 
-                            if (existingIndex !== -1) {
-                                existingClaims[existingIndex] = { ...cardClaimed, uniqueId: nextUniqueId };
-                            } else {
-                                existingClaims.push({ ...cardClaimed, uniqueId: nextUniqueId });
-                            }
-
-                            if (cardClaimed.tier === 'CT') {
-                                existingCT++;
-                            } else if (cardClaimed.tier === 'RT') {
-                                existingRT++;
-                            } else if (cardClaimed.tier === 'SRT') {
-                                existingSR++;
-                            } else if (cardClaimed.tier === 'SSRT') {
-                                existingSSR++;
-                            }
-                            const userId = await findUserId(client, cardClaimed.fieldName.split(" ")[2]);
-
-                            await database.addClaim(serverId, userId, cardClaimed)
-                            console.log("Completed Server Database Updating");
-
-                            const getLoadBar = (percentage) => {
-                                percentage = Math.floor(percentage / 5) * 5;
-                                const fullBars = Math.floor(percentage / 20);
-                                const remainder = (percentage % 20) / 5;
-                                const loadBarEmojis = [
-                                    '<:loadBar0:1300928505487294514>',
-                                    '<:loadBar5:1300928503155261522>',
-                                    '<:loadBar10:1300928515172208803>',
-                                    '<:loadBar15:1300928511355392052>',
-                                    '<:loadBar20:1300928508553461852>'
-                                ];
-                                let loadBar = '';
-
-                                for (let i = 0; i < fullBars; i++) {
-                                    loadBar += loadBarEmojis[4];
-                                }
-
-                                if (remainder > 0) {
-                                    loadBar += loadBarEmojis[remainder];
-                                }
-
-                                const totalSegments = fullBars + (remainder > 0 ? 1 : 0);
-                                for (let i = totalSegments; i < 5; i++) {
-                                    loadBar += loadBarEmojis[0];
-                                }
-
-                                return loadBar;
-                            };
-
-                            const total = existingSSR + existingSR + existingRT + existingCT;
-
-                            const tiers = {
-                                SSR: { count: existingSSR, total },
-                                SR: { count: existingSR, total },
-                                R: { count: existingRT, total },
-                                C: { count: existingCT, total }
-                            };
-
-                            const embedField3 = existingClaims.slice(-5).map((claim) => {
-                                let content;
-                                switch (claim.tier) {
-                                    case 'CT':
-                                        content = `- <:C_Gate:1300919916685164706> **${claim.cardName}** #**${claim.print}**`;
-                                        break;
-                                    case 'RT':
-                                        content = `- <:R_Gate:1300919898209386506> **${claim.cardName}** #**${claim.print}**`;
-                                        break;
-                                    case 'SRT':
-                                        content = `- <:SR_Gate:1300919875757146214> **${claim.cardName}** #**${claim.print}**`;
-                                        break;
-                                    case 'SSRT':
-                                        content = `- <:SSR_Gate:1300919858053124163> **${claim.cardName}** #**${claim.print}**`;
-                                        break;
-                                    default:
-                                        content = `Unknown`;
-                                }
-                                return content;
-                            }).join('\n');
-
-                            const convertDateToUnix = (date_string) => {
-                                const date = new Date(date_string);
-                                return parseInt(date.getTime() / 1000);
-                            };
-
-                            const embedField4 = existingClaims.slice(-5).map((claim) => {
-                                const claimUnixTimestamp = convertDateToUnix(claim.timestamp);
-                                let content = `- **${claim.fieldName.split(" ")[2]}** | <t:${claimUnixTimestamp}:R>`;
-                                return content;
-                            }).join('\n');
-
-                            let unixTimestamp;
-                            if (newMessage.guild.id === "1240866080985976844") {  // GATE Guild
-                                unixTimestamp = 1730253600;
-                            } else if (newMessage.guild.id === "1270793006856929373") { // How to train a guild Guild
-                                unixTimestamp = 1730251800;
-                            } else if (newMessage.guild.id === "736186984518778880") {  // Wine_Tempress
-                                unixTimestamp = 1730340000;
-                            } else if (newMessage.guild.id === "980749417860710440") {  // TGL
-                                unixTimestamp = 1730574000;
-                            } else {
-                                unixTimestamp = 1730226600;
-                            }
-
-                            const newEmbedMessage = {
-                                title: `${newMessage.guild.name} Server Stats`,
-                                description: `Since <t:${unixTimestamp}:R>`,
-                                fields: [
-                                    {
-                                        name: 'Tier Percentages',
-                                        value: `\n- <:SSR_Gate:1300919858053124163> ${getLoadBar((tiers.SSR.count / tiers.SSR.total) * 100)} **${(tiers.SSR.count / tiers.SSR.total * 100).toFixed(2)}**%\n- <:SR_Gate:1300919875757146214> ${getLoadBar((tiers.SR.count / tiers.SR.total) * 100)} **${(tiers.SR.count / tiers.SR.total * 100).toFixed(2)}**%\n- <:R_Gate:1300919898209386506> ${getLoadBar((tiers.R.count / tiers.R.total) * 100)} **${(tiers.R.count / tiers.R.total * 100).toFixed(2)}**%\n- <:C_Gate:1300919916685164706> **${getLoadBar((tiers.C.count / tiers.C.total) * 100)} ${(tiers.C.count / tiers.C.total * 100).toFixed(2)}**%\t`,
-                                        inline: true
-                                    },
-                                    {
-                                        name: 'Tier Counts',
-                                        value: `- <:SSR_Gate:1300919858053124163> **${tiers.SSR.count}**\n- <:SR_Gate:1300919875757146214> **${tiers.SR.count}**\n- <:R_Gate:1300919898209386506> **${tiers.R.count}**\n- <:C_Gate:1300919916685164706> **${tiers.C.count}**`,
-                                        inline: true
-                                    },
-                                    {
-                                        name: '\u200B',
-                                        value: '\u200B',
-                                        inline: true
-                                    },
-                                    {
-                                        name: 'Claimed Cards',
-                                        value: embedField3,
-                                        inline: true
-                                    },
-                                    {
-                                        name: 'Owners and Timestamps',
-                                        value: embedField4,
-                                        inline: true
-                                    }
-                                ],
-                                footer: { text: `Database reset expected frequently. Alpha Version` }
-                            };
-
-                            // Create first button (existing)
-                            const statsButton = new ButtonBuilder()
-                                .setCustomId('viewServerStats')
-                                .setLabel('Server Stats')
-                                .setStyle(ButtonStyle.Primary);
-
-                            let batchNowReferTime = Math.floor(Date.now() / 1000);
-                            let batchTime = 1730743200;
-
-                            let newFeature = `🆕**Command \`/recent\`**\n`;
-
-                            let giveawayMessage = ""//newFeature;
-                            let row;
-                            row = new ActionRowBuilder()
-                                .addComponents(statsButton);
-
-                            const usedUsers = new Set(); // Define usedUsers as a Set
-                            const buttonMessage = await newMessage.channel.send({
-                                content: `${giveawayMessage}`,
-                                components: [row]
-                            });
-
-                            const collector = buttonMessage.createMessageComponentCollector({
-                                filter: i => i.customId === 'viewServerStats',
-                                time: 600000,
-                            });
-                            collector.on('collect', async interaction => {
-                                try {
-                                    // Check if user has already used the button
-                                    if (usedUsers.has(interaction.user.id)) {
-                                        await interaction.reply({
-                                            content: 'You have already viewed the stats!',
-                                            ephemeral: true
-                                        });
-                                        return;
-                                    }
-                                    await interaction.deferReply({ ephemeral: true });
-                                    await interaction.followUp({
-                                        embeds: [newEmbedMessage],
-                                        ephemeral: true
-                                    });
-                                    // Add user to the set of users who have used the button
-                                    usedUsers.add(interaction.user.id);
-                                } catch (error) {
-                                    console.error('Error handling button interaction:', error);
-                                }
-                            });
-                            collector.on('end', async () => {
-                                try {
-                                    const disabledButton = ButtonBuilder.from(statsButton).setDisabled(true);
-                                    const disabledRow = new ActionRowBuilder()
-                                        .addComponents(disabledButton);
-                                    await buttonMessage.edit({
-                                        components: [disabledRow]
-                                    });
-                                } catch (error) {
-                                    console.error('Error disabling button:', error);
-                                }
-                            });
+                    try {
+                        // Create server and player data if they don't exist
+                        let serverPlayerData = await client.database.getPlayerData(userId, guildId);
+                        if (!serverPlayerData) {
+                            await client.database.createPlayer(userId, guildId);
                         }
+
+                        // Add claim to database if card tracking is enabled
+                        // For Gate guild, check gateServerData settings, for other guilds always track
+                        const shouldTrackCards = guildId === GATE_GUILD 
+                            ? (await client.database.mGateServerDB.findOne({ serverID: GATE_GUILD }))?.cardTrackingEnabled !== false
+                            : true;
+
+                        if (shouldTrackCards) {
+                            await client.database.addClaim(guildId, userId, cardClaimed);
+                            console.log(`Updated ${userId} - ${cardClaimed.owner} player | Server ${guildId} - ${newMessage.guild.name} Database`);
+                        }
+                    } catch (error) {
+                        console.error('Error processing claim:', error);
+                        // Remove from processed claims if there was an error
+                        processedClaims.delete(claimKey);
                     }
                 }
             }
-        });
+        }
     } catch (error) {
         console.error('Error handling summon embed edit:', error);
-    } finally {
-        // await client.close();
     }
 }
