@@ -162,7 +162,12 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             const { description, hasHighTierCard, tier } = await buildCardDescription(cardIds);
 
             // Add description to embed
-            if (description && allowRolePing) {
+            // if (description && allowRolePing) {
+            //     countdownEmbed.description = description;
+            // }
+
+            // Add description to embed
+            if (description) {
                 countdownEmbed.description = description;
             }
 
