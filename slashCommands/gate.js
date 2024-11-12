@@ -90,5 +90,39 @@ module.exports = {
                 ephemeral: true
             });
         }
+    },
+
+    // Add button interaction handler
+    async handleButton(interaction, { database, config }) {
+        // Silently ignore if not in Gate Guild
+        if (interaction.guild.id !== GATE_GUILD) {
+            return;
+        }
+
+        // Extract the command name from the message that created the button
+        const commandName = interaction.message?.interaction?.commandName;
+        if (commandName !== 'gate') return;
+
+        // Get the subcommand name from the original interaction
+        const subcommandName = interaction.message?.interaction?.options?.getSubcommand();
+        if (!subcommandName) return;
+
+        try {
+            // Route the button interaction to the appropriate subcommand
+            switch (subcommandName) {
+                case 'giveaway':
+                    if (giveawayCommand.handleButton) {
+                        return await giveawayCommand.handleButton(interaction, { database });
+                    }
+                    break;
+                // Add other subcommands with button handlers here
+            }
+        } catch (error) {
+            console.error('Error handling button interaction:', error);
+            return interaction.reply({
+                content: '❌ An error occurred while processing your interaction.',
+                ephemeral: true
+            });
+        }
     }
 };

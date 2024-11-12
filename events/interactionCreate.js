@@ -18,28 +18,28 @@ module.exports = {
 
         // Handle button interactions
         if (interaction.isButton()) {
-            // First try to find a command-specific button handler
-            const commandName = interaction.message?.interaction?.commandName;
-            if (commandName) {
-                const command = client.slashCommands.get(commandName);
-                if (command && command.handleButton) {
-                    try {
-                        await command.handleButton(interaction, { database });
-                        return;
-                    } catch (error) {
-                        console.error(`Error executing button handler for command ${commandName}:`, error);
-                        return;
-                    }
-                }
-            }
+            try {
+                // Get the original command name from the message that created the button
+                const commandName = interaction.message?.interaction?.commandName;
+                if (!commandName) return;
 
-            // Fallback to global button handlers if no command-specific handler found
-            const buttonHandler = client.buttons?.get(interaction.customId);
-            if (buttonHandler) {
+                // Get the command module
+                const command = client.slashCommands.get(commandName);
+                if (!command) return;
+
+                // If the command has a button handler, use it
+                if (command.handleButton) {
+                    await command.handleButton(interaction, { database });
+                }
+            } catch (error) {
+                console.error('Error handling button interaction:', error);
                 try {
-                    await buttonHandler.execute(interaction);
-                } catch (error) {
-                    console.error(`Error executing button ${interaction.customId}:`, error);
+                    await interaction.reply({
+                        content: '❌ An error occurred while processing your interaction.',
+                        ephemeral: true
+                    });
+                } catch (replyError) {
+                    console.error('Error sending error message:', replyError);
                 }
             }
             return;

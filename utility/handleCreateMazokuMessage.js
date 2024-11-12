@@ -99,7 +99,7 @@ module.exports = async (message, exemptBotId, database) => {
                                     );
 
                                     // Add to reward message
-                                    rewardMessage += `${message.guild.members.cache.get(winnerID)?.user.username} earned ${tokenReward} <:Slime_Token:1304929154285703179> for participating!\n`;
+                                    rewardMessage += `<@${message.guild.members.cache.get(winnerID)?.user.username}> earned ${tokenReward} <:Slime_Token:1304929154285703179>\n`;
                                 }
                             }
                         }
@@ -109,7 +109,7 @@ module.exports = async (message, exemptBotId, database) => {
                                 .setColor(colorEmbed)
                                 .setTitle('🎉 Token Rewards')
                                 .setDescription(rewardMessage)
-                                .setFooter({ text: `${participants.length} users participated` });
+                                .setFooter({ text: `Among ${participants.length} claimers` });
 
                             await message.channel.send({ embeds: [rewardEmbed] });
                         }
