@@ -9,10 +9,11 @@ module.exports = {
             .setDescription('Show giveaway details and rewards'),
 
     async execute(interaction, { database }) {
-        const serverData = await mGiveawayDB.find();
+        const { mGiveawayDB } = database;
+        const serverData = await mGiveawayDB.find().toArray();
 
         // Check for active giveaways
-        if (!serverData.giveaway || serverData.giveaway.length === 0) {
+        if (!serverData || serverData.length === 0) {
             return interaction.reply({
                 content: '❌ There are no active giveaways at the moment.',
                 ephemeral: true
@@ -20,7 +21,7 @@ module.exports = {
         }
 
         // Get the current giveaway
-        const currentGiveaway = serverData.giveaway[0];
+        const currentGiveaway = serverData[0];
         
         try {
             // Fetch card details from API using axios
