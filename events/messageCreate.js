@@ -19,13 +19,20 @@ module.exports = {
             return;
         }
 
+        // Handle Mazoku messages immediately without rate limiting
+        if (message.author.id === config.mazokuID) {
+            await handleCreateMazokuMessage(message, config.mazokuID, database);
+            return;
+        }
+
+        // Rate limit check for giveaway processing only
         const now = Date.now();
         if (now - lastCheck < CHECK_INTERVAL) {
             return;
         }
         lastCheck = now;
+
         try {
-            handleCreateMazokuMessage(message, config.mazokuID);
             // Find active giveaways that have ended
             const endedGiveaways = await database.mGiveawayDB.find({
                 active: true,
