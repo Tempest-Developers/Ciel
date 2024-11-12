@@ -44,26 +44,24 @@ module.exports = {
             // Calculate time left
             const timeStamp = currentGiveaway.endTimestamp;
             const now = Math.floor(Date.now() / 1000);
-            // Check if user has already joined
-            const userJoined = currentGiveaway.users?.some(user => user.userID === interaction.user.id);
-            const totalEntries = currentGiveaway.users?.reduce((sum, user) => sum + user.amount_tickets, 0) || 0;
-            const userEntries = userJoined ? 
-                currentGiveaway.users.find(user => user.userID === interaction.user.id).amount_tickets : 
-                0;
+            
+            // Count total entries and user's entries
+            const totalEntries = currentGiveaway.entries?.length || 0;
+            const userEntries = currentGiveaway.entries?.filter(entry => entry.userID === interaction.user.id).length || 0;
 
             embed.addFields(
                 {
                     name: 'Giveaway Details', 
-                    value: `**Time Remaining**: <t:${timeStamp}:R>\n**Total Entries**: ${totalEntries}\n**Your Entries**: ${userEntries}\n**Your Available Tickets**: ${userTickets}`
+                    value: `**Time Remaining**: <t:${timeStamp}:R>\n**Total Tickets Used**: ${totalEntries}\n**Your Tickets Used**: ${userEntries}\n**Your Available Tickets**: ${userTickets}`
                 }
             );
 
-            // Create join button
+            // Create join button - always enabled if user has tickets
             const joinButton = new ButtonBuilder()
                 .setCustomId('giveaway_join')
-                .setLabel(userJoined ? 'Already Joined' : 'Join Giveaway')
-                .setStyle(userJoined ? ButtonStyle.Secondary : ButtonStyle.Primary)
-                .setDisabled(userJoined || userTickets === 0);
+                .setLabel('Join Giveaway')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(userTickets === 0);
 
             const row = new ActionRowBuilder()
                 .addComponents(joinButton);
@@ -170,15 +168,13 @@ module.exports = {
                 try {
                     await database.joinGiveaway(giveaway.giveawayID, interaction.user.id, ticketAmount);
                     return interaction.editReply({
-                        content: `✅ Successfully joined the giveaway with ${ticketAmount} ticket${ticketAmount > 1 ? 's' : ''}!`,
+                        content: `✅ Successfully added ${ticketAmount} ticket${ticketAmount > 1 ? 's' : ''} to the giveaway!`,
                         components: []
                     });
                 } catch (error) {
                     let errorMessage = '❌ Failed to join giveaway.';
                     if (error.message === 'Not enough tickets') {
                         errorMessage = '❌ You don\'t have enough tickets!';
-                    } else if (error.message === 'User has already joined this giveaway') {
-                        errorMessage = '❌ You have already joined this giveaway!';
                     } else if (error.message === 'Giveaway not found or not active') {
                         errorMessage = '❌ This giveaway is no longer active.';
                     }

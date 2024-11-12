@@ -15,7 +15,7 @@ async function createGiveaway(userID, itemID, level, amount, endTimestamp) {
             level,
             amount,
             active: true,
-            users: [],
+            entries: [], // Changed from users to entries for clarity
             logs: []
         });
     });
@@ -67,11 +67,6 @@ async function joinGiveaway(giveawayID, userID, ticketAmount) {
             throw new Error('Giveaway not found or not active');
         }
 
-        // Check if user already joined
-        if (giveaway.users.some(user => user.userID === userID)) {
-            throw new Error('User has already joined this giveaway');
-        }
-
         // Start a session for atomic operations
         const session = mGateDB.client.startSession();
         try {
@@ -83,12 +78,15 @@ async function joinGiveaway(giveawayID, userID, ticketAmount) {
                     { session }
                 );
 
-                // Add user to giveaway
+                // Add entries for each ticket
+                const entries = Array(ticketAmount).fill({ userID });
+                
+                // Add entries and log
                 await mGiveawayDB.updateOne(
                     { giveawayID },
                     { 
                         $push: { 
-                            users: { userID, amount_tickets: ticketAmount },
+                            entries: { $each: entries },
                             logs: { userID, timestamp: new Date(), tickets: ticketAmount }
                         }
                     },
