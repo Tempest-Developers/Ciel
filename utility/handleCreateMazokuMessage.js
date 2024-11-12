@@ -31,11 +31,13 @@ module.exports = async (message, exemptBotId, database) => {
             collector.on('end', async collected => {
                 if (collected.size > 0) {
                     try {
-                        // Get Gate server data first
-                        let gateServerData = await database.getServerData(GATE_GUILD);
+                        // Get Gate server data from mGateServerDB
+                        const { mGateServerDB } = await database.connectDB();
+                        let gateServerData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
+                        
                         if (!gateServerData) {
                             await database.createGateServer(GATE_GUILD);
-                            gateServerData = await database.getServerData(GATE_GUILD);
+                            gateServerData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
                         }
                         
                         // Check if economy is enabled
@@ -81,12 +83,13 @@ module.exports = async (message, exemptBotId, database) => {
                             }
 
                             if (tokenReward > 0) {
-                                // Get user data using the new getGateUser function
-                                let userData = await database.getGateUser(winnerID);
+                                // Get user data from mGateDB
+                                const { mGateDB } = await database.connectDB();
+                                let userData = await mGateDB.findOne({ userID: winnerID });
                                 
                                 if (!userData) {
                                     await database.createGateUser(winnerID);
-                                    userData = await database.getGateUser(winnerID);
+                                    userData = await mGateDB.findOne({ userID: winnerID });
                                 }
 
                                 // Check max token limit
@@ -96,8 +99,11 @@ module.exports = async (message, exemptBotId, database) => {
                                 }
 
                                 if (tokenReward > 0) {
-                                    // Update tokens using the new updateUserCurrency function
-                                    await database.updateUserCurrency(winnerID, 0, tokenReward);
+                                    // Update tokens directly in mGateDB
+                                    await mGateDB.updateOne(
+                                        { userID: winnerID },
+                                        { $inc: { 'currency.0': tokenReward } }
+                                    );
 
                                     // Add to reward message
                                     rewardMessage += `<@${winnerID}> earned ${tokenReward} <:Slime_Token:1304929154285703179>\n`;
