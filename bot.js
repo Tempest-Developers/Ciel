@@ -108,7 +108,7 @@ for (const file of eventFiles) {
                     if (!args[0].guild) return;
                     const serverExist = await client.database.getServerSettings(args[0].guild.id);
                     if(!serverExist) await client.database.createServerSettings(args[0].guild.id);
-                    await event.execute(...args, { database: client.database });
+                    await event.execute(...args, { database: client.database, config: client.config });
                 }
             } catch (error) {
                 console.error(`Error in event ${event.name}:`, error);
