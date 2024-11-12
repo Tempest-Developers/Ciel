@@ -10,7 +10,7 @@ module.exports = {
 
     async execute(interaction, { database }) {
         const { mGateServerDB } = database;
-        const serverData = await mGateServerDB.findOne({ serverID: GATE_GUILD });
+        const serverData = await mGiveawayDB.findOne({ serverID: GATE_GUILD });
 
         // Check for active giveaways
         if (!serverData.giveaway || serverData.giveaway.length === 0) {
