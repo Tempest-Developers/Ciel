@@ -70,7 +70,7 @@ async function buildCardDescription(cardIds) {
     let hasHighTierCard = false;
     let description = '';
     let lastTier = null;
-    const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:'];
+    const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:', ':regional_indicator_d:'];
     
     // Get card info for all cards at once
     const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id)));
@@ -91,7 +91,7 @@ async function buildCardDescription(cardIds) {
                 : "**No versions available**";
             
             const remainingText = cardInfo.versions.remainingVersions > 0 
-                ? ` +\`${cardInfo.versions.remainingVersions}\`` 
+                ? ` \`*+${cardInfo.versions.remainingVersions}*\`` 
                 : '';
             
             description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n${versionsText}${remainingText}\n`;
@@ -144,7 +144,8 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
         let roleId = null;
 
         const urlParts = newEmbed.image.url.split('/');
-        const cardIds = urlParts.slice(4, 7);
+        // Get all card IDs after 'packs' in the URL
+        const cardIds = urlParts.slice(4);
 
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
 
@@ -154,19 +155,6 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
         // Add description to embed if role pinging is allowed
         if (description && allowRolePing) {
             countdownEmbed.description = description;
-        }
-
-        // Only add role ping if allowRolePing is true AND there's a high tier card
-        if (guildId === GATE_GUILD && hasHighTierCard) {
-            console.log("Attempting to get High Tier Role");
-            const highTierRole = await guild.roles.cache.find(r => r.id === '1305567492277796908' || r.name === 'High-Tier-Ping');
-            if (highTierRole) {
-                roleContent = `<@&${highTierRole.id}>`;
-                roleId = highTierRole.id;
-                console.log(`High Tier Role Found: ${highTierRole.name} (${highTierRole.id})`);
-            } else {
-                console.log("Failed to find High Tier Role");
-            }
         }
 
         // Send countdown message

@@ -110,7 +110,7 @@ async function buildCardDescription(cardIds) {
                 : "**No versions available**";
             
             const remainingText = cardInfo.versions.remainingVersions > 0 
-                ? ` +\`${cardInfo.versions.remainingVersions}\`` 
+                ? ` \`*+${cardInfo.versions.remainingVersions}*\`` 
                 : '';
             
             description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n${versionsText}${remainingText}\n`;
