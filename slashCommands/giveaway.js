@@ -129,7 +129,7 @@ module.exports = {
                         );
 
                         return interaction.reply({ 
-                            content: `✅ Giveaway created successfully!\nGiveaway ID: ${giveaway.giveawayID}\nItem: ${itemData.card.name}\nEnds: ${endTimestamp.toLocaleString()}`,
+                            content: `✅ Giveaway created successfully!\nItem ID: ${itemId}\nItem: ${itemData.card.name}\nEnds: <t:${endTimestamp}:R>`,
                             ephemeral: true 
                         });
                     } catch (error) {
@@ -164,8 +164,8 @@ module.exports = {
                             const { data: itemData } = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${giveaway.itemID}`);
 
                             embed.addFields({
-                                name: `Giveaway #${giveaway.giveawayID}`,
-                                value: `Item: ${itemData.card.name}\nLevel: ${giveaway.level}\nTickets: ${giveaway.amount}\nStatus: ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\nEnds: ${new Date(giveaway.endTimestamp).toLocaleString()}`
+                                name: `ItemID: ${giveaway.itemID}`,
+                                value: `Giveaway No. ${giveaway.giveawayID}\nItem: ${itemData.card.name}\nLevel: ${giveaway.level}\nTickets: ${giveaway.amount}\nStatus: ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\nEnds: ${new Date(giveaway.endTimestamp).toLocaleString()}`
                             });
                         } catch (error) {
                             console.error(`Error fetching item data for giveaway #${giveaway.giveawayID}:`, error);

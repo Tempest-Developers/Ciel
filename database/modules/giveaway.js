@@ -15,7 +15,7 @@ async function createGiveaway(userID, itemID, level, amount, endTimestamp) {
             level,
             amount,
             active: true,
-            entries: [], // Changed from users to entries for clarity
+            entries: [],
             logs: []
         });
     });
@@ -46,65 +46,9 @@ async function updateGiveawayTimestamp(giveawayID, newTimestamp) {
     });
 }
 
-async function joinGiveaway(giveawayID, userID, ticketAmount) {
-    return wrapDbOperation(async () => {
-        const { mGateDB, mGiveawayDB } = await connectDB();
-        
-        // Get user's ticket balance
-        const userData = await mGateDB.findOne({ userID });
-        if (!userData) {
-            throw new Error('User not found');
-        }
-
-        const userTickets = userData.currency[5] || 0;
-        if (userTickets < ticketAmount) {
-            throw new Error('Not enough tickets');
-        }
-
-        // Get giveaway data
-        const giveaway = await mGiveawayDB.findOne({ giveawayID });
-        if (!giveaway || !giveaway.active) {
-            throw new Error('Giveaway not found or not active');
-        }
-
-        // Start a session for atomic operations
-        const session = mGateDB.client.startSession();
-        try {
-            await session.withTransaction(async () => {
-                // Deduct tickets from user
-                await mGateDB.updateOne(
-                    { userID },
-                    { $inc: { 'currency.5': -ticketAmount } },
-                    { session }
-                );
-
-                // Add entries for each ticket
-                const entries = Array(ticketAmount).fill({ userID });
-                
-                // Add entries and log
-                await mGiveawayDB.updateOne(
-                    { giveawayID },
-                    { 
-                        $push: { 
-                            entries: { $each: entries },
-                            logs: { userID, timestamp: new Date(), tickets: ticketAmount }
-                        }
-                    },
-                    { session }
-                );
-            });
-        } finally {
-            await session.endSession();
-        }
-
-        return true;
-    });
-}
-
 module.exports = {
     createGiveaway,
     getGiveaways,
     getGiveaway,
-    updateGiveawayTimestamp,
-    joinGiveaway
+    updateGiveawayTimestamp
 };

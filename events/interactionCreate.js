@@ -7,20 +7,16 @@ module.exports = {
     name: Events.InteractionCreate,
     once: false,
     async execute(interaction, { database }) {
-        // Get client from interaction
         const client = interaction.client;
         if (!client) return;
 
-        // New permission check
         if (!checkPermissions(interaction.channel, client.user)) return;
 
         if((await checkIfGuildAllowed(client, interaction.guild?.id)==false) && interaction.commandName!="registerguild") return;
 
-        // Handle button interactions
         if (interaction.isButton()) {
             try {
-                // Get the original command name from the message that created the button
-                const commandName = interaction.message?.interaction?.commandName;
+                const commandName = interaction.message?.interaction?.commandName?.split(' ')[0];
                 if (commandName === 'gate') {
                     const command = client.slashCommands.get(commandName);
                     if (command?.handleButton) {
@@ -39,7 +35,6 @@ module.exports = {
             return;
         }
 
-        // Handle autocomplete interactions
         if (interaction.isAutocomplete()) {
             const command = client.slashCommands.get(interaction.commandName);
             if (!command || !command.autocomplete ) return;
@@ -61,7 +56,6 @@ module.exports = {
         const config = client.config
         const isDeveloper = developers.includes(interaction.user.id);
 
-        // Check permissions
         if (command.developerOnly && !isDeveloper) {
             try {
                 return await interaction.reply({ 
@@ -75,12 +69,10 @@ module.exports = {
         }
 
         try {
-            // Log the command usage
             const options = {};
             
-            // Collect all command options
             interaction.options.data.forEach(option => {
-                if (option.type === 1) { // Subcommand
+                if (option.type === 1) {
                     options.subcommand = option.name;
                     if (option.options) {
                         option.options.forEach(subOption => {

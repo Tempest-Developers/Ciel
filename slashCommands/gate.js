@@ -29,7 +29,6 @@ module.exports = {
         .addSubcommand(take.subcommand),
 
     async execute(interaction, { database, config }) {
-        // Silently ignore if not in Gate Guild
         if (interaction.guild.id !== GATE_GUILD) {
             return;
         }
@@ -37,10 +36,8 @@ module.exports = {
         const subcommand = interaction.options.getSubcommand();
         const { mGateServerDB } = database;
 
-        // Get server settings
         const serverData = await getServerData(GATE_GUILD, mGateServerDB);
 
-        // Check if economy is enabled for economy-related commands
         if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take'].includes(subcommand)) {
             return interaction.reply({
                 content: '❌ The gate system is currently disabled.',
@@ -48,7 +45,6 @@ module.exports = {
             });
         }
 
-        // Check cooldown
         const isLead = config.leads.includes(interaction.user.id);
         const cooldownResult = handleCooldown(interaction.user.id, isLead);
         
@@ -60,7 +56,6 @@ module.exports = {
         }
 
         try {
-            // Execute the appropriate subcommand
             switch (subcommand) {
                 case 'nuke':
                     return await nukeCommand.execute(interaction, { database, config });
@@ -95,17 +90,12 @@ module.exports = {
     },
 
     async handleButton(interaction, { database }) {
-        // Silently ignore if not in Gate Guild
         if (interaction.guild.id !== GATE_GUILD) {
             return;
         }
 
         try {
-            // For giveaway buttons
             if (interaction.customId.startsWith('giveaway_')) {
-                if (!interaction.replied && !interaction.deferred) {
-                    await interaction.deferReply({ ephemeral: true });
-                }
                 await giveawayCommand.handleButton(interaction, { database });
                 return;
             }

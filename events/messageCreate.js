@@ -45,7 +45,7 @@ module.exports = {
                     const { data: itemData } = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${giveaway.itemID}`);
 
                     // Handle case with no participants
-                    if (!giveaway.users || giveaway.users.length === 0) {
+                    if (!giveaway.entries || giveaway.entries.length === 0) {
                         const noWinnerEmbed = new EmbedBuilder()
                             .setColor('#ff0000')
                             .setTitle('🎉 Giveaway Ended - No Winners')
@@ -91,16 +91,13 @@ module.exports = {
                         continue;
                     }
 
-                    // Create array of tickets for random selection
-                    let tickets = [];
-                    for (const user of giveaway.users) {
-                        for (let i = 0; i < user.amount_tickets; i++) {
-                            tickets.push(user.userID);
-                        }
-                    }
+                    // Select winner from entries array
+                    const winnerEntry = giveaway.entries[Math.floor(Math.random() * giveaway.entries.length)];
+                    const winnerID = winnerEntry.userID;
 
-                    // Randomly select winner
-                    const winnerID = tickets[Math.floor(Math.random() * tickets.length)];
+                    // Count total entries and user entries
+                    const totalEntries = giveaway.entries.length;
+                    const winnerEntries = giveaway.entries.filter(entry => entry.userID === winnerID).length;
 
                     // Create winner announcement embed
                     const embed = new EmbedBuilder()
@@ -110,8 +107,8 @@ module.exports = {
                             { name: 'Item', value: itemData.card.name },
                             { name: 'Series', value: itemData.card.series },
                             { name: 'Tier', value: itemData.card.tier },
-                            { name: 'Winner', value: `<@${winnerID}>` },
-                            { name: 'Total Entries', value: tickets.length.toString() }
+                            { name: 'Total Entries', value: totalEntries.toString() },
+                            { name: 'Winner\'s Entries', value: winnerEntries.toString() }
                         )
                         .setImage(itemData.card.cardImageLink.replace('.png', ''))
                         .setTimestamp();
@@ -134,7 +131,10 @@ module.exports = {
                             if (guild) {
                                 const channel = await guild.channels.fetch(channelId);
                                 if (channel) {
+                                    // Send embed first
                                     await channel.send({ embeds: [embed] });
+                                    // Then ping the winner
+                                    await channel.send(`🎉 Congratulations <@${winnerID}>! You won **${itemData.card.name}**!`);
                                 }
                             }
                         } catch (err) {
@@ -150,6 +150,8 @@ module.exports = {
                                 active: false,
                                 winner: {
                                     userID: winnerID,
+                                    entries: winnerEntries,
+                                    totalEntries: totalEntries,
                                     timestamp: now
                                 }
                             }
