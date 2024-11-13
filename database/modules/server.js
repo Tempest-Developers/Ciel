@@ -84,6 +84,31 @@ async function toggleRegister(serverID) {
     });
 }
 
+async function toggleAllowRolePing(serverID) {
+    return wrapDbOperation(async () => {
+        try {
+            const { mServerSettingsDB } = await connectDB();
+            const serverSettings = await mServerSettingsDB.findOne({ serverID });
+
+            if (!serverSettings) {
+                throw new Error('Server settings not found');
+            }
+
+            const newAllowRolePingValue = !serverSettings.settings.allowRolePing;
+
+            await mServerSettingsDB.updateOne(
+                { serverID },
+                { $set: { 'settings.allowRolePing': newAllowRolePingValue } }
+            );
+
+            return { serverID, allowRolePing: newAllowRolePingValue };
+        } catch (error) {
+            console.error('Error toggling allowRolePing:', error);
+            throw error;
+        }
+    });
+}
+
 async function getServerData(serverID) {
     return wrapDbOperation(async () => {
         const { mServerDB } = await connectDB();
@@ -154,6 +179,7 @@ module.exports = {
     createServer,
     createServerSettings,
     toggleRegister,
+    toggleAllowRolePing,
     getServerData,
     getServerSettings,
     addServerClaim

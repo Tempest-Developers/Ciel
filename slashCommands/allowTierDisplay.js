@@ -25,13 +25,12 @@ module.exports = {
             }
 
             // Toggle the setting
-            const newValue = !serverData.settings.allowRolePing;
-            await interaction.client.database.toggleRegister(guildId);
+            const toggleResult = await interaction.client.database.toggleAllowRolePing(guildId);
 
-            console.log(interaction.guild.name+" "+newValue)
+            console.log(interaction.guild.name+" "+toggleResult.allowRolePing)
 
             await interaction.reply({
-                content: `Displays tiers preview info ${newValue ? 'enabled' : 'disabled'} for this server.`,
+                content: `Displays tiers preview info ${toggleResult.allowRolePing ? 'enabled' : 'disabled'} for this server.`,
                 ephemeral: true
             });
 

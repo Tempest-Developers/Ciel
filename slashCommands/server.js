@@ -156,6 +156,10 @@ module.exports = {
                 const timestamps = times.map(time => Math.floor(time.getTime() / 1000));
                 timestamps.sort((a, b) => a - b);
                 
+                // Add current time as the last timestamp to account for time since last claim
+                const currentTimestamp = Math.floor(Date.now() / 1000);
+                timestamps.push(currentTimestamp);
+                
                 let totalDiff = 0;
                 let diffCount = 0;
                 

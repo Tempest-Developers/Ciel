@@ -108,7 +108,7 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
 
     const embed = new EmbedBuilder()
         .setTitle(`${tierEmoji} ${cardDetails.name} ${eventMark}`)
-        .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}\n**Card ID:** \`${cardDetails.id}\``)
+        .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}\n**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`)
         .setThumbnail(cardImageUrl);
 
     if (userOwnership) {
