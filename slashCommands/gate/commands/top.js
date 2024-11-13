@@ -34,6 +34,14 @@ const createTopEmbed = async (interaction, database, sortType, page = 1, totalPa
             return [{ totalSlimeTokens: 0, totalTickets: 0, premiumUsers: 0 }];
         });
 
+        // Calculate page totals
+        let pageSlimeTotal = 0;
+        let pageTicketsTotal = 0;
+        topUsers.forEach(user => {
+            pageSlimeTotal += user.currency[0] || 0;
+            pageTicketsTotal += user.currency[5] || 0;
+        });
+
         const embed = new EmbedBuilder()
             .setTitle(`Top ${sortType.charAt(0).toUpperCase() + sortType.slice(1)} Leaderboard`)
             .setColor('#7289DA');
@@ -44,7 +52,10 @@ const createTopEmbed = async (interaction, database, sortType, page = 1, totalPa
                 `**Economy Stats:**\n` +
                 `🪙 Total Slime Tokens: ${economyStats[0].totalSlimeTokens.toLocaleString()}\n` +
                 `🎫 Total Tickets: ${economyStats[0].totalTickets.toLocaleString()}\n` +
-                `👑 Premium Users: ${economyStats[0].premiumUsers}`
+                `👑 Premium Users: ${economyStats[0].premiumUsers}\n\n` +
+                `**Current Page Totals:**\n` +
+                `🪙 Page Slime Tokens: ${pageSlimeTotal.toLocaleString()}\n` +
+                `🎫 Page Tickets: ${pageTicketsTotal.toLocaleString()}`
             );
         }
 
@@ -77,31 +88,23 @@ const createTopEmbed = async (interaction, database, sortType, page = 1, totalPa
     }
 };
 
-const createNavigationButtons = (currentPage, totalPages, sortType) => {
+const createNavigationButtons = (currentPage, totalPages) => {
     try {
         const row = new ActionRowBuilder();
         
         row.addComponents(
             new ButtonBuilder()
-                .setCustomId(`first_${sortType}`)
+                .setCustomId('first')
                 .setLabel('<<')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(currentPage === 1),
             new ButtonBuilder()
-                .setCustomId(`prev_${sortType}`)
+                .setCustomId('prev')
                 .setLabel('<')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(currentPage === 1),
             new ButtonBuilder()
-                .setCustomId(`tickets_${sortType === 'tickets' ? 'active' : 'inactive'}`)
-                .setLabel('🎫 Tickets')
-                .setStyle(sortType === 'tickets' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setCustomId(`slime_${sortType === 'slime' ? 'active' : 'inactive'}`)
-                .setLabel('Slime token')
-                .setStyle(sortType === 'slime' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setCustomId(`next_${sortType}`)
+                .setCustomId('next')
                 .setLabel('>')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(currentPage === totalPages)
@@ -118,7 +121,16 @@ module.exports = {
     subcommand: subcommand =>
         subcommand
             .setName('top')
-            .setDescription('View top users by tickets or slime tokens (Leads only)'),
+            .setDescription('View top users by tickets or slime tokens (Leads only)')
+            .addStringOption(option =>
+                option.setName('type')
+                    .setDescription('Sort by tickets or slime tokens')
+                    .setRequired(true)
+                    .addChoices(
+                        { name: 'Tickets', value: 'tickets' },
+                        { name: 'Slime Tokens', value: 'slime' }
+                    )
+            ),
 
     async execute(interaction, { database, config }) {
         let collector = null;
@@ -139,7 +151,9 @@ module.exports = {
                 throw new Error('Database connection not available');
             }
 
-            let sortType = 'tickets'; // Default sort type
+            // Get sort type from command option
+            const sortType = interaction.options.getString('type');
+
             const totalUsers = await database.mGateDB.countDocuments({ 'currency.5': { $exists: true } })
                 .catch(error => {
                     console.error('Error counting total users:', error);
@@ -157,7 +171,7 @@ module.exports = {
             let currentPage = 1;
 
             const initialEmbed = await createTopEmbed(interaction, database, sortType, currentPage, totalPages);
-            const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages, sortType)] : [];
+            const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages)] : [];
             
             const response = await interaction.editReply({
                 embeds: [initialEmbed],
@@ -180,11 +194,10 @@ module.exports = {
                             return;
                         }
 
-                        let newSortType = sortType;
                         let newPage = currentPage;
 
                         // Handle page navigation
-                        switch (i.customId.split('_')[0]) {
+                        switch (i.customId) {
                             case 'first':
                                 newPage = 1;
                                 break;
@@ -194,29 +207,20 @@ module.exports = {
                             case 'next':
                                 newPage = Math.min(totalPages, currentPage + 1);
                                 break;
-                            case 'tickets':
-                                newSortType = 'tickets';
-                                newPage = 1;
-                                break;
-                            case 'slime':
-                                newSortType = 'slime';
-                                newPage = 1;
-                                break;
                             default:
                                 throw new Error('Invalid button interaction');
                         }
 
-                        const newEmbed = await createTopEmbed(interaction, database, newSortType, newPage, totalPages);
+                        const newEmbed = await createTopEmbed(interaction, database, sortType, newPage, totalPages);
                         await i.update({
                             embeds: [newEmbed],
-                            components: [createNavigationButtons(newPage, totalPages, newSortType)]
+                            components: [createNavigationButtons(newPage, totalPages)]
                         }).catch(error => {
                             console.error('Failed to update interaction:', error);
                             if (collector) collector.stop('updateFailed');
                         });
 
                         currentPage = newPage;
-                        sortType = newSortType;
                     } catch (error) {
                         console.error('Error handling button interaction:', error);
                         try {
