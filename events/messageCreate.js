@@ -42,33 +42,17 @@ module.exports = {
 
             for (const giveaway of endedGiveaways) {
                 try {
-                    // Get item details from API first so we have it for both cases
-                    const { data: itemData } = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${giveaway.itemID}`);
-
                     // Handle case with no participants
                     if (!giveaway.entries || giveaway.entries.length === 0) {
                         const noWinnerEmbed = new EmbedBuilder()
                             .setColor('#ff0000')
                             .setTitle('🎉 Giveaway Ended - No Winners')
-                            .addFields(
-                                { name: 'Item', value: itemData.card.name },
-                                { name: 'Series', value: itemData.card.series },
-                                { name: 'Tier', value: itemData.card.tier },
-                                { name: 'Result', value: 'No participants joined this giveaway.' }
-                            )
-                            .setImage(itemData.card.cardImageLink.replace('.png', ''))
+                            .setDescription(`**Item:** ${giveaway.item.name}\n` +
+                                             `**Description:** ${giveaway.item.description || 'N/A'}\n` +
+                                             `**Level:** ${giveaway.level}\n` +
+                                             `**Result:** No participants joined this giveaway.`)
+                            .setImage(giveaway.item.imageUrl || null)
                             .setTimestamp();
-
-                        // Add maker information
-                        if (itemData.card.makers && itemData.card.makers.length > 0) {
-                            const makers = itemData.card.makers.map(id => `<@${id}>`).join(', ');
-                            noWinnerEmbed.addFields({ name: 'Makers', value: makers });
-                        }
-
-                        // Add event type if exists
-                        if (itemData.card.eventType) {
-                            noWinnerEmbed.addFields({ name: 'Event', value: '🎃' });
-                        }
 
                         // Send no winner announcement to appropriate guild channels
                         for (const [guildId, channelId] of Object.entries(GUILD_CHANNELS)) {
@@ -92,40 +76,73 @@ module.exports = {
                         continue;
                     }
 
-                    // Select winner from entries array
-                    const winnerEntry = giveaway.entries[Math.floor(Math.random() * giveaway.entries.length)];
-                    const winnerID = winnerEntry.userID;
-
-                    // Count total entries and user entries
+                    // Winner selection based on giveaway level
+                    let winners = [];
                     const totalEntries = giveaway.entries.length;
-                    const winnerEntries = giveaway.entries.filter(entry => entry.userID === winnerID).length;
 
-                    // Get tier emoji (add "T" to tier)
-                    const tierEmoji = getTierEmoji(`${itemData.card.tier}T`);
+                    // Level 0 and 1: Single winner
+                    if (giveaway.level === 0 || giveaway.level === 1) {
+                        const winnerEntry = giveaway.entries[Math.floor(Math.random() * totalEntries)];
+                        winners.push({
+                            userID: winnerEntry.userID,
+                            entries: giveaway.entries.filter(entry => entry.userID === winnerEntry.userID).length
+                        });
+                    } 
+                    // Level 2: Multiple winners
+                    else if (giveaway.level === 2) {
+                        const winnerCount = Math.min(giveaway.amount, totalEntries);
+                        const selectedIndexes = new Set();
+
+                        while (winners.length < winnerCount) {
+                            let randomIndex;
+                            do {
+                                randomIndex = Math.floor(Math.random() * totalEntries);
+                            } while (selectedIndexes.has(randomIndex));
+
+                            selectedIndexes.add(randomIndex);
+                            const winnerEntry = giveaway.entries[randomIndex];
+                            
+                            // Ensure unique winners
+                            if (!winners.some(w => w.userID === winnerEntry.userID)) {
+                                winners.push({
+                                    userID: winnerEntry.userID,
+                                    entries: giveaway.entries.filter(entry => entry.userID === winnerEntry.userID).length
+                                });
+                            }
+                        }
+                    }
 
                     // Create winner announcement embed
                     const embed = new EmbedBuilder()
                         .setColor('#00ff00')
-                        .setDescription(`${tierEmoji} **${itemData.card.name}** #**${itemData.version}**\n*${itemData.card.series}*`)
-                        .addFields(
-                            { 
-                                name: '📊 Giveaway Details', 
-                                value: `👥 Total Entries: **${totalEntries}**\n🏆 Winner's Entries: **${winnerEntries}**` 
-                            }
-                        )
-                        .setImage(itemData.card.cardImageLink.replace('.png', ''))
+                        .setTitle('🎉 Giveaway Winners')
+                        .setDescription(`**Item:** ${giveaway.item.name}\n` +
+                                         `**Description:** ${giveaway.item.description || 'N/A'}\n` +
+                                         `**Level:** ${giveaway.level}\n` +
+                                         `**Total Entries:** ${totalEntries}`)
+                        .setImage(giveaway.item.imageUrl || null)
                         .setTimestamp();
 
-                    // Add maker information
-                    if (itemData.card.makers && itemData.card.makers.length > 0) {
-                        const makers = itemData.card.makers.map(id => `<@${id}>`).join(', ');
-                        embed.addFields({ name: 'Makers', value: makers });
+                    // Prepare winner details
+                    let winnerDetails = [];
+                    if (giveaway.level === 2) {
+                        // For level 2, split prizes
+                        const prizes = giveaway.item.description.split(' | ');
+                        winners.forEach((winner, index) => {
+                            winnerDetails.push(`🏆 <@${winner.userID}>: ${prizes[index] || 'Prize'}`);
+                        });
+                    } else {
+                        // For levels 0 and 1
+                        winnerDetails = winners.map(winner => 
+                            `🏆 <@${winner.userID}> (Entries: ${winner.entries})`
+                        );
                     }
 
-                    // Add event type if exists
-                    if (itemData.card.eventType) {
-                        embed.addFields({ name: 'Event', value: '🎃' });
-                    }
+                    // Add winners to embed
+                    embed.addFields({ 
+                        name: 'Winners', 
+                        value: winnerDetails.join('\n')
+                    });
 
                     // Send winner announcement to appropriate guild channels
                     for (const [guildId, channelId] of Object.entries(GUILD_CHANNELS)) {
@@ -134,10 +151,9 @@ module.exports = {
                             if (guild) {
                                 const channel = await guild.channels.fetch(channelId);
                                 if (channel) {
-                                    // Send embed first
                                     await channel.send({ 
                                         embeds: [embed],
-                                        content: `🎉 Congratulations <@${winnerID}>! You won **${itemData.card.name}**!`
+                                        content: winners.map(winner => `Congratulations <@${winner.userID}>!`).join(' ')
                                     });
                                 }
                             }
@@ -146,18 +162,17 @@ module.exports = {
                         }
                     }
 
-                    // Mark giveaway as inactive and store winner
+                    // Mark giveaway as inactive and store winners
                     await database.mGiveawayDB.updateOne(
                         { giveawayID: giveaway.giveawayID },
                         { 
                             $set: { 
                                 active: false,
-                                winner: {
-                                    userID: winnerID,
-                                    entries: winnerEntries,
-                                    totalEntries: totalEntries,
+                                winners: winners.map(winner => ({
+                                    userID: winner.userID,
+                                    entries: winner.entries,
                                     timestamp: now
-                                }
+                                }))
                             }
                         }
                     );

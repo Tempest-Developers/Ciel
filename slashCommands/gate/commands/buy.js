@@ -13,7 +13,7 @@ module.exports = {
                     .setRequired(true)
                     .addChoices(
                         { name: 'Ticket', value: 'ticket' },
-                        { name: 'Premium (1 day)', value: 'premium' }
+                        { name: 'Premium (1 week)', value: 'premium' }
                     )),
 
     async execute(interaction, { database }) {
@@ -54,7 +54,7 @@ module.exports = {
                 .addComponents(confirmButton, cancelButton);
 
             const response = await interaction.reply({
-                content: `Are you sure you want to buy premium for ${premiumCost} Slime Tokens? This will last for 1 day.`,
+                content: `Are you sure you want to buy premium for ${premiumCost} Slime Tokens? This will last for 1 week.`,
                 components: [row],
                 ephemeral: true
             });
@@ -84,7 +84,7 @@ module.exports = {
                     }
 
                     const expiresAt = new Date();
-                    expiresAt.setDate(expiresAt.getDate() + 1);
+                    expiresAt.setDate(expiresAt.getDate() + 7);
 
                     await database.mGateDB.updateOne(
                         { userID: interaction.user.id },

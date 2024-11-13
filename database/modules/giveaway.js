@@ -1,6 +1,6 @@
 const { wrapDbOperation, connectDB } = require('./connection');
 
-async function createGiveaway(userID, itemID, level, amount, endTimestamp) {
+async function createGiveaway(userID, itemDetails, level, amount, endTimestamp) {
     return wrapDbOperation(async () => {
         const { mGiveawayDB } = await connectDB();
         const lastGiveaway = await mGiveawayDB.findOne({}, { sort: { giveawayID: -1 } });
@@ -9,14 +9,15 @@ async function createGiveaway(userID, itemID, level, amount, endTimestamp) {
         return await mGiveawayDB.insertOne({
             giveawayID,
             userID,
-            itemID,
+            item: itemDetails, // Now an object with name, imageURL, etc.
             createdAt: new Date(),
             endTimestamp,
             level,
             amount,
             active: true,
             entries: [],
-            logs: []
+            logs: [],
+            winners: [] // To support multiple winners
         });
     });
 }
@@ -46,9 +47,23 @@ async function updateGiveawayTimestamp(giveawayID, newTimestamp) {
     });
 }
 
+async function announceGiveaway(giveawayID, guildID, channelID) {
+    return wrapDbOperation(async () => {
+        const { mGiveawayDB } = await connectDB();
+        const giveaway = await mGiveawayDB.findOne({ giveawayID });
+        
+        if (!giveaway) {
+            throw new Error('Giveaway not found');
+        }
+
+        return { giveaway, guildID, channelID };
+    });
+}
+
 module.exports = {
     createGiveaway,
     getGiveaways,
     getGiveaway,
-    updateGiveawayTimestamp
+    updateGiveawayTimestamp,
+    announceGiveaway
 };
