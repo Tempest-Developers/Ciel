@@ -105,7 +105,7 @@ module.exports = {
             if (cachedResult) {
                 return await interaction.respond(cachedResult);
             }
-            Explain
+
             const now = Date.now();
             let cards;
 
@@ -213,89 +213,88 @@ module.exports = {
             });
 
             const ownersList = Object.entries(ownerCounts)
-            Explain
-            .map(([ownerId, data]) => ({
-                id: ownerId,
-                user: data.user,
-                versionCount: data.versions.length,
-                versions: data.versions
-            }))
-            .sort((a, b) => {
-                const aCM = hasCMPrint(a.versions);
-                const bCM = hasCMPrint(b.versions);
-                if (aCM && !bCM) return -1;
-                if (!aCM && bCM) return 1;
-                return 0;
-            });
+                .map(([ownerId, data]) => ({
+                    id: ownerId,
+                    user: data.user,
+                    versionCount: data.versions.length,
+                    versions: data.versions
+                }))
+                .sort((a, b) => {
+                    const aCM = hasCMPrint(a.versions);
+                    const bCM = hasCMPrint(b.versions);
+                    if (aCM && !bCM) return -1;
+                    if (!aCM && bCM) return 1;
+                    return 0;
+                });
 
-        const cardImageUrl = `https://cdn.mazoku.cc/packs/${cardId}`;
-        const eventMark = cardDetails.eventType ? EVENT_EMOJI : '';
-        const lowestPrint = findLowestPrint(ownersList);
-        
-        const makerMentions = (cardDetails.makers || [])
-            .map(maker => `<@${maker}>`)
-            .join(' ') || 'No makers listed';
+            const cardImageUrl = `https://cdn.mazoku.cc/packs/${cardId}`;
+            const eventMark = cardDetails.eventType ? EVENT_EMOJI : '';
+            const lowestPrint = findLowestPrint(ownersList);
+            
+            const makerMentions = (cardDetails.makers || [])
+                .map(maker => `<@${maker}>`)
+                .join(' ') || 'No makers listed';
 
-        const embed = new EmbedBuilder()
-            .setTitle(`${cardDetails.tier} | ${cardDetails.name} ${eventMark}`)
-            .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}`);
+            const embed = new EmbedBuilder()
+                .setTitle(`${cardDetails.tier} | ${cardDetails.name} ${eventMark}`)
+                .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}`);
 
-        const userOwnership = ownerCounts[interaction.user.id];
-        if (userOwnership) {
-            const versionsString = formatVersionsDisplay(userOwnership.versions);
-            embed.addFields({ 
-                name: `Your Copies (${userOwnership.versions.length})`, 
-                value: versionsString
-            });
-        }
-
-        if (userOwnership && userOwnership.versions.length > 20) {
-            embed.setThumbnail(cardImageUrl);
-        } else {
-            embed.setImage(cardImageUrl);
-        }
-
-        const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
-        embed.setFooter({ 
-            text: `${totalPrints} total prints | ${ownersList.length} total owners | LP ${lowestPrint}`
-        });
-
-        // Create owners list field
-        const ownersPerPage = 10;
-        const firstPageOwners = ownersList.slice(0, ownersPerPage);
-        
-        if (firstPageOwners.length > 0) {
-            const ownersText = firstPageOwners
-                .map(owner => {
-                    const username = owner.user ? owner.user.username : owner.id;
-                    const versionsString = formatVersionsDisplay(owner.versions);
-                    return `🔰 *[${username}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) **[${owner.versionCount}]**`;
-                })
-                .join('\n');
-
-            embed.addFields({
-                name: 'Owners',
-                value: ownersText
-            });
-
-            if (ownersList.length > ownersPerPage) {
-                embed.addFields({
-                    name: 'Additional Owners',
-                    value: `*and ${ownersList.length - ownersPerPage} more owners...*`
+            const userOwnership = ownerCounts[interaction.user.id];
+            if (userOwnership) {
+                const versionsString = formatVersionsDisplay(userOwnership.versions);
+                embed.addFields({ 
+                    name: `Your Copies (${userOwnership.versions.length})`, 
+                    value: versionsString
                 });
             }
-        }
 
-        await interaction.editReply({ embeds: [embed] });
+            if (userOwnership && userOwnership.versions.length > 20) {
+                embed.setThumbnail(cardImageUrl);
+            } else {
+                embed.setImage(cardImageUrl);
+            }
 
-    } catch (error) {
-        console.error('Error in execute:', error);
-        const errorMessage = 'An error occurred while processing your request. Please try again later.';
-        if (interaction.deferred) {
-            await interaction.editReply({ content: errorMessage });
-        } else {
-            await interaction.reply({ content: errorMessage, ephemeral: true });
+            const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
+            embed.setFooter({ 
+                text: `${totalPrints} total prints | ${ownersList.length} total owners | LP ${lowestPrint}`
+            });
+
+            // Create owners list field
+            const ownersPerPage = 10;
+            const firstPageOwners = ownersList.slice(0, ownersPerPage);
+            
+            if (firstPageOwners.length > 0) {
+                const ownersText = firstPageOwners
+                    .map(owner => {
+                        const username = owner.user ? owner.user.username : owner.id;
+                        const versionsString = formatVersionsDisplay(owner.versions);
+                        return `🔰 *[${username}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) **[${owner.versionCount}]**`;
+                    })
+                    .join('\n');
+
+                embed.addFields({
+                    name: 'Owners',
+                    value: ownersText
+                });
+
+                if (ownersList.length > ownersPerPage) {
+                    embed.addFields({
+                        name: 'Additional Owners',
+                        value: `*and ${ownersList.length - ownersPerPage} more owners...*`
+                    });
+                }
+            }
+
+            await interaction.editReply({ embeds: [embed] });
+
+        } catch (error) {
+            console.error('Error in execute:', error);
+            const errorMessage = 'An error occurred while processing your request. Please try again later.';
+            if (interaction.deferred) {
+                await interaction.editReply({ content: errorMessage });
+            } else {
+                await interaction.reply({ content: errorMessage, ephemeral: true });
+            }
         }
     }
-}
 };
