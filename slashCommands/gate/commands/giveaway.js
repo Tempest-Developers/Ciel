@@ -46,7 +46,8 @@ module.exports = {
                 .setCustomId('giveaway_join')
                 .setLabel(giveaway.level === 2 ? 'Join Giveaway (1st Free)' : 'Join Giveaway (1 Ticket)')
                 .setStyle(ButtonStyle.Primary)
-                .setDisabled(userTickets < 1);
+                // Only disable if it's not a level 2 giveaway or user has no tickets
+                .setDisabled(giveaway.level !== 2 && userTickets < 1);
 
             const row = new ActionRowBuilder().addComponents(button);
 
