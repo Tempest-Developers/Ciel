@@ -1,5 +1,6 @@
 const { SR_PING_ROLE } = require('../utils/constants');
 const { ensureUser } = require('../utils/database');
+const { EmbedBuilder } = require('discord.js');
 
 module.exports = {
     subcommand: subcommand =>
@@ -52,8 +53,17 @@ module.exports = {
             }
         }
         
+        // Create an embed with a single description
+        const balanceEmbed = new EmbedBuilder()
+            .setColor('#7289DA')  // Discord Blurple
+            .setTitle(`${userToCheck.username}'s Balance`)
+            .setThumbnail(userToCheck.displayAvatarURL({ dynamic: true }))
+            .setDescription(`:tickets: x${tickets} Ticket\n<:Slime_Token:1304929154285703179> ${slimeTokens} Slime Token\n${premiumStatus}`)
+            .setTimestamp()
+            .setFooter({ text: `${interaction.guild.name} Economy System` });
+        
         return interaction.reply({
-            content: `${userToCheck.username}'s balance:\n:tickets: x${tickets} Ticket\n<:Slime_Token:1304929154285703179> ${slimeTokens} Slime Token${premiumStatus}`,
+            embeds: [balanceEmbed],
             ephemeral: false
         });
     }
