@@ -7,9 +7,9 @@ module.exports = {
     adminOnly: true,
     async execute(message, args, { database }) {
         // Check if user has required permissions
-        if (!message.member.permissions.has('ADMINISTRATOR')) {
-            return message.reply('❌ You must be an administrator to use this command.');
-        }
+        // if (!message.member.permissions.has('ADMINISTRATOR')) {
+        //     return message.reply('❌ You must be an administrator to use this command.');
+        // }
 
         // Validate input
         if (args.length < 2) {

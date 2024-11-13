@@ -6,7 +6,7 @@ module.exports = {
     COSTS: {
         TICKET: 500,
         PREMIUM: 250,
-        GIFT_TICKET: 750
+        GIFT_TICKET: 350
     },
     MAX_TOKENS: 30000
 };
