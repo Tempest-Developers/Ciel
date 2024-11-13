@@ -25,11 +25,20 @@ module.exports = {
                 }
             } catch (error) {
                 console.error('Error handling button interaction:', error);
-                if (!interaction.replied) {
-                    await interaction.reply({
-                        content: '❌ An error occurred while processing your interaction.',
-                        ephemeral: true
-                    });
+                try {
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({
+                            content: '❌ An error occurred while processing your interaction.',
+                            ephemeral: true
+                        });
+                    } else if (interaction.deferred) {
+                        await interaction.editReply({
+                            content: '❌ An error occurred while processing your interaction.',
+                            ephemeral: true
+                        });
+                    }
+                } catch (replyError) {
+                    console.error('Failed to send error message for button interaction:', replyError);
                 }
             }
             return;
@@ -42,7 +51,7 @@ module.exports = {
             try {
                 await command.autocomplete(interaction);
             } catch (error) {
-                console.error(error);
+                console.error('Autocomplete error:', error);
             }
             return;
         }
@@ -100,14 +109,31 @@ module.exports = {
             const errorMessage = 'There was an error while executing this command!';
             
             try {
-                if (!interaction.replied) {
+                if (!interaction.replied && !interaction.deferred) {
                     await interaction.reply({
+                        content: errorMessage,
+                        ephemeral: true
+                    });
+                } else if (interaction.deferred) {
+                    await interaction.editReply({
+                        content: errorMessage,
+                        ephemeral: true
+                    });
+                } else if (interaction.replied) {
+                    await interaction.followUp({
                         content: errorMessage,
                         ephemeral: true
                     });
                 }
             } catch (replyError) {
-                console.error('Failed to send error message:', replyError);
+                console.error('Failed to send error message:', {
+                    originalError: error,
+                    replyError: replyError,
+                    interactionStatus: {
+                        replied: interaction.replied,
+                        deferred: interaction.deferred
+                    }
+                });
             }
         }
     },
