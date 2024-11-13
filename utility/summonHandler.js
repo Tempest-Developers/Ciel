@@ -210,7 +210,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             } catch (error) {
                 console.error('Error editing countdown message:', error);
             }
-        }, 13000);
+        }, 16000);
     }
 }
 
