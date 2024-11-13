@@ -35,19 +35,19 @@ module.exports = {
 
         embed.addFields(
             { name: 'User Commands', value: 
-                '`/gate balance` - Check your balance\n' +
-                '`/gate buy ticket` - Buy a ticket (${constants.COSTS.TICKET} tokens)\n' +
-                '`/gate buy premium` - Buy premium (${constants.COSTS.PREMIUM} tokens, 1 week)\n' +
-                '`/gate gift <user>` - Gift special ticket (${constants.COSTS.GIFT_TICKET} tokens)\n' +
-                '`/gate giveaway` - View giveaway rewards\n' +
-                '**Cooldown**: ${constants.USER_COOLDOWN} seconds', inline: false },
+                `\`/gate balance\` - Check your balance\n` +
+                `\`/gate buy ticket\` - Buy a ticket (${constants.COSTS.TICKET} tokens)\n` +
+                `\`/gate buy premium\` - Buy premium (${constants.COSTS.PREMIUM} tokens, 1 week)\n` +
+                `\`/gate gift <user>\` - Gift special ticket (${constants.COSTS.GIFT_TICKET} tokens)\n` +
+                `\`/gate giveaway\` - View giveaway rewards\n` +
+                `**Cooldown**: ${constants.USER_COOLDOWN} seconds`, inline: false },
             { name: 'Information', value:
-                '• Earn 0-5 Slime Tokens or rarely 100 by chatting while claiming cards\n' +
-                '• Maximum balance: ${constants.MAX_TOKENS} Slime Tokens\n' +
-                '• Regular ticket: ${constants.COSTS.TICKET} Slime Tokens\n' +
-                '• Special Gift Ticket: ${constants.COSTS.GIFT_TICKET} Slime Tokens\n' +
-                '• Premium (1 week): ${constants.COSTS.PREMIUM} Slime Tokens\n' +
-                '• Premium benefits: High-Tier-Ping role', inline: false }
+                `• Earn 0-5 Slime Tokens or rarely 100 by chatting while claiming cards\n` +
+                `• Maximum balance: ${constants.MAX_TOKENS} Slime Tokens\n` +
+                `• Regular ticket: ${constants.COSTS.TICKET} Slime Tokens\n` +
+                `• Special Gift Ticket: ${constants.COSTS.GIFT_TICKET} Slime Tokens\n` +
+                `• Premium (1 week): ${constants.COSTS.PREMIUM} Slime Tokens\n` +
+                `• Premium benefits: High-Tier-Ping role`, inline: false }
         );
 
         return interaction.reply({
