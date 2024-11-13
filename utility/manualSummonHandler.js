@@ -120,7 +120,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
     }
     
     // Calculate timestamps
-    const countdownTime = Math.floor(Date.now() / 1000) + 13;
+    const countdownTime = Math.floor(Date.now() / 1000) + 11;
     const nextSummonTime = Math.floor(Date.now() / 1000) + 1780;
 
     // Only proceed if we haven't processed this message ID and it contains a card pack image
