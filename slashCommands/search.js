@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 
 // Utility constants
 const COOLDOWN_DURATION = 30000;
@@ -7,8 +7,9 @@ const MIN_SEARCH_LENGTH = 2;
 const EVENT_EMOJI = '🎃 ';
 const MAX_SERIES_LENGTH = 30;
 const MAX_VERSIONS_DISPLAY = 10;
-const OWNERS_PER_PAGE = 15;
+const OWNERS_PER_PAGE = 10;
 const MAX_PAGES = 15;
+const INTERACTION_TIMEOUT = 300000; // 5 minutes
 
 // Cache and cooldown management
 const cooldowns = new Map();
@@ -148,20 +149,33 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
     return embed;
 };
 
-const createPageSelector = (totalPages) => {
-    const options = Array.from({ length: totalPages }, (_, i) => ({
-        label: `Page ${i + 1}`,
-        description: `View owners on page ${i + 1}`,
-        value: `${i + 1}`
-    }));
+const createNavigationButtons = (currentPage, totalPages) => {
+    const row = new ActionRowBuilder();
+    
+    row.addComponents(
+        new ButtonBuilder()
+            .setCustomId('first')
+            .setLabel('<<')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(currentPage === 1),
+        new ButtonBuilder()
+            .setCustomId('prev')
+            .setLabel('<')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(currentPage === 1),
+        new ButtonBuilder()
+            .setCustomId('next')
+            .setLabel('>')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(currentPage === totalPages),
+        new ButtonBuilder()
+            .setCustomId('last')
+            .setLabel('>>')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(currentPage === totalPages)
+    );
 
-    return new ActionRowBuilder()
-        .addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId('page_selector')
-                .setPlaceholder('Select a page')
-                .addOptions(options)
-        );
+    return row;
 };
 
 module.exports = {
@@ -333,9 +347,10 @@ module.exports = {
 
                 const totalPages = Math.min(Math.ceil(ownersList.length / OWNERS_PER_PAGE), MAX_PAGES);
                 const userOwnership = ownerCounts[interaction.user.id];
+                let currentPage = 1;
                 
-                const initialEmbed = createOwnersEmbed(cardDetails, ownersList, userOwnership, 1, totalPages);
-                const components = totalPages > 1 ? [createPageSelector(totalPages)] : [];
+                const initialEmbed = createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages);
+                const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages)] : [];
                 
                 const response = await interaction.editReply({
                     embeds: [initialEmbed],
@@ -344,35 +359,71 @@ module.exports = {
 
                 if (totalPages > 1) {
                     const collector = response.createMessageComponentCollector({
-                        componentType: ComponentType.StringSelect,
-                        time: 300000 // 5 minutes
+                        componentType: ComponentType.Button,
+                        time: INTERACTION_TIMEOUT
                     });
 
                     collector.on('collect', async i => {
-                        if (i.user.id !== interaction.user.id) {
-                            await i.reply({ 
-                                content: 'You cannot use this menu.', 
-                                ephemeral: true 
-                            });
-                            return;
-                        }
-
-                        const page = parseInt(i.values[0]);
-                        const newEmbed = createOwnersEmbed(cardDetails, ownersList, userOwnership, page, totalPages);
-                        
-                        await i.update({
-                            embeds: [newEmbed],
-                            components: [createPageSelector(totalPages)]
-                        });
-                    });
-
-                    collector.on('end', async () => {
                         try {
-                            await response.edit({
-                                components: []
+                            if (i.user.id !== interaction.user.id) {
+                                await i.reply({ 
+                                    content: 'You cannot use these buttons.', 
+                                    ephemeral: true 
+                                });
+                                return;
+                            }
+
+                            switch (i.customId) {
+                                case 'first':
+                                    currentPage = 1;
+                                    break;
+                                case 'prev':
+                                    currentPage = Math.max(1, currentPage - 1);
+                                    break;
+                                case 'next':
+                                    currentPage = Math.min(totalPages, currentPage + 1);
+                                    break;
+                                case 'last':
+                                    currentPage = totalPages;
+                                    break;
+                            }
+
+                            const newEmbed = createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages);
+                            await i.update({
+                                embeds: [newEmbed],
+                                components: [createNavigationButtons(currentPage, totalPages)]
+                            }).catch(error => {
+                                console.error('Failed to update interaction:', error);
+                                collector.stop('updateFailed');
                             });
                         } catch (error) {
-                            console.error('Failed to remove components:', error);
+                            console.error('Error handling button interaction:', error);
+                            try {
+                                await i.reply({
+                                    content: 'An error occurred while processing your request.',
+                                    ephemeral: true
+                                });
+                            } catch (replyError) {
+                                console.error('Failed to send error message:', replyError);
+                            }
+                        }
+                    });
+
+                    collector.on('end', async (collected, reason) => {
+                        try {
+                            if (reason === 'updateFailed') {
+                                await interaction.editReply({
+                                    content: 'This search result has expired. Please run the command again.',
+                                    embeds: [],
+                                    components: []
+                                }).catch(console.error);
+                            } else {
+                                await response.edit({
+                                    components: []
+                                }).catch(console.error);
+                            }
+                        } catch (error) {
+                            console.error('Failed to cleanup after collector end:', error);
                         }
                     });
                 }
