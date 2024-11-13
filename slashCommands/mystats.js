@@ -33,6 +33,9 @@ module.exports = {
           
     async execute(interaction, { database }) {
         try {
+            // Defer reply immediately to prevent timeout
+            await interaction.deferReply();
+
             // Check cooldown
             const userId = interaction.user.id;
             const guildId = interaction.guild.id;
@@ -45,14 +48,12 @@ module.exports = {
                 
                 if (now < expirationTime) {
                     const timeLeft = (expirationTime - now) / 1000;
-                    return await interaction.reply({
+                    return await interaction.editReply({
                         content: `Please wait ${timeLeft.toFixed(1)} more seconds before using this command again.`,
                         ephemeral: true
                     });
                 }
             }
-
-            await interaction.deferReply();
 
             const targetUser = interaction.options.getUser('user') || interaction.user;
             const category = interaction.options.getString('category');
@@ -319,10 +320,23 @@ module.exports = {
 
         } catch (error) {
             console.error('Error in stats command:', error);
-            await interaction.editReply({
-                content: 'An error occurred while fetching stats.',
-                ephemeral: true
-            });
+            // Only try to edit reply if we haven't already sent an error response
+            try {
+                await interaction.editReply({
+                    content: 'An error occurred while fetching stats.',
+                    ephemeral: true
+                });
+            } catch (e) {
+                // If editing fails, try to send a new reply
+                try {
+                    await interaction.reply({
+                        content: 'An error occurred while fetching stats.',
+                        ephemeral: true
+                    });
+                } catch (finalError) {
+                    console.error('Failed to send error message:', finalError);
+                }
+            }
         }
     },
 };
