@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const handleCreateMazokuMessage = require('../utility/handleCreateMazokuMessage');
+const getTierEmoji = require('../utility/getTierEmoji');
 const axios = require('axios');
 require('dotenv').config();
 const config = require('../config.json');
@@ -99,16 +100,18 @@ module.exports = {
                     const totalEntries = giveaway.entries.length;
                     const winnerEntries = giveaway.entries.filter(entry => entry.userID === winnerID).length;
 
+                    // Get tier emoji (add "T" to tier)
+                    const tierEmoji = getTierEmoji(`${itemData.card.tier}T`);
+
                     // Create winner announcement embed
                     const embed = new EmbedBuilder()
                         .setColor('#00ff00')
-                        .setTitle('🎉 Giveaway Winner!')
+                        .setDescription(`${tierEmoji} **${itemData.card.name}** #**${itemData.version}**\n*${itemData.card.series}*`)
                         .addFields(
-                            { name: 'Item', value: itemData.card.name },
-                            { name: 'Series', value: itemData.card.series },
-                            { name: 'Tier', value: itemData.card.tier },
-                            { name: 'Total Entries', value: totalEntries.toString() },
-                            { name: 'Winner\'s Entries', value: winnerEntries.toString() }
+                            { 
+                                name: '📊 Giveaway Details', 
+                                value: `👥 Total Entries: **${totalEntries}**\n🏆 Winner's Entries: **${winnerEntries}**` 
+                            }
                         )
                         .setImage(itemData.card.cardImageLink.replace('.png', ''))
                         .setTimestamp();
@@ -132,9 +135,10 @@ module.exports = {
                                 const channel = await guild.channels.fetch(channelId);
                                 if (channel) {
                                     // Send embed first
-                                    await channel.send({ embeds: [embed] });
-                                    // Then ping the winner
-                                    await channel.send(`🎉 Congratulations <@${winnerID}>! You won **${itemData.card.name}**!`);
+                                    await channel.send({ 
+                                        embeds: [embed],
+                                        content: `🎉 Congratulations <@${winnerID}>! You won **${itemData.card.name}**!`
+                                    });
                                 }
                             }
                         } catch (err) {
