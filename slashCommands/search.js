@@ -19,6 +19,9 @@ let cachedCards = null;
 let cacheTimestamp = 0;
 let cachedFilteredResults = new Map();
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Utility functions
 const formatSeriesName = (series) => {
     return series.length > MAX_SERIES_LENGTH ? 
@@ -197,8 +200,16 @@ module.exports = {
                 return await interaction.respond([]);
             }
 
-            // If the input looks like a card ID (only contains numbers), skip suggestions
-            if (/^\d+$/.test(focusedValue)) {
+            // If the input looks like a UUID, validate it
+            if (UUID_REGEX.test(focusedValue)) {
+                return await interaction.respond([{
+                    name: `Search for Card ID: ${focusedValue}`,
+                    value: focusedValue
+                }]);
+            }
+
+            // If the input looks like it might be part of a UUID but isn't complete, skip suggestions
+            if (focusedValue.includes('-') || /^[0-9a-f]+$/.test(focusedValue)) {
                 return await interaction.respond([{
                     name: `Search for Card ID: ${focusedValue}`,
                     value: focusedValue
@@ -244,7 +255,6 @@ module.exports = {
                 await interaction.respond(filtered);
             } catch (error) {
                 console.error('Error in autocomplete:', error);
-                // If suggestions fail, allow direct ID input
                 await interaction.respond([{
                     name: `Search for Card ID: ${focusedValue}`,
                     value: focusedValue
@@ -278,6 +288,11 @@ module.exports = {
             const cardId = interaction.options.getString('card');
             if (!cardId) {
                 return await interaction.editReply('Invalid card ID provided.');
+            }
+
+            // Validate UUID format
+            if (!UUID_REGEX.test(cardId)) {
+                return await interaction.editReply('Invalid card ID format. Please provide a valid card ID or search by name.');
             }
 
             try {

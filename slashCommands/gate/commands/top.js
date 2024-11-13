@@ -5,8 +5,15 @@ const INTERACTION_TIMEOUT = 900000; // 15 minutes
 const USERS_PER_PAGE = 15;
 const MAX_PAGES = 15;
 
+const VALID_TYPES = ['tickets', 'slime'];
+
 const createTopEmbed = async (interaction, database, sortType, page = 1, totalPages) => {
     try {
+        // Validate sort type
+        if (!sortType || !VALID_TYPES.includes(sortType)) {
+            sortType = 'tickets'; // Default to tickets if invalid
+        }
+
         // Aggregate query to get top users sorted by specified currency type
         const sortField = sortType === 'tickets' ? 'currency.5' : 'currency.0';
         const aggregationPipeline = [
@@ -42,8 +49,9 @@ const createTopEmbed = async (interaction, database, sortType, page = 1, totalPa
             pageTicketsTotal += user.currency[5] || 0;
         });
 
+        const typeDisplay = sortType === 'tickets' ? 'Tickets' : 'Slime Tokens';
         const embed = new EmbedBuilder()
-            .setTitle(`Top ${sortType.charAt(0).toUpperCase() + sortType.slice(1)} Leaderboard`)
+            .setTitle(`Top ${typeDisplay} Leaderboard`)
             .setColor('#7289DA');
 
         // Add economy stats to the embed
@@ -79,7 +87,7 @@ const createTopEmbed = async (interaction, database, sortType, page = 1, totalPa
             value: leaderboardEntries.join('\n') || 'No users found'
         });
 
-        embed.setFooter({ text: `Sorted by ${sortType} • Page ${page}/${totalPages}` });
+        embed.setFooter({ text: `Sorted by ${typeDisplay} • Page ${page}/${totalPages}` });
 
         return embed;
     } catch (error) {
@@ -151,8 +159,12 @@ module.exports = {
                 throw new Error('Database connection not available');
             }
 
-            // Get sort type from command option
-            const sortType = interaction.options.getString('type');
+            // Get and validate sort type from command option
+            let sortType = interaction.options.getString('type');
+            if (!sortType || !VALID_TYPES.includes(sortType)) {
+                sortType = 'tickets'; // Default to tickets if invalid
+                console.warn(`Invalid sort type provided: ${sortType}, defaulting to tickets`);
+            }
 
             const totalUsers = await database.mGateDB.countDocuments({ 'currency.5': { $exists: true } })
                 .catch(error => {
