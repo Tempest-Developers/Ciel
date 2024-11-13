@@ -139,7 +139,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
     }
     
     // Calculate timestamps
-    const countdownTime = Math.floor(Date.now() / 1000) + 17;
+    const countdownTime = Math.floor(Date.now() / 1000) + 13;
     const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
 
     // Only proceed if we haven't processed this message ID and it contains a card pack image
@@ -210,7 +210,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             } catch (error) {
                 console.error('Error editing countdown message:', error);
             }
-        }, 17000);
+        }, 13000);
     }
 }
 

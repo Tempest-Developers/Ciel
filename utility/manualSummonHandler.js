@@ -121,7 +121,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
     
     // Calculate timestamps
     const countdownTime = Math.floor(Date.now() / 1000) + 17;
-    const nextSummonTime = Math.floor(Date.now() / 1000) + 1800;
+    const nextSummonTime = Math.floor(Date.now() / 1000) + 1780;
 
     // Only proceed if we haven't processed this message ID and it contains a card pack image
     if (!processedManualEdits.has(messageId) && newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
