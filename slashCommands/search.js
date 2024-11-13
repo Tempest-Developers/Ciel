@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const getTierEmoji = require('../utility/getTierEmoji');
 
 // Utility constants
 const COOLDOWN_DURATION = 30000;
@@ -103,9 +104,12 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
         .map(maker => `<@${maker}>`)
         .join(' ') || 'No makers listed';
 
+    const tierEmoji = getTierEmoji(cardDetails.tier + 'T');
+
     const embed = new EmbedBuilder()
-        .setTitle(`${cardDetails.tier} | ${cardDetails.name} ${eventMark}`)
-        .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}\n**Card ID:** \`${cardDetails.id}\``);
+        .setTitle(`${tierEmoji} ${cardDetails.name} ${eventMark}`)
+        .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}\n**Card ID:** \`${cardDetails.id}\``)
+        .setThumbnail(cardImageUrl);
 
     if (userOwnership) {
         const versionsString = formatVersionsDisplay(userOwnership.versions);
@@ -113,12 +117,6 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
             name: `Your Copies (${userOwnership.versions.length})`, 
             value: versionsString
         });
-    }
-
-    if (userOwnership && userOwnership.versions.length > 20) {
-        embed.setThumbnail(cardImageUrl);
-    } else {
-        embed.setImage(cardImageUrl);
     }
 
     const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
@@ -130,9 +128,9 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
     if (pageOwners.length > 0) {
         const ownersText = pageOwners
             .map(owner => {
-                const username = owner.user ? owner.user.username : owner.id;
+                const displayName = owner.user?.username || owner.id;
                 const versionsString = formatVersionsDisplay(owner.versions);
-                return `🔰 *[${username}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) **[${owner.versionCount}]**`;
+                return `🔰 *[${displayName}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) **[${owner.versionCount}]**`;
             })
             .join('\n');
 
