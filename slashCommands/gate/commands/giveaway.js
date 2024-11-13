@@ -1,5 +1,6 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const getTierEmoji = require('../../../utility/getTierEmoji');
+const { createGateUser, getGateUser } = require('../../../database/modules/gate');
 
 module.exports = {
     subcommand: subcommand =>
@@ -11,6 +12,13 @@ module.exports = {
         await interaction.deferReply({ ephemeral: true });
 
         try {
+            // Ensure user exists in the database
+            let user = await getGateUser(interaction.user.id);
+            if (!user) {
+                await createGateUser(interaction.user.id);
+                user = await getGateUser(interaction.user.id);
+            }
+
             const giveaways = await database.getGiveaways(true);
             
             if (!giveaways || giveaways.length === 0) {
@@ -20,7 +28,6 @@ module.exports = {
             const giveaway = giveaways[0];
 
             // Get user's tickets
-            const user = await database.mGateDB.findOne({ userID: interaction.user.id });
             const userTickets = user?.currency?.[5] || 0;
 
             // Get total entries
@@ -71,6 +78,13 @@ module.exports = {
         }
 
         try {
+            // Ensure user exists in the database
+            let user = await getGateUser(interaction.user.id);
+            if (!user) {
+                await createGateUser(interaction.user.id);
+                user = await getGateUser(interaction.user.id);
+            }
+
             const giveaways = await database.getGiveaways(true);
             
             if (!giveaways || giveaways.length === 0) {
@@ -80,17 +94,6 @@ module.exports = {
             const giveaway = giveaways[0];
             const { mGateDB, mGiveawayDB } = database;
             
-            // Get user's tickets with fresh query
-            const user = await mGateDB.findOne({ userID: interaction.user.id });
-            
-            // If user doesn't exist, create a new user entry
-            if (!user) {
-                await mGateDB.create({
-                    userID: interaction.user.id,
-                    currency: new Array(6).fill(0)
-                });
-            }
-
             const tickets = user?.currency?.[5] || 0;
             
             // Check if this is the user's first entry in this giveaway
@@ -138,7 +141,7 @@ module.exports = {
                 );
 
                 // Get updated counts for response
-                const updatedUser = await mGateDB.findOne({ userID: interaction.user.id });
+                const updatedUser = await getGateUser(interaction.user.id);
                 const finalGiveaway = await mGiveawayDB.findOne({ giveawayID: giveaway.giveawayID });
                 const finalUserEntries = finalGiveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
                 const totalEntries = finalGiveaway.entries?.length || 0;
