@@ -82,6 +82,15 @@ module.exports = {
             
             // Get user's tickets with fresh query
             const user = await mGateDB.findOne({ userID: interaction.user.id });
+            
+            // If user doesn't exist, create a new user entry
+            if (!user) {
+                await mGateDB.create({
+                    userID: interaction.user.id,
+                    currency: new Array(6).fill(0)
+                });
+            }
+
             const tickets = user?.currency?.[5] || 0;
             
             // Check if this is the user's first entry in this giveaway
@@ -134,13 +143,17 @@ module.exports = {
                 const finalUserEntries = finalGiveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
                 const totalEntries = finalGiveaway.entries?.length || 0;
 
+                // Ensure currency exists before accessing
+                const remainingTickets = updatedUser?.currency?.[5] || 0;
+
                 await interaction.editReply({ 
                     content: `✅ ${isFreeEntry ? 'Free first entry for Level 2 Giveaway!' : 'You joined the giveaway!'}\n` +
-                        `🎫 Remaining Tickets: **${updatedUser.currency[5]}**\n` +
+                        `🎫 Remaining Tickets: **${remainingTickets}**\n` +
                         `🎯 Your Entries: **${finalUserEntries}**\n` +
                         `👥 Total Entries: **${totalEntries}**`
                 });
             } catch (error) {
+                console.error('Error in giveaway entry process:', error);
                 throw error;
             }
         } catch (error) {
