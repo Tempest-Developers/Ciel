@@ -6,9 +6,13 @@ const path = require('path');
 
 const BOT_TOKEN = process.env.TOKEN;
 
-// Import database module
+// Import database modules
 const db = require('./database/mongo');
-const { config } = require('dotenv');
+const serverModule = require('./database/modules/server');
+const playerModule = require('./database/modules/player');
+const gateModule = require('./database/modules/gate');
+const giveawayModule = require('./database/modules/giveaway');
+const commandLogsModule = require('./database/modules/commandLogs');
 
 const client = new Client({
     intents: [
@@ -41,7 +45,31 @@ async function initializeDatabase(retries = 5, delay = 5000) {
             client.database = {
                 // Spread database methods first
                 ...db,
-                // Then set specific collections so they don't get overwritten
+                
+                // Include specific database module methods
+                createServer: serverModule.createServer,
+                createServerSettings: serverModule.createServerSettings,
+                toggleRegister: serverModule.toggleRegister,
+                toggleAllowRolePing: serverModule.toggleAllowRolePing,
+                getServerData: serverModule.getServerData,
+                getServerSettings: serverModule.getServerSettings,
+                addServerClaim: serverModule.addServerClaim,
+
+                // Player module methods
+                createPlayer: playerModule.createPlayer,
+                getPlayer: playerModule.getPlayer,
+                updatePlayer: playerModule.updatePlayer,
+
+                // Gate module methods
+                ...gateModule,
+
+                // Giveaway module methods
+                ...giveawayModule,
+
+                // Command logs module methods
+                logCommand: commandLogsModule.logCommand,
+
+                // Set specific collections so they don't get overwritten
                 servers: mServerDB,
                 users: mUserDB,
                 serverSettings: mServerSettingsDB,
