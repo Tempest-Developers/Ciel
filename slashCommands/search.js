@@ -130,7 +130,7 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
             .map(owner => {
                 const displayName = owner.user?.username || owner.id;
                 const versionsString = formatVersionsDisplay(owner.versions);
-                return `🔰 *[${displayName}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) **[${owner.versionCount}]**`;
+                return `🔰 *[${displayName}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) [ **${owner.versionCount}** ]`;
             })
             .join('\n');
 
