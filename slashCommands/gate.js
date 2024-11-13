@@ -11,6 +11,7 @@ const balanceCommand = require('./gate/commands/balance');
 const buyCommand = require('./gate/commands/buy');
 const giftCommand = require('./gate/commands/gift');
 const giveawayCommand = require('./gate/commands/giveaway');
+const topCommand = require('./gate/commands/top');
 const { give, take } = require('./gate/commands/currency');
 
 module.exports = {
@@ -25,6 +26,7 @@ module.exports = {
         .addSubcommand(buyCommand.subcommand)
         .addSubcommand(giftCommand.subcommand)
         .addSubcommand(giveawayCommand.subcommand)
+        .addSubcommand(topCommand.subcommand)
         .addSubcommand(give.subcommand)
         .addSubcommand(take.subcommand),
 
@@ -38,7 +40,7 @@ module.exports = {
 
         const serverData = await getServerData(GATE_GUILD, mGateServerDB);
 
-        if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take'].includes(subcommand)) {
+        if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take', 'top'].includes(subcommand)) {
             return interaction.reply({
                 content: '❌ The gate system is currently disabled.',
                 ephemeral: true
@@ -73,6 +75,8 @@ module.exports = {
                     return await giftCommand.execute(interaction, { database });
                 case 'giveaway':
                     return await giveawayCommand.execute(interaction, { database });
+                case 'top':
+                    return await topCommand.execute(interaction, { database, config });
                 case 'give':
                     return await give.execute(interaction, { database, config });
                 case 'take':
