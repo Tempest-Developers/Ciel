@@ -14,18 +14,20 @@ setInterval(() => {
     }
 }, 60 * 60 * 1000);
 
-async function getCardInfo(cardId) {
+async function getCardInfo(cardId, client) {
     try {
         const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`);
         const data = response.data;
         if (data && data.length > 0) {
             const card = data[0].card;
+            // Get wishlist count from database
+            const wishlistCount = await client.database.getCardWishlistCount(cardId);
             return {
                 name: card.name,
                 series: card.series,
                 tier: card.tier,
                 versions: await getAvailableVersions(data, card.tier),
-                wishlistCount: 0  // Set default since we're not using wishlist functionality here
+                wishlistCount: wishlistCount || 0
             };
         }
     } catch (error) {
@@ -86,14 +88,14 @@ async function getOrCreateHighTierRole(guild) {
     }
 }
 
-async function buildCardDescription(cardIds) {
+async function buildCardDescription(cardIds, client) {
     let hasHighTierCard = false;
     let description = '';
     let lastTier = null;
     const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:'];
     
     // Get card info for all cards at once
-    const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id)));
+    const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id, client)));
     
     // Build description
     for (let i = 0; i < cardInfoResults.length; i++) {
@@ -116,7 +118,7 @@ async function buildCardDescription(cardIds) {
 
             const wishlistCount = cardInfo.wishlistCount > 0 ? ` ${cardInfo.wishlistCount}` : '';
             
-            description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n${versionsText}${remainingText} ${wishlistCount?`❤️`:``}${wishlistCount}\n`;
+            description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n${versionsText}${remainingText}${wishlistCount ? ` ❤️${wishlistCount}` : ''}\n`;
         }
     }
     
@@ -154,7 +156,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
 
         // Wait for all card info and build description
-        const { description, hasHighTierCard } = await buildCardDescription(cardIds);
+        const { description, hasHighTierCard } = await buildCardDescription(cardIds, client);
 
         // Determine elapsed time since message detection
         const elapsedTime = Math.floor(Date.now() / 1000) - startTime;

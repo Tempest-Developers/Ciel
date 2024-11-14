@@ -41,6 +41,22 @@ const cooldowns = new Map();
 // Utility function for delayed execution
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Function to sort cards by wishlist count
+const sortByWishlistCount = async (cards, userId) => {
+    if (!Array.isArray(cards) || cards.length === 0) return cards;
+    
+    // Get wishlist counts for all cards at once
+    const cardIds = cards.map(card => card.id);
+    const wishlistCounts = await db.getCardWishlistCount(cardIds);
+    
+    // Sort cards by wishlist count
+    return [...cards].sort((a, b) => {
+        const countA = wishlistCounts.get(a.id) || 0;
+        const countB = wishlistCounts.get(b.id) || 0;
+        return countB - countA; // Descending order
+    });
+};
+
 // Retry mechanism for API calls
 const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
     for (let i = 0; i < maxRetries; i++) {
@@ -173,7 +189,6 @@ const createNavigationButtons = (currentPage, totalPages) => {
 };
 
 const createCardSelectMenu = (cards) => {
-    // Return null if cards is not an array or is empty
     if (!Array.isArray(cards) || cards.length === 0) {
         return null;
     }
@@ -223,7 +238,8 @@ module.exports = {
                 .setDescription('Sort cards by')
                 .addChoices(
                     { name: 'Date Added', value: 'dateAdded' },
-                    { name: 'Name', value: 'name' }
+                    { name: 'Name', value: 'name' },
+                    { name: 'Wishlist Count', value: 'wishlist' }
                 ))
         .addStringOption(option =>
             option.setName('sort_order')
@@ -284,7 +300,7 @@ module.exports = {
             if (name?.trim()) requestBody.name = name.trim();
             if (anime?.trim()) requestBody.seriesName = anime.trim();
             if (tier) requestBody.tiers = [tier];
-            if (sortBy) requestBody.sortBy = sortBy;
+            if (sortBy && sortBy !== 'wishlist') requestBody.sortBy = sortBy;
             if (sortOrder) requestBody.sortOrder = sortOrder;
             if (type) requestBody.eventType = type === 'event';
 
@@ -296,8 +312,15 @@ module.exports = {
                 const response = await retryOperation(async () => {
                     return await axios.post(API_URL, pageRequestBody, createAxiosConfig(pageRequestBody));
                 });
+                let cards = response.data.cards || [];
+                
+                // Apply wishlist count sorting if selected
+                if (sortBy === 'wishlist') {
+                    cards = await sortByWishlistCount(cards, interaction.user.id);
+                }
+                
                 return {
-                    cards: response.data.cards || [],
+                    cards,
                     totalPages: response.data.pageCount || 1
                 };
             };
