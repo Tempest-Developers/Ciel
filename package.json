@@ -8,7 +8,7 @@
     "dev": "nodemon bot.js",
     "deploy": "node deploy-commands.js",
     "dev-db": "node database/dev-mongo.js",
-    "git-start": "git pull && npm start"
+    "git-start": "cls && git pull && npm start"
   },
   "author": "MiMs",
   "license": "ISC",

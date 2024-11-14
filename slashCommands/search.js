@@ -69,6 +69,7 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
     const cardImageUrl = `https://cdn.mazoku.cc/packs/${cardDetails.id}`;
     const eventMark = cardDetails.eventType ? EVENT_EMOJI : '';
     const lowestPrint = findLowestPrint(ownersList);
+    const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
     
     const makerMentions = (cardDetails.makers || [])
         .map(maker => `<@${maker}>`)
@@ -76,9 +77,18 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
 
     const tierDisplay = `[${cardDetails.tier}]`;
 
+    const statsInfo = [
+        `**Series:** ${eventMark}*${cardDetails.series}*`,
+        `**Makers:** ${makerMentions}`,
+        `**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`,
+        `**Lowest Print Out**: <${lowestPrint}>`,
+        `**Total Prints Claimed**: <${totalPrints}>`,
+        `**Total Owners**: <${ownersList.length}>`
+    ].join('\n');
+
     const embed = new EmbedBuilder()
         .setTitle(`${tierDisplay} ${cardDetails.name} ${eventMark}`)
-        .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}\n**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`)
+        .setDescription(statsInfo)
         .setThumbnail(cardImageUrl);
 
     if (userOwnership) {
@@ -88,8 +98,6 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
             value: versionsString
         });
     }
-
-    const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
     
     const startIdx = (page - 1) * OWNERS_PER_PAGE;
     const pageOwners = ownersList.slice(startIdx, startIdx + OWNERS_PER_PAGE);
@@ -110,7 +118,7 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
     }
 
     embed.setFooter({ 
-        text: `${totalPrints} total prints | ${ownersList.length} total owners | LP ${lowestPrint}`
+        text: `Mazoku Collector | ${new Date().toLocaleString()}`
     });
 
     return embed;
