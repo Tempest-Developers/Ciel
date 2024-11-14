@@ -1,21 +1,20 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const getTierEmoji = require('../utility/getTierEmoji');
+const fs = require('fs').promises;
+const path = require('path');
 
 // Utility constants
 const COOLDOWN_DURATION = 10000;
-const CACHE_DURATION = 10000;
 const EVENT_EMOJI = '🎃 ';
-const MAX_SERIES_LENGTH = 30;
+const MAX_SERIES_LENGTH = 15;
 const MAX_VERSIONS_DISPLAY = 10;
 const OWNERS_PER_PAGE = 10;
 const MAX_PAGES = 15;
 const INTERACTION_TIMEOUT = 300000; // 5 minutes
 
-// Cache and cooldown management
+// Cooldown management
 const cooldowns = new Map();
 const rateLimit = new Map();
-let cachedCards = null;
-let cacheTimestamp = 0;
 
 // Utility functions
 const formatSeriesName = (series) => {
@@ -54,29 +53,17 @@ const formatVersionsDisplay = (versions) => {
     return `${displayVersions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ')} +${versions.length - MAX_VERSIONS_DISPLAY} more`;
 };
 
-const fetchWithTimeout = async (url, timeout = 5000) => {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    try {
-        const response = await fetch(url, { 
-            signal: controller.signal,
-            headers: {
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache'
-            }
-        });
-        clearTimeout(id);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response;
-    } catch (error) {
-        clearTimeout(id);
-        if (error.name === 'AbortError') {
-            throw new Error('Request timed out');
-        }
-        throw error;
-    }
+const loadCardsData = async () => {
+    const filePath = path.join(__dirname, '..', 'assets', 'all-cards-mazoku.json');
+    const data = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(data);
+};
+
+const formatAutocompleteSuggestion = (card) => {
+    const tierEmoji = getTierEmoji(card.tier + 'T');
+    const eventMark = card.eventType ? EVENT_EMOJI : '';
+    const series = formatSeriesName(card.series);
+    return `${tierEmoji} ${card.name} ${eventMark}${series}`;
 };
 
 const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, totalPages) => {
@@ -105,7 +92,6 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
 
     const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
     
-    // Calculate page owners
     const startIdx = (page - 1) * OWNERS_PER_PAGE;
     const pageOwners = ownersList.slice(startIdx, startIdx + OWNERS_PER_PAGE);
     
@@ -167,7 +153,29 @@ module.exports = {
         .addStringOption(option =>
             option.setName('card')
                 .setDescription('Search for a card by name')
-                .setRequired(true)),
+                .setRequired(true)
+                .setAutocomplete(true)),
+
+    async autocomplete(interaction) {
+        try {
+            const focusedValue = interaction.options.getFocused().toLowerCase();
+            if (!focusedValue) return await interaction.respond([]);
+
+            const cards = await loadCardsData();
+            const matches = cards
+                .filter(card => card.name.toLowerCase().includes(focusedValue))
+                .slice(0, 25)
+                .map(card => ({
+                    name: formatAutocompleteSuggestion(card),
+                    value: card.name
+                }));
+
+            await interaction.respond(matches);
+        } catch (error) {
+            console.error('Error in autocomplete:', error);
+            await interaction.respond([]);
+        }
+    },
 
     async execute(interaction) {
         try {
@@ -194,18 +202,8 @@ module.exports = {
             }
 
             try {
-                // Fetch or use cached cards
-                if (!cachedCards || Date.now() - cacheTimestamp > CACHE_DURATION) {
-                    const cardResponse = await fetchWithTimeout('https://api.mazoku.cc/api/all-cards');
-                    cachedCards = await cardResponse.json();
-                    if (!Array.isArray(cachedCards)) {
-                        throw new Error('Invalid cards data format received from API');
-                    }
-                    cacheTimestamp = Date.now();
-                }
-
-                // Find the first card that matches the search term
-                const cardDetails = cachedCards.find(card => 
+                const cards = await loadCardsData();
+                const cardDetails = cards.find(card => 
                     card?.name?.toLowerCase().includes(searchTerm)
                 );
 
@@ -214,7 +212,7 @@ module.exports = {
                 }
 
                 // Fetch owners for the found card
-                const ownersResponse = await fetchWithTimeout(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardDetails.id}`);
+                const ownersResponse = await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardDetails.id}`);
                 const owners = await ownersResponse.json();
                 if (!Array.isArray(owners)) {
                     throw new Error('Invalid owners data format received from API');
