@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const db = require('../../database/mongo');
 const { COOLDOWN_DURATION, INTERACTION_TIMEOUT, CARDS_PER_PAGE } = require('./constants');
 const { searchCards } = require('./api');
@@ -118,15 +118,26 @@ module.exports = {
             };
 
             if (subcommand === 'list') {
-                // Fetch all wishlisted cards sorted by wishlist count
-                allCards = await fetchAllWishlistedCards();
-                if (!allCards.length) {
+                // Get user's wishlist status for all cards
+                const userWishlist = await db.getUserWishlist(interaction.user.id);
+                const wishlistSet = new Set(userWishlist);
+
+                // Get all cards with wishlist counts
+                const cardWishlistCounts = await db.getCardWishlistCount();
+                if (!cardWishlistCounts || cardWishlistCounts.size === 0) {
                     await interaction.editReply('No wishlisted cards found.');
                     return;
                 }
 
-                // Sort by wishlist count
-                allCards = await sortByWishlistCount(allCards);
+                // Convert to array and sort by count
+                allCards = Array.from(cardWishlistCounts.entries())
+                    .sort(([, countA], [, countB]) => countB - countA)
+                    .map(([cardId, count]) => ({
+                        id: cardId,
+                        wishlistCount: count,
+                        isWishlisted: wishlistSet.has(cardId)
+                    }));
+
                 totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
                 currentCards = paginateCards(allCards, currentPage);
             } else {
@@ -136,7 +147,7 @@ module.exports = {
                     totalPages = result.totalPages;
 
                     if (searchParams.sortBy === 'wishlist') {
-                        currentCards = await sortByWishlistCount(currentCards);
+                        currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
                     }
                 } catch (error) {
                     console.error('API request error:', error);
@@ -240,7 +251,7 @@ module.exports = {
                                         currentPage = newPage;
 
                                         if (searchParams.sortBy === 'wishlist') {
-                                            currentCards = await sortByWishlistCount(currentCards);
+                                            currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
                                         }
                                     }
                                     

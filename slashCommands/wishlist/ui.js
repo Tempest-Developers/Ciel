@@ -13,23 +13,13 @@ const createCardListEmbed = async (cards, page, totalPages, userId) => {
         if (!Array.isArray(cards) || cards.length === 0) {
             description += 'No cards found.';
         } else {
-            // Get all card IDs for bulk wishlist count fetch
-            const cardIds = cards.map(card => card.id);
-            
-            // Fetch wishlist counts and wishlist status for all cards at once
-            const [wishlistCounts, userWishlistStatus] = await Promise.all([
-                db.getCardWishlistCount(cardIds),
-                Promise.all(cards.map(card => db.isInWishlist(userId, card.id)))
-            ]);
-
             // Create the description with all card information
-            cards.forEach((card, index) => {
+            cards.forEach(card => {
                 if (!card) return;
                 const tierEmoji = getTierEmoji(`${card.tier}T`);
                 const eventEmoji = card.eventType ? '🎃' : '';
-                const wishlistCount = wishlistCounts.get(card.id) || 0;
-                const isWishlisted = userWishlistStatus[index];
-                const heartEmoji = isWishlisted ? ':yellow_heart:' : '❤️';
+                const wishlistCount = card.wishlistCount || 0;
+                const heartEmoji = card.isWishlisted ? ':yellow_heart:' : '❤️';
                 description += `${tierEmoji} **${card.name}** ${eventEmoji}*${card.series}* (${wishlistCount} ${heartEmoji})\n`;
             });
         }
@@ -51,7 +41,11 @@ const createCardDetailEmbed = async (card, userId) => {
             throw new Error('Invalid card data');
         }
 
-        const isWishlisted = await db.isInWishlist(userId, card.id);
+        // Get current wishlist status if not provided
+        const isWishlisted = card.isWishlisted !== undefined ? 
+            card.isWishlisted : 
+            await db.isInWishlist(userId, card.id);
+
         const heartEmoji = isWishlisted ? '❤️' : '';
 
         const embed = new EmbedBuilder()
@@ -60,7 +54,10 @@ const createCardDetailEmbed = async (card, userId) => {
             .setImage(`https://cdn.mazoku.cc/packs/${card.id}`)
             .setColor('#0099ff');
 
-        const wishlistCount = await db.getCardWishlistCount(card.id);
+        // Use provided wishlist count or fetch it
+        const wishlistCount = card.wishlistCount !== undefined ? 
+            card.wishlistCount : 
+            await db.getCardWishlistCount(card.id);
 
         embed.addFields(
             { 
@@ -134,7 +131,7 @@ const createWishlistButton = (isWishlisted) => {
     return new ButtonBuilder()
         .setCustomId('wishlist')
         .setEmoji(isWishlisted ? '❤️' : '❎')
-        .setStyle(isWishlisted ? ButtonStyle.Success : ButtonStyle.Danger);
+        .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
 };
 
 const createBackButton = () => {
