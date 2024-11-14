@@ -8,7 +8,7 @@ const EVENT_EMOJI = '🎃 ';
 const MAX_SERIES_LENGTH = 15;
 const MAX_VERSIONS_DISPLAY = 10;
 const OWNERS_PER_PAGE = 10;
-const MAX_PAGES = 15;
+const MAX_PAGES = 50;
 const INTERACTION_TIMEOUT = 300000; // 5 minutes
 
 // Cooldown management
