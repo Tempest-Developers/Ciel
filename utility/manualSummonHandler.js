@@ -14,19 +14,18 @@ setInterval(() => {
     }
 }, 60 * 60 * 1000);
 
-async function getCardInfo(cardId, userId) {
+async function getCardInfo(cardId) {
     try {
         const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`);
         const data = response.data;
         if (data && data.length > 0) {
             const card = data[0].card;
-            const wishlistCount = await client.database.wishlist.getCardWishlistCount(cardId);
             return {
                 name: card.name,
                 series: card.series,
                 tier: card.tier,
                 versions: await getAvailableVersions(data, card.tier),
-                wishlistCount
+                wishlistCount: 0  // Set default since we're not using wishlist functionality here
             };
         }
     } catch (error) {
@@ -68,14 +67,14 @@ function getAvailableVersions(cardData, tier) {
     };
 }
 
-async function buildCardDescription(cardIds, userId) {
+async function buildCardDescription(cardIds) {
     let hasHighTierCard = false;
     let description = '';
     let lastTier = null;
     const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:', ':regional_indicator_d:'];
     
     // Get card info for all cards at once
-    const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id, userId)));
+    const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id)));
     
     // Build description
     for (let i = 0; i < cardInfoResults.length; i++) {
@@ -136,7 +135,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
 
         // Wait for all card info and build description
-        const { description, hasHighTierCard } = await buildCardDescription(cardIds, newMessage.author.id);
+        const { description, hasHighTierCard } = await buildCardDescription(cardIds);
 
         // Determine elapsed time since message detection
         const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
