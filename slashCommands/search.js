@@ -1,5 +1,4 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
-const getTierEmoji = require('../utility/getTierEmoji');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -60,10 +59,10 @@ const loadCardsData = async () => {
 };
 
 const formatAutocompleteSuggestion = (card) => {
-    const tierEmoji = getTierEmoji(card.tier + 'T');
+    const tierDisplay = `[${card.tier}]`;
     const eventMark = card.eventType ? EVENT_EMOJI : '';
     const series = formatSeriesName(card.series);
-    return `${tierEmoji} ${card.name} ${eventMark}${series}`;
+    return `${tierDisplay} ${card.name} ${eventMark}${series}`;
 };
 
 const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, totalPages) => {
@@ -75,10 +74,10 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
         .map(maker => `<@${maker}>`)
         .join(' ') || 'No makers listed';
 
-    const tierEmoji = getTierEmoji(cardDetails.tier + 'T');
+    const tierDisplay = `[${cardDetails.tier}]`;
 
     const embed = new EmbedBuilder()
-        .setTitle(`${tierEmoji} ${cardDetails.name} ${eventMark}`)
+        .setTitle(`${tierDisplay} ${cardDetails.name} ${eventMark}`)
         .setDescription(`**Series:** ${eventMark}*${cardDetails.series}*\n**Makers:** ${makerMentions}\n**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`)
         .setThumbnail(cardImageUrl);
 
@@ -164,15 +163,26 @@ module.exports = {
             if (!focusedValue) return await interaction.respond([]);
 
             const cards = await loadCardsData();
-            const matches = cards
-                .filter(card => card.name.toLowerCase().includes(focusedValue))
+            
+            // First try to find exact matches
+            const exactMatches = cards.filter(card => 
+                card.name.toLowerCase() === focusedValue
+            );
+
+            // If no exact matches, fall back to partial matches
+            const matches = exactMatches.length > 0 ? exactMatches : 
+                cards.filter(card => 
+                    card.name.toLowerCase().includes(focusedValue)
+                );
+
+            const suggestions = matches
                 .slice(0, 25)
                 .map(card => ({
                     name: formatAutocompleteSuggestion(card),
                     value: card.name
                 }));
 
-            await interaction.respond(matches);
+            await interaction.respond(suggestions);
         } catch (error) {
             console.error('Error in autocomplete:', error);
             await interaction.respond([]);
@@ -205,9 +215,18 @@ module.exports = {
 
             try {
                 const cards = await loadCardsData();
-                const cardDetails = cards.find(card => 
-                    card?.name?.toLowerCase().includes(searchTerm)
+                
+                // First try exact match
+                let cardDetails = cards.find(card => 
+                    card?.name?.toLowerCase() === searchTerm
                 );
+
+                // Fall back to partial match if no exact match found
+                if (!cardDetails) {
+                    cardDetails = cards.find(card => 
+                        card?.name?.toLowerCase().includes(searchTerm)
+                    );
+                }
 
                 if (!cardDetails) {
                     return await interaction.editReply('No cards found matching your search term.');
