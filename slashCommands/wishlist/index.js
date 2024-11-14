@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('../../database/mongo');
 const { COOLDOWN_DURATION, INTERACTION_TIMEOUT, CARDS_PER_PAGE } = require('./constants');
 const { searchCards } = require('./api');
@@ -118,25 +118,12 @@ module.exports = {
             };
 
             if (subcommand === 'list') {
-                // Get user's wishlist status for all cards
-                const userWishlist = await db.getUserWishlist(interaction.user.id);
-                const wishlistSet = new Set(userWishlist);
-
-                // Get all cards with wishlist counts
-                const cardWishlistCounts = await db.getCardWishlistCount();
-                if (!cardWishlistCounts || cardWishlistCounts.size === 0) {
+                // Fetch all wishlisted cards sorted by wishlist count
+                allCards = await fetchAllWishlistedCards(interaction.user.id);
+                if (!allCards.length) {
                     await interaction.editReply('No wishlisted cards found.');
                     return;
                 }
-
-                // Convert to array and sort by count
-                allCards = Array.from(cardWishlistCounts.entries())
-                    .sort(([, countA], [, countB]) => countB - countA)
-                    .map(([cardId, count]) => ({
-                        id: cardId,
-                        wishlistCount: count,
-                        isWishlisted: wishlistSet.has(cardId)
-                    }));
 
                 totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
                 currentCards = paginateCards(allCards, currentPage);
@@ -211,6 +198,7 @@ module.exports = {
 
                             const selectedCard = currentCards.find(c => c.id === cardId);
                             if (selectedCard) {
+                                selectedCard.isWishlisted = result.isWishlisted;
                                 const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
                                 await i.editReply({
                                     embeds: [updatedEmbed],
@@ -281,7 +269,9 @@ module.exports = {
                         const selectedCard = currentCards.find(c => c.id === i.values[0]);
                         if (selectedCard) {
                             const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
-                            const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.id);
+                            const isWishlisted = selectedCard.isWishlisted !== undefined ? 
+                                selectedCard.isWishlisted : 
+                                await db.isInWishlist(i.user.id, selectedCard.id);
 
                             const wishlistButton = createWishlistButton(isWishlisted);
                             const backButton = createBackButton();

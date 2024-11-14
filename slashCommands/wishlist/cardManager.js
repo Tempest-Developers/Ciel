@@ -63,8 +63,10 @@ const fetchAllWishlistedCards = async (userId) => {
 
         const cardDetails = await Promise.all(cardPromises);
         
-        // Filter out any failed fetches
-        return cardDetails.filter(card => card !== null);
+        // Filter out any failed fetches and sort by wishlist count
+        return cardDetails
+            .filter(card => card !== null)
+            .sort((a, b) => b.wishlistCount - a.wishlistCount);
     } catch (error) {
         console.error('Error fetching all wishlisted cards:', error);
         return [];
