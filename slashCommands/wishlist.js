@@ -365,7 +365,7 @@ module.exports = {
 
                                 const wishlistButton = new ButtonBuilder()
                                     .setCustomId('wishlist')
-                                    .setEmoji('❤️')
+                                    .setEmoji(isCurrentlyWishlisted ? '❤️' : '❎')
                                     .setStyle(isWishlisted ? ButtonStyle.Success : ButtonStyle.Danger);
 
                                 const backButton = new ButtonBuilder()
