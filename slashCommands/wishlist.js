@@ -288,22 +288,31 @@ module.exports = {
             if (sortOrder) requestBody.sortOrder = sortOrder;
             if (type) requestBody.eventType = type === 'event';
 
-            try {
-                // Use retry mechanism for API call
+            let currentPage = 1;
+            let totalPages = 1;
+
+            const fetchCards = async (page) => {
+                const pageRequestBody = { ...requestBody, page };
                 const response = await retryOperation(async () => {
-                    return await axios.post(API_URL, requestBody, createAxiosConfig(requestBody));
+                    return await axios.post(API_URL, pageRequestBody, createAxiosConfig(pageRequestBody));
                 });
-                
-                currentCards = response.data.cards || [];
-                const totalPages = response.data.pageCount || 1;
+                return {
+                    cards: response.data.cards || [],
+                    totalPages: response.data.pageCount || 1
+                };
+            };
+
+            try {
+                const initialFetch = await fetchCards(currentPage);
+                currentCards = initialFetch.cards;
+                totalPages = initialFetch.totalPages;
 
                 if (currentCards.length === 0) {
                     await interaction.editReply('No cards found matching your criteria.');
                     return;
                 }
 
-                let currentPage = 1;
-                const pageCards = paginateCards(currentCards, currentPage);
+                const pageCards = currentCards;
                 const embed = await createCardListEmbed(pageCards, currentPage, totalPages, interaction.user.id);
                 const navigationButtons = createNavigationButtons(currentPage, totalPages);
                 const selectMenu = createCardSelectMenu(pageCards);
@@ -379,7 +388,7 @@ module.exports = {
                                     await i.editReply({ components: [actionRow] });
                                 }
                             } else if (i.customId === 'back') {
-                                const pageCards = paginateCards(currentCards, currentPage);
+                                const pageCards = currentCards;
                                 const newEmbed = await createCardListEmbed(pageCards, currentPage, totalPages, i.user.id);
                                 const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                 const newSelectMenu = createCardSelectMenu(pageCards);
@@ -403,21 +412,31 @@ module.exports = {
                                 }
 
                                 if (newPage !== currentPage) {
-                                    currentPage = newPage;
-                                    const pageCards = paginateCards(currentCards, currentPage);
-                                    const newEmbed = await createCardListEmbed(pageCards, currentPage, totalPages, i.user.id);
-                                    const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
-                                    const newSelectMenu = createCardSelectMenu(pageCards);
+                                    try {
+                                        const newData = await fetchCards(newPage);
+                                        currentCards = newData.cards;
+                                        currentPage = newPage;
+                                        
+                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id);
+                                        const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
+                                        const newSelectMenu = createCardSelectMenu(currentCards);
 
-                                    const newComponents = [newNavigationButtons];
-                                    if (newSelectMenu) {
-                                        newComponents.push(newSelectMenu);
+                                        const newComponents = [newNavigationButtons];
+                                        if (newSelectMenu) {
+                                            newComponents.push(newSelectMenu);
+                                        }
+
+                                        await i.editReply({
+                                            embeds: [newEmbed],
+                                            components: newComponents
+                                        });
+                                    } catch (error) {
+                                        console.error('Error fetching new page:', error);
+                                        await i.followUp({
+                                            content: 'Failed to load the next page. Please try again.',
+                                            ephemeral: true
+                                        });
                                     }
-
-                                    await i.editReply({
-                                        embeds: [newEmbed],
-                                        components: newComponents
-                                    });
                                 }
                             }
                         } else if (i.isStringSelectMenu()) {
@@ -456,8 +475,7 @@ module.exports = {
 
                 collector.on('end', async () => {
                     try {
-                        const pageCards = paginateCards(currentCards, currentPage);
-                        const finalEmbed = await createCardListEmbed(pageCards, currentPage, totalPages, interaction.user.id)
+                        const finalEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id)
                             .setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
                         await interaction.editReply({
