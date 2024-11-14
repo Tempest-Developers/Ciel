@@ -8,20 +8,51 @@ function getTierIndex(tier) {
 async function createPlayer(userID, serverID) {
     return wrapDbOperation(async () => {
         const { mUserDB } = await connectDB();
-        return await mUserDB.insertOne({
-            userID,
-            serverID,
-            counts: [0, 0, 0, 0, 0, 0],
-            claims: {
-                CT: [],
-                RT: [],
-                SRT: [],
-                SSRT: [],
-                URT: [],
-                EXT: []
-            },
-            manualClaims: []
-        });
+        
+        // First try to find if user document exists
+        const existingUser = await mUserDB.findOne({ userID });
+        
+        if (existingUser) {
+            // If user exists, add new server data
+            return await mUserDB.updateOne(
+                { userID },
+                {
+                    $set: {
+                        [`servers.${serverID}`]: {
+                            counts: [0, 0, 0, 0, 0, 0],
+                            claims: {
+                                CT: [],
+                                RT: [],
+                                SRT: [],
+                                SSRT: [],
+                                URT: [],
+                                EXT: []
+                            },
+                            manualClaims: []
+                        }
+                    }
+                }
+            );
+        } else {
+            // Create new user document with server data
+            return await mUserDB.insertOne({
+                userID,
+                servers: {
+                    [serverID]: {
+                        counts: [0, 0, 0, 0, 0, 0],
+                        claims: {
+                            CT: [],
+                            RT: [],
+                            SRT: [],
+                            SSRT: [],
+                            URT: [],
+                            EXT: []
+                        },
+                        manualClaims: []
+                    }
+                }
+            });
+        }
     });
 }
 
@@ -44,8 +75,7 @@ async function addClaim(serverID, userID, claim) {
         const userUpdate = await mUserDB.findOneAndUpdate(
             {
                 userID,
-                serverID,
-                [`claims.${claim.tier}`]: {
+                [`servers.${serverID}.claims.${claim.tier}`]: {
                     $not: {
                         $elemMatch: {
                             claimedID: claim.claimedID,
@@ -57,12 +87,12 @@ async function addClaim(serverID, userID, claim) {
             },
             {
                 $push: {
-                    [`claims.${claim.tier}`]: {
+                    [`servers.${serverID}.claims.${claim.tier}`]: {
                         $each: [claimData],
                         $slice: -24
                     }
                 },
-                $inc: { [`counts.${getTierIndex(claim.tier)}`]: 1 }
+                $inc: { [`servers.${serverID}.counts.${getTierIndex(claim.tier)}`]: 1 }
             }
         );
 
@@ -92,8 +122,7 @@ async function addManualClaim(serverID, userID, claim) {
         const userUpdate = await mUserDB.findOneAndUpdate(
             {
                 userID,
-                serverID,
-                manualClaims: {
+                [`servers.${serverID}.manualClaims`]: {
                     $not: {
                         $elemMatch: {
                             claimedID: claim.claimedID,
@@ -105,12 +134,12 @@ async function addManualClaim(serverID, userID, claim) {
             },
             {
                 $push: {
-                    manualClaims: {
+                    [`servers.${serverID}.manualClaims`]: {
                         $each: [claimData],
                         $slice: -48
                     }
                 },
-                $inc: { [`counts.${getTierIndex(claim.tier)}`]: 1 }
+                $inc: { [`servers.${serverID}.counts.${getTierIndex(claim.tier)}`]: 1 }
             }
         );
 
@@ -124,7 +153,18 @@ async function addManualClaim(serverID, userID, claim) {
 async function getPlayerData(userID, serverID) {
     return wrapDbOperation(async () => {
         const { mUserDB } = await connectDB();
-        return await mUserDB.findOne({ userID, serverID });
+        const userData = await mUserDB.findOne({ userID });
+        if (!userData || !userData.servers[serverID]) {
+            return null;
+        }
+        // Return in the old format for backward compatibility
+        return {
+            userID,
+            serverID,
+            counts: userData.servers[serverID].counts,
+            claims: userData.servers[serverID].claims,
+            manualClaims: userData.servers[serverID].manualClaims
+        };
     });
 }
 
