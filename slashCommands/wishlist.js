@@ -320,6 +320,16 @@ module.exports = {
             let totalPages = 1;
             let allCards = [];
 
+            // Store search parameters for pagination
+            const searchParams = {
+                name: interaction.options.getString('name'),
+                anime: interaction.options.getString('anime'),
+                tier: interaction.options.getString('tier'),
+                sortBy: interaction.options.getString('sort_by'),
+                sortOrder: interaction.options.getString('sort_order') || 'desc',
+                type: interaction.options.getString('type')
+            };
+
             if (subcommand === 'list') {
                 // Fetch wishlisted cards
                 allCards = await fetchWishlistedCards(interaction.user.id);
@@ -333,19 +343,13 @@ module.exports = {
             } else {
                 // Handle search subcommand with existing API
                 let requestBody = createBaseRequestBody();
-                const name = interaction.options.getString('name');
-                const anime = interaction.options.getString('anime');
-                const tier = interaction.options.getString('tier');
-                const sortBy = interaction.options.getString('sort_by');
-                const sortOrder = interaction.options.getString('sort_order') || 'desc';
-                const type = interaction.options.getString('type');
-
-                if (name?.trim()) requestBody.name = name.trim();
-                if (anime?.trim()) requestBody.seriesName = anime.trim();
-                if (tier) requestBody.tiers = [tier];
-                if (sortBy && sortBy !== 'wishlist') requestBody.sortBy = sortBy;
-                if (sortOrder && sortBy !== 'wishlist') requestBody.sortOrder = sortOrder;
-                if (type) requestBody.eventType = type === 'event';
+                
+                if (searchParams.name?.trim()) requestBody.name = searchParams.name.trim();
+                if (searchParams.anime?.trim()) requestBody.seriesName = searchParams.anime.trim();
+                if (searchParams.tier) requestBody.tiers = [searchParams.tier];
+                if (searchParams.sortBy && searchParams.sortBy !== 'wishlist') requestBody.sortBy = searchParams.sortBy;
+                if (searchParams.sortOrder && searchParams.sortBy !== 'wishlist') requestBody.sortOrder = searchParams.sortOrder;
+                if (searchParams.type) requestBody.eventType = searchParams.type === 'event';
 
                 const response = await retryOperation(() => 
                     axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig(requestBody))
@@ -354,7 +358,7 @@ module.exports = {
                 currentCards = response.data.cards || [];
                 totalPages = response.data.pageCount || 1;
 
-                if (sortBy === 'wishlist') {
+                if (searchParams.sortBy === 'wishlist') {
                     currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
                 }
             }
@@ -485,17 +489,17 @@ Error: ${error.stack}
                                         const requestBody = {
                                             page: newPage,
                                             pageSize: CARDS_PER_PAGE,
-                                            name: name?.trim() || "",
+                                            name: searchParams.name?.trim() || "",
                                             type: "Card",
-                                            seriesName: anime?.trim() || "",
+                                            seriesName: searchParams.anime?.trim() || "",
                                             minVersion: 0,
                                             maxVersion: 1000,
-                                            sortBy,
-                                            sortOrder
+                                            sortBy: searchParams.sortBy,
+                                            sortOrder: searchParams.sortOrder
                                         };
 
-                                        if (tier) requestBody.tiers = [tier];
-                                        if (type) requestBody.eventType = type === 'event';
+                                        if (searchParams.tier) requestBody.tiers = [searchParams.tier];
+                                        if (searchParams.type) requestBody.eventType = searchParams.type === 'event';
 
                                         const response = await retryOperation(() => 
                                             axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig(requestBody))
@@ -504,7 +508,7 @@ Error: ${error.stack}
                                         currentCards = response.data.cards || [];
                                         currentPage = newPage;
 
-                                        if (sortBy === 'wishlist') {
+                                        if (searchParams.sortBy === 'wishlist') {
                                             currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
                                         }
                                     }
