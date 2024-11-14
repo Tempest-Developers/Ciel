@@ -16,10 +16,8 @@ const createAxiosConfig = (body = {}) => ({
     headers: {
         'Cache-Control': 'no-cache',
         'Content-Type': 'application/json',
-        'Host': 'api.mazoku.cc',
-        ...(body && { 'Content-Length': Buffer.byteLength(JSON.stringify(body)) })
-    },
-    timeout: 10000 // 10 second timeout
+        'Host': 'api.mazoku.cc'
+    }
 });
 
 // Base request body
@@ -42,7 +40,7 @@ const cooldowns = new Map();
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Function to sort cards by wishlist count
-const sortByWishlistCount = async (cards, userId) => {
+const sortByWishlistCount = async (cards) => {
     if (!Array.isArray(cards) || cards.length === 0) return cards;
     
     // Get wishlist counts for all cards at once
@@ -90,25 +88,29 @@ const fetchCardDetails = async (cardId) => {
     }
 };
 
-// Function to fetch wishlisted cards
-const fetchWishlistedCards = async (userId) => {
-    // Get wishlisted card IDs
-    const cardIds = await db.getUserWishlist(userId);
-    if (!cardIds.length) return [];
+// Function to fetch all wishlisted cards
+const fetchAllWishlistedCards = async () => {
+    try {
+        // Get all cards with wishlist count
+        const cards = await db.getAllCardWishlistCounts();
+        if (!cards || cards.length === 0) return [];
 
-    // Fetch details for each card
-    const cardPromises = cardIds.map(cardId => fetchCardDetails(cardId));
-    const cards = await Promise.all(cardPromises);
-    
-    // Filter out any failed fetches and sort by wishlist count
-    const validCards = cards.filter(card => card !== null);
-    return sortByWishlistCount(validCards, userId);
+        // Fetch details for each card
+        const cardPromises = cards.map(card => fetchCardDetails(card.cardId));
+        const cardDetails = await Promise.all(cardPromises);
+        
+        // Filter out any failed fetches
+        return cardDetails.filter(card => card !== null);
+    } catch (error) {
+        console.error('Error fetching all wishlisted cards:', error);
+        return [];
+    }
 };
 
 const createCardListEmbed = async (cards, page, totalPages, userId) => {
     try {
         const embed = new EmbedBuilder()
-            .setTitle('Card Wishlist')
+            .setTitle('Most Wishlisted Cards')
             .setColor('#0099ff');
 
         let description = `Page ${page} of ${totalPages}\n\n`;
@@ -236,11 +238,11 @@ const createCardSelectMenu = (cards) => {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('wishlist')
-        .setDescription('View and manage your card wishlist')
+        .setDescription('View and manage card wishlists')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('list')
-                .setDescription('View your wishlisted cards'))
+                .setDescription('View most wishlisted cards'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('search')
@@ -331,35 +333,49 @@ module.exports = {
             };
 
             if (subcommand === 'list') {
-                // Fetch wishlisted cards
-                allCards = await fetchWishlistedCards(interaction.user.id);
+                // Fetch all wishlisted cards sorted by wishlist count
+                allCards = await fetchAllWishlistedCards();
                 if (!allCards.length) {
-                    await interaction.editReply('You have no cards in your wishlist.');
+                    await interaction.editReply('No wishlisted cards found.');
                     return;
                 }
 
+                // Sort by wishlist count
+                allCards = await sortByWishlistCount(allCards);
                 totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
                 currentCards = paginateCards(allCards, currentPage);
             } else {
-                // Handle search subcommand with existing API
-                let requestBody = createBaseRequestBody();
-                
-                if (searchParams.name?.trim()) requestBody.name = searchParams.name.trim();
-                if (searchParams.anime?.trim()) requestBody.seriesName = searchParams.anime.trim();
+                // Handle search subcommand
+                const requestBody = {
+                    ...createBaseRequestBody(),
+                    page: currentPage,
+                    pageSize: CARDS_PER_PAGE
+                };
+
+                if (searchParams.name) requestBody.name = searchParams.name;
+                if (searchParams.anime) requestBody.seriesName = searchParams.anime;
                 if (searchParams.tier) requestBody.tiers = [searchParams.tier];
-                if (searchParams.sortBy && searchParams.sortBy !== 'wishlist') requestBody.sortBy = searchParams.sortBy;
-                if (searchParams.sortOrder && searchParams.sortBy !== 'wishlist') requestBody.sortOrder = searchParams.sortOrder;
+                if (searchParams.sortBy && searchParams.sortBy !== 'wishlist') {
+                    requestBody.sortBy = searchParams.sortBy;
+                    requestBody.sortOrder = searchParams.sortOrder;
+                }
                 if (searchParams.type) requestBody.eventType = searchParams.type === 'event';
 
-                const response = await retryOperation(() => 
-                    axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig(requestBody))
-                );
+                try {
+                    const response = await retryOperation(() => 
+                        axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig(requestBody))
+                    );
 
-                currentCards = response.data.cards || [];
-                totalPages = response.data.pageCount || 1;
+                    currentCards = response.data.cards || [];
+                    totalPages = response.data.pageCount || 1;
 
-                if (searchParams.sortBy === 'wishlist') {
-                    currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
+                    if (searchParams.sortBy === 'wishlist') {
+                        currentCards = await sortByWishlistCount(currentCards);
+                    }
+                } catch (error) {
+                    console.error('API request error:', error);
+                    await interaction.editReply('Failed to fetch cards. Please try again.');
+                    return;
                 }
             }
 
@@ -509,7 +525,7 @@ Error: ${error.stack}
                                         currentPage = newPage;
 
                                         if (searchParams.sortBy === 'wishlist') {
-                                            currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
+                                            currentCards = await sortByWishlistCount(currentCards);
                                         }
                                     }
                                     
