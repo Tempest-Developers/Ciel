@@ -342,10 +342,10 @@ module.exports = {
                         if (i.isButton()) {
                             if (i.customId === 'wishlist') {
                                 const cardId = i.message.embeds[0].description.split('\n')[0].split('[')[1].split(']')[0];
-                                const isCurrentlyWishlisted = await db.isInWishlist(i.user.id, cardId);
+                                const isWishlisted = await db.isInWishlist(i.user.id, cardId);
                                 
                                 let success;
-                                if (isCurrentlyWishlisted) {
+                                if (isWishlisted) {
                                     success = await db.removeFromWishlist(i.user.id, cardId);
                                 } else {
                                     success = await db.addToWishlist(i.user.id, cardId);
@@ -362,7 +362,7 @@ module.exports = {
                                 const wishlistButton = new ButtonBuilder()
                                     .setCustomId('wishlist')
                                     .setEmoji('❤️')
-                                    .setStyle(isCurrentlyWishlisted ? ButtonStyle.Success : ButtonStyle.Danger);
+                                    .setStyle(isWishlisted ? ButtonStyle.Success : ButtonStyle.Danger);
 
                                 const backButton = new ButtonBuilder()
                                     .setCustomId('back')
@@ -430,7 +430,7 @@ module.exports = {
 
                                 const wishlistButton = new ButtonBuilder()
                                     .setCustomId('wishlist')
-                                    .setEmoji(isCurrentlyWishlisted ? '❤️' : '❎')
+                                    .setEmoji('❤️')
                                     .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
 
                                 const backButton = new ButtonBuilder()
