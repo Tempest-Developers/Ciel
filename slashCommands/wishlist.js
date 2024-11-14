@@ -173,11 +173,12 @@ const createNavigationButtons = (currentPage, totalPages) => {
 };
 
 const createCardSelectMenu = (cards) => {
-    try {
-        if (!Array.isArray(cards) || cards.length === 0) {
-            throw new Error('No cards available for select menu');
-        }
+    // Return null if cards is not an array or is empty
+    if (!Array.isArray(cards) || cards.length === 0) {
+        return null;
+    }
 
+    try {
         return new ActionRowBuilder()
             .addComponents(
                 new StringSelectMenuBuilder()
@@ -307,16 +308,10 @@ module.exports = {
                 const navigationButtons = createNavigationButtons(currentPage, totalPages);
                 const selectMenu = createCardSelectMenu(pageCards);
 
-                if (!selectMenu) {
-                    await interaction.editReply({
-                        content: 'An error occurred while creating the card selection menu.',
-                        embeds: [embed],
-                        components: [navigationButtons]
-                    });
-                    return;
+                const components = [navigationButtons];
+                if (selectMenu) {
+                    components.push(selectMenu);
                 }
-
-                const components = [navigationButtons, selectMenu];
 
                 const reply = await interaction.editReply({
                     embeds: [embed],
@@ -386,10 +381,13 @@ module.exports = {
                             } else if (i.customId === 'back') {
                                 const pageCards = paginateCards(currentCards, currentPage);
                                 const newEmbed = await createCardListEmbed(pageCards, currentPage, totalPages, i.user.id);
-                                const newComponents = [
-                                    createNavigationButtons(currentPage, totalPages),
-                                    createCardSelectMenu(pageCards)
-                                ].filter(Boolean);
+                                const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
+                                const newSelectMenu = createCardSelectMenu(pageCards);
+
+                                const newComponents = [newNavigationButtons];
+                                if (newSelectMenu) {
+                                    newComponents.push(newSelectMenu);
+                                }
 
                                 await i.editReply({
                                     embeds: [newEmbed],
@@ -411,10 +409,10 @@ module.exports = {
                                     const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                     const newSelectMenu = createCardSelectMenu(pageCards);
 
-                                    const newComponents = [
-                                        newNavigationButtons,
-                                        newSelectMenu
-                                    ].filter(Boolean);
+                                    const newComponents = [newNavigationButtons];
+                                    if (newSelectMenu) {
+                                        newComponents.push(newSelectMenu);
+                                    }
 
                                     await i.editReply({
                                         embeds: [newEmbed],
