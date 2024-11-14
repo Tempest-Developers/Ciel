@@ -310,8 +310,14 @@ module.exports = {
             const fetchCards = async (page) => {
                 if (sortBy === 'wishlist') {
                     // Get cards from wishlist DB
-                    const wishlistCards = await db.getWishlistCards(interaction.user.id);
-                    const cardIds = wishlistCards.map(card => card.cardId);
+                    const cardIds = await db.getUserWishlist(interaction.user.id);
+                    
+                    if (!cardIds.length) {
+                        return {
+                            cards: [],
+                            totalPages: 1
+                        };
+                    }
                     
                     // Get card details from API
                     const response = await retryOperation(async () => {
