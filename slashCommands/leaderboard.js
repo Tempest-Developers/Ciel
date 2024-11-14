@@ -85,9 +85,9 @@ module.exports = {
                 });
             }
 
-            // Get all users in the server
+            // Get all users in the server with the updated schema structure
             const { mUserDB } = await database.connectDB();
-            const allUsers = await mUserDB.find({ serverID: guildId }).toArray();
+            const allUsers = await mUserDB.find({ [`servers.${guildId}`]: { $exists: true } }).toArray();
             
             if (!allUsers || allUsers.length === 0) {
                 return await interaction.editReply('No user data found for this server.');
@@ -114,7 +114,7 @@ module.exports = {
 
                 leaderboardData = allUsers.map(user => ({
                     userId: user.userID,
-                    count: user.counts?.[tierIndex[tier]] || 0
+                    count: user.servers[guildId].counts?.[tierIndex[tier]] || 0
                 }));
             }
             else if (subcommand === 'print') {
@@ -130,8 +130,9 @@ module.exports = {
                         };
 
                         // Count prints across all tiers
-                        if (user.claims) {
-                            Object.values(user.claims).forEach(tierClaims => {
+                        const serverData = user.servers[guildId];
+                        if (serverData.claims) {
+                            Object.values(serverData.claims).forEach(tierClaims => {
                                 if (Array.isArray(tierClaims)) {
                                     tierClaims.forEach(claim => {
                                         const print = claim.print;
@@ -146,8 +147,8 @@ module.exports = {
                         }
 
                         // Also include manual claims in the count
-                        if (user.manualClaims) {
-                            user.manualClaims.forEach(claim => {
+                        if (serverData.manualClaims) {
+                            serverData.manualClaims.forEach(claim => {
                                 const print = claim.print;
                                 if (print >= 1 && print <= 10) counts.SP++;
                                 else if (print >= 11 && print <= 99) counts.LP++;
@@ -175,8 +176,9 @@ module.exports = {
                     // Calculate counts for specific print range
                     leaderboardData = allUsers.map(user => {
                         let count = 0;
-                        if (user.claims) {
-                            Object.values(user.claims).forEach(tierClaims => {
+                        const serverData = user.servers[guildId];
+                        if (serverData.claims) {
+                            Object.values(serverData.claims).forEach(tierClaims => {
                                 if (Array.isArray(tierClaims)) {
                                     tierClaims.forEach(claim => {
                                         const print = claim.print;
@@ -186,8 +188,8 @@ module.exports = {
                             });
                         }
                         // Include manual claims in the count
-                        if (user.manualClaims) {
-                            user.manualClaims.forEach(claim => {
+                        if (serverData.manualClaims) {
+                            serverData.manualClaims.forEach(claim => {
                                 const print = claim.print;
                                 if (isInPrintRange(print, range)) count++;
                             });
@@ -202,7 +204,7 @@ module.exports = {
 
                 leaderboardData = allUsers.map(user => ({
                     userId: user.userID,
-                    count: user.counts ? user.counts.reduce((sum, count) => sum + (count || 0), 0) : 0
+                    count: user.servers[guildId].counts ? user.servers[guildId].counts.reduce((sum, count) => sum + (count || 0), 0) : 0
                 }));
             }
 
