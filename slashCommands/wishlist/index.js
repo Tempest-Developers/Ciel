@@ -1,5 +1,6 @@
-const { SlashCommandBuilder } = require('discord.js');
-const { COOLDOWN_DURATION, INTERACTION_TIMEOUT } = require('./constants');
+const { SlashCommandBuilder, ActionRowBuilder } = require('discord.js');
+const db = require('../../database/mongo');
+const { COOLDOWN_DURATION, INTERACTION_TIMEOUT, CARDS_PER_PAGE } = require('./constants');
 const { searchCards } = require('./api');
 const { 
     createCardListEmbed, 
@@ -194,7 +195,8 @@ module.exports = {
 
                             const wishlistButton = createWishlistButton(result.isWishlisted);
                             const backButton = createBackButton();
-                            const actionRow = { type: 1, components: [wishlistButton, backButton] };
+                            const actionRow = new ActionRowBuilder()
+                                .addComponents(wishlistButton, backButton);
 
                             const selectedCard = currentCards.find(c => c.id === cardId);
                             if (selectedCard) {
@@ -272,7 +274,8 @@ module.exports = {
 
                             const wishlistButton = createWishlistButton(isWishlisted);
                             const backButton = createBackButton();
-                            const actionRow = { type: 1, components: [wishlistButton, backButton] };
+                            const actionRow = new ActionRowBuilder()
+                                .addComponents(wishlistButton, backButton);
 
                             await i.editReply({
                                 embeds: [detailEmbed],

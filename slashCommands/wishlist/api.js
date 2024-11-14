@@ -12,14 +12,17 @@ const createAxiosConfig = () => ({
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
+    let lastError;
     for (let i = 0; i < maxRetries; i++) {
         try {
             return await operation();
         } catch (error) {
-            if (i === maxRetries - 1) throw error;
+            lastError = error;
+            if (i === maxRetries - 1) break;
             await delay(RETRY_DELAY * Math.pow(2, i));
         }
     }
+    throw lastError;
 };
 
 const createBaseRequestBody = (page = 1) => ({
@@ -47,25 +50,35 @@ const fetchCardDetails = async (cardId) => {
 };
 
 const searchCards = async (searchParams, page = 1) => {
-    const requestBody = createBaseRequestBody(page);
+    try {
+        const requestBody = {
+            ...createBaseRequestBody(page),
+            name: searchParams.name || "",
+            seriesName: searchParams.anime || "",
+            sortBy: searchParams.sortBy || "dateAdded",
+            sortOrder: searchParams.sortOrder || "desc"
+        };
 
-    if (searchParams.name) requestBody.name = searchParams.name;
-    if (searchParams.anime) requestBody.seriesName = searchParams.anime;
-    if (searchParams.tier) requestBody.tiers = [searchParams.tier];
-    if (searchParams.sortBy && searchParams.sortBy !== 'wishlist') {
-        requestBody.sortBy = searchParams.sortBy;
-        requestBody.sortOrder = searchParams.sortOrder;
+        if (searchParams.tier) {
+            requestBody.tiers = [searchParams.tier];
+        }
+
+        if (searchParams.type) {
+            requestBody.eventType = searchParams.type === 'event';
+        }
+
+        const response = await retryOperation(() => 
+            axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig())
+        );
+
+        return {
+            cards: response.data.cards || [],
+            totalPages: response.data.pageCount || 1
+        };
+    } catch (error) {
+        console.error('Error searching cards:', error);
+        throw error;
     }
-    if (searchParams.type) requestBody.eventType = searchParams.type === 'event';
-
-    const response = await retryOperation(() => 
-        axios.post(`${API_URL}/get-cards`, requestBody)
-    );
-
-    return {
-        cards: response.data.cards || [],
-        totalPages: response.data.pageCount || 1
-    };
 };
 
 module.exports = {

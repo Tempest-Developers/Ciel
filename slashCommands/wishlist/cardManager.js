@@ -5,16 +5,21 @@ const { CARDS_PER_PAGE } = require('./constants');
 const sortByWishlistCount = async (cards) => {
     if (!Array.isArray(cards) || cards.length === 0) return cards;
     
-    // Get wishlist counts for all cards at once
-    const cardIds = cards.map(card => card.id);
-    const wishlistCounts = await db.getCardWishlistCount(cardIds);
-    
-    // Sort cards by wishlist count
-    return [...cards].sort((a, b) => {
-        const countA = wishlistCounts.get(a.id) || 0;
-        const countB = wishlistCounts.get(b.id) || 0;
-        return countB - countA; // Descending order
-    });
+    try {
+        // Get wishlist counts for all cards at once
+        const cardIds = cards.map(card => card.id);
+        const wishlistCounts = await db.getCardWishlistCount(cardIds);
+        
+        // Sort cards by wishlist count
+        return [...cards].sort((a, b) => {
+            const countA = wishlistCounts.get(a.id) || 0;
+            const countB = wishlistCounts.get(b.id) || 0;
+            return countB - countA; // Descending order
+        });
+    } catch (error) {
+        console.error('Error sorting cards by wishlist count:', error);
+        return cards; // Return unsorted cards on error
+    }
 };
 
 const fetchAllWishlistedCards = async () => {
@@ -24,7 +29,15 @@ const fetchAllWishlistedCards = async () => {
         if (!cards || cards.length === 0) return [];
 
         // Fetch details for each card
-        const cardPromises = cards.map(card => fetchCardDetails(card.cardId));
+        const cardPromises = cards.map(async cardId => {
+            try {
+                return await fetchCardDetails(cardId);
+            } catch (error) {
+                console.error(`Error fetching card ${cardId}:`, error);
+                return null;
+            }
+        });
+
         const cardDetails = await Promise.all(cardPromises);
         
         // Filter out any failed fetches
@@ -37,9 +50,15 @@ const fetchAllWishlistedCards = async () => {
 
 const paginateCards = (cards, page, pageSize = CARDS_PER_PAGE) => {
     if (!Array.isArray(cards)) return [];
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    return cards.slice(startIndex, endIndex);
+    
+    try {
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        return cards.slice(startIndex, endIndex);
+    } catch (error) {
+        console.error('Error paginating cards:', error);
+        return [];
+    }
 };
 
 const toggleWishlist = async (userId, cardId) => {
@@ -61,7 +80,8 @@ const toggleWishlist = async (userId, cardId) => {
         console.error('Error toggling wishlist:', error);
         return {
             success: false,
-            isWishlisted: false
+            isWishlisted: false,
+            error: error.message
         };
     }
 };
