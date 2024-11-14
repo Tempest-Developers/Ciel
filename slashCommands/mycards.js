@@ -258,14 +258,14 @@ module.exports = {
                 .addChoices(
                     { name: 'Ascending', value: 'asc' },
                     { name: 'Descending', value: 'desc' }
-                ))
-        .addStringOption(option =>
-            option.setName('type')
-                .setDescription('Filter by card type')
-                .addChoices(
-                    { name: 'Event', value: 'event' },
-                    { name: 'Normal', value: 'normal' }
                 )),
+        // .addStringOption(option =>
+        //     option.setName('type')
+        //         .setDescription('Filter by card type')
+        //         .addChoices(
+        //             { name: 'Event', value: 'event' },
+        //             { name: 'Normal', value: 'normal' }
+        //         )),
 
     async execute(interaction) {
         if (!interaction.isCommand()) return;

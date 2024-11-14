@@ -59,7 +59,6 @@ module.exports = {
                         .addChoices(
                             { name: 'Date Added', value: 'dateAdded' },
                             { name: 'Name', value: 'name' },
-                            { name: 'Wishlist Count', value: 'wishlist' }
                         ))
                 .addStringOption(option =>
                     option.setName('sort_order')
@@ -67,14 +66,14 @@ module.exports = {
                         .addChoices(
                             { name: 'Ascending', value: 'asc' },
                             { name: 'Descending', value: 'desc' }
-                        ))
-                .addStringOption(option =>
-                    option.setName('type')
-                        .setDescription('Filter by card type')
-                        .addChoices(
-                            { name: 'Event', value: 'event' },
-                            { name: 'Normal', value: 'normal' }
                         ))),
+                // .addStringOption(option =>
+                //     option.setName('type')
+                //         .setDescription('Filter by card type')
+                //         .addChoices(
+                //             { name: 'Event', value: 'event' },
+                //             { name: 'Normal', value: 'normal' }
+                //         ))),
 
     async execute(interaction) {
         if (!interaction.isCommand()) return;
