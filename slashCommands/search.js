@@ -4,7 +4,6 @@ const getTierEmoji = require('../utility/getTierEmoji');
 // Utility constants
 const COOLDOWN_DURATION = 30000;
 const CACHE_DURATION = 30000;
-const MIN_SEARCH_LENGTH = 2;
 const EVENT_EMOJI = '🎃 ';
 const MAX_SERIES_LENGTH = 30;
 const MAX_VERSIONS_DISPLAY = 10;
@@ -17,22 +16,12 @@ const cooldowns = new Map();
 const rateLimit = new Map();
 let cachedCards = null;
 let cacheTimestamp = 0;
-let cachedFilteredResults = new Map();
-
-// UUID validation regex
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Utility functions
 const formatSeriesName = (series) => {
     return series.length > MAX_SERIES_LENGTH ? 
         series.substring(0, MAX_SERIES_LENGTH - 3) + '...' : 
         series;
-};
-
-const formatCardSuggestion = (card) => {
-    const eventMark = card.eventType ? EVENT_EMOJI : '';
-    const series = formatSeriesName(card.series);
-    return `${card.tier} | ${card.name} ${eventMark}(${series})`;
 };
 
 const sortVersions = (versions) => {
@@ -88,14 +77,6 @@ const fetchWithTimeout = async (url, timeout = 5000) => {
         }
         throw error;
     }
-};
-
-const isRateLimited = (userId) => {
-    const lastRequest = rateLimit.get(userId);
-    const now = Date.now();
-    if (lastRequest && now - lastRequest < 1000) return true;
-    rateLimit.set(userId, now);
-    return false;
 };
 
 const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, totalPages) => {
@@ -185,86 +166,8 @@ module.exports = {
         .setDescription('Search through all cards')
         .addStringOption(option =>
             option.setName('card')
-                .setDescription('Search for a card by name or enter card ID directly')
-                .setRequired(true)
-                .setAutocomplete(true)),
-
-    async autocomplete(interaction) {
-        try {
-            if (isRateLimited(interaction.user.id)) {
-                return await interaction.respond([]);
-            }
-
-            const focusedValue = interaction.options.getFocused().toLowerCase();
-            if (focusedValue.length < MIN_SEARCH_LENGTH) {
-                return await interaction.respond([]);
-            }
-
-            // If the input looks like a UUID, validate it
-            if (UUID_REGEX.test(focusedValue)) {
-                return await interaction.respond([{
-                    name: `Search for Card ID: ${focusedValue}`,
-                    value: focusedValue
-                }]);
-            }
-
-            // If the input looks like it might be part of a UUID but isn't complete, skip suggestions
-            if (focusedValue.includes('-') || /^[0-9a-f]+$/.test(focusedValue)) {
-                return await interaction.respond([{
-                    name: `Search for Card ID: ${focusedValue}`,
-                    value: focusedValue
-                }]);
-            }
-
-            const cachedResult = cachedFilteredResults.get(focusedValue);
-            if (cachedResult) {
-                return await interaction.respond(cachedResult);
-            }
-
-            const now = Date.now();
-            let cards;
-
-            try {
-                if (cachedCards && now - cacheTimestamp < CACHE_DURATION) {
-                    cards = cachedCards;
-                } else {
-                    const response = await fetchWithTimeout('https://api.mazoku.cc/api/all-cards');
-                    cards = await response.json();
-                    if (!Array.isArray(cards)) {
-                        throw new Error('Invalid response format from API');
-                    }
-                    cachedCards = cards;
-                    cacheTimestamp = now;
-                }
-
-                const filtered = cards
-                    .filter(card => card?.name?.toLowerCase().includes(focusedValue))
-                    .map(card => ({
-                        name: formatCardSuggestion(card),
-                        value: card.id
-                    }))
-                    .slice(0, 25);
-
-                cachedFilteredResults.set(focusedValue, filtered);
-
-                if (cachedFilteredResults.size > 100) {
-                    const oldestKey = cachedFilteredResults.keys().next().value;
-                    cachedFilteredResults.delete(oldestKey);
-                }
-
-                await interaction.respond(filtered);
-            } catch (error) {
-                console.error('Error in autocomplete:', error);
-                await interaction.respond([{
-                    name: `Search for Card ID: ${focusedValue}`,
-                    value: focusedValue
-                }]);
-            }
-        } catch (error) {
-            console.error('Failed to respond to autocomplete:', error);
-            await interaction.respond([]);
-        }
-    },
+                .setDescription('Search for a card by name')
+                .setRequired(true)),
 
     async execute(interaction) {
         try {
@@ -285,42 +188,36 @@ module.exports = {
 
             await interaction.deferReply();
             
-            const cardId = interaction.options.getString('card');
-            if (!cardId) {
-                return await interaction.editReply('Invalid card ID provided.');
-            }
-
-            // Validate UUID format
-            if (!UUID_REGEX.test(cardId)) {
-                return await interaction.editReply('Invalid card ID format. Please provide a valid card ID or search by name.');
+            const searchTerm = interaction.options.getString('card').toLowerCase();
+            if (!searchTerm) {
+                return await interaction.editReply('Please provide a search term.');
             }
 
             try {
-                const [ownersResponse, cardResponse] = await Promise.all([
-                    fetchWithTimeout(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`),
-                    !cachedCards && fetchWithTimeout('https://api.mazoku.cc/api/all-cards')
-                ].filter(Boolean));
-
-                const owners = await ownersResponse.json();
-                if (!Array.isArray(owners)) {
-                    throw new Error('Invalid owners data format received from API');
-                }
-
-                let cardDetails;
-                if (cachedCards) {
-                    cardDetails = cachedCards.find(card => card.id === cardId);
-                } else if (cardResponse) {
-                    const cards = await cardResponse.json();
-                    if (!Array.isArray(cards)) {
+                // Fetch or use cached cards
+                if (!cachedCards || Date.now() - cacheTimestamp > CACHE_DURATION) {
+                    const cardResponse = await fetchWithTimeout('https://api.mazoku.cc/api/all-cards');
+                    cachedCards = await cardResponse.json();
+                    if (!Array.isArray(cachedCards)) {
                         throw new Error('Invalid cards data format received from API');
                     }
-                    cardDetails = cards.find(card => card.id === cardId);
-                    cachedCards = cards;
                     cacheTimestamp = Date.now();
                 }
 
+                // Find the first card that matches the search term
+                const cardDetails = cachedCards.find(card => 
+                    card?.name?.toLowerCase().includes(searchTerm)
+                );
+
                 if (!cardDetails) {
-                    return await interaction.editReply('Card not found. If you entered a card ID directly, please make sure it is correct.');
+                    return await interaction.editReply('No cards found matching your search term.');
+                }
+
+                // Fetch owners for the found card
+                const ownersResponse = await fetchWithTimeout(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardDetails.id}`);
+                const owners = await ownersResponse.json();
+                if (!Array.isArray(owners)) {
+                    throw new Error('Invalid owners data format received from API');
                 }
 
                 const ownerCounts = (owners || []).reduce((acc, item) => {

@@ -124,6 +124,9 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
     const GATE_GUILD = '1240866080985976844';
     const guildId = newMessage.guild.id;
 
+    // Capture the timestamp when the message is detected
+    const startTime = Math.floor(Date.now() / 1000);
+
     // Get server data for settings check
     let serverData = await client.database.getServerData(guildId);
     if (!serverData) {
@@ -138,14 +141,24 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
         serverSettings = await client.database.getServerSettings(guildId);
     }
     
-    // Calculate timestamps
-    const countdownTime = Math.floor(Date.now() / 1000) + 11;
-    const nextSummonTime = Math.floor(Date.now() / 1000) + 120;
-
-    // Only proceed if we haven't processed this message ID and it contains a card pack image
     if (!processedEdits.has(messageId) && newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
         // Mark this message as processed
         processedEdits.set(messageId, Date.now());
+
+        const urlParts = newEmbed.image.url.split('/');
+        const cardIds = urlParts.slice(4, 7);
+
+        const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
+
+        // Wait for all card info and build description
+        const { description, hasHighTierCard } = await buildCardDescription(cardIds);
+
+        // Determine elapsed time since message detection
+        const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
+
+        // Calculate countdown time by subtracting the elapsed time from the desired countdown
+        const countdownTime = startTime + 20 - elapsedTime;
+        const nextSummonTime = startTime + 120 - elapsedTime;
 
         // Create base embed with countdown
         const countdownEmbed = {
@@ -161,14 +174,6 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
 
         let roleContent = '';
         let roleId = null;
-
-        const urlParts = newEmbed.image.url.split('/');
-        const cardIds = urlParts.slice(4, 7);
-
-        const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
-
-        // Wait for all card info and build description
-        const { description, hasHighTierCard } = await buildCardDescription(cardIds);
 
         // Add description to embed if role pinging is allowed
         if (description && allowRolePing) {
@@ -195,7 +200,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             allowedMentions: { roles: roleId ? [roleId] : [] }
         });
 
-        // Update to next summon time after 19 seconds
+        // Update to next summon time
         setTimeout(async () => {
             try {
                 countdownEmbed.fields[0] = {
@@ -210,9 +215,10 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             } catch (error) {
                 console.error('Error editing countdown message:', error);
             }
-        }, 16000);
+        }, (20 - elapsedTime) * 1000);
     }
 }
+
 
 module.exports = {
     handleSummonInfo,

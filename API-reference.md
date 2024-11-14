@@ -241,3 +241,16 @@ item-id d347e92a-569d-4364-85af-484cb5daba4c
   "equippedFrame": null,
   "isLocked": false
 }
+
+make a /mycards slash command which uses this API
+
+https://api.mazoku.cc/api/get-inventory-items-by-user/292675388180791297 
+here last id is discord userID
+
+RESPONSE :
+[{"id":"cca42f32-d54b-42a6-853d-66671e3bff5a","type":"Card","typeId":"d5bb02d9-edc6-493d-a051-c4a2f8d0c540","card":{"id":"d5bb02d9-edc6-493d-a051-c4a2f8d0c540","type":"anime","tier":"C","name":"Shiragiku Ono","series":"Megami no Café Terrace","renderLink":"https://goddess-cafe-terrace.fandom.com/wiki/Shiragiku_Ono","psdLink":"https://cdn.discordapp.com/ephemeral-attachments/1280215300087873587/1302924325703254026/Mazoku_Shiragiku_Ono_Common.psd?ex=6729e256&is=672890d6&hm=2e45b9e636d318fd2d0d45d8a5dfc51da027a5c386e688dfbb5387e45216a6a4&","cardImageLink":"https://cdn.mazoku.cc/cards/d5bb02d9-edc6-493d-a051-c4a2f8d0c540/card","batchId":2,"edition":1,"makers":["365122273285505024"],"eventType":null,"artist":null,"isActive":true,"createdDate":"0001-01-01T00:00:00"},"banner":null,"frame":null,"version":315,"owner":"292675388180791297","user":null,"obtainedDate":"2024-11-13T23:43:48.102366","equippedFrame":null,"isLocked":false},{"id":"632efa87-09e6-4f8e-8df6-c47a4df516a2","type":"Card","typeId":"87069f83-72bf-4b25-a9cd-ca1cb11a7545","card":{"id":"87069f83-72bf-4b25-a9cd-ca1cb11a7545","type":"anime","tier":"R","name":"Nagisa Furukawa","series":"Clannad","renderLink":"https://www.zerochan.net/4291502","psdLink":"https://cdn.discordapp.com/ephemeral-attachments/1280215300087873587/1287251108372418652/R_Clannad_Nagisa_Furukawa.psd?ex=66f0dd84&is=66ef8c04&hm=e4ce74480fda0261ec122b65e32ef4244dc279414b4a4bcf175187ecac53b16d&","cardImageLink":"https://cdn.mazoku.cc/cards/87069f83-72bf-4b25-a9cd-ca1cb11a7545/card.png","batchId":1,"edition":1,"makers":["145722519163371520"],"eventType":null,"artist":null,"isActive":true,"createdDate":"2024-10-01T00:00:00"},"banner":null,"frame":null,"version":455,"owner":"292675388180791297","user":null,"obtainedDate":"2024-11-13T23:42:41.535643","equippedFrame":null,"isLocked":false}
+
+
+I want to make a robust super sleek and fast error free interaction similar to @/slashCommands/search.js  buttons UI
+
+Where user use the command and option to go through pages of cards based on the 
