@@ -2,8 +2,8 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const getTierEmoji = require('../utility/getTierEmoji');
 
 // Utility constants
-const COOLDOWN_DURATION = 5000;
-const CACHE_DURATION = 5000;
+const COOLDOWN_DURATION = 10000;
+const CACHE_DURATION = 10000;
 const EVENT_EMOJI = '🎃 ';
 const MAX_SERIES_LENGTH = 30;
 const MAX_VERSIONS_DISPLAY = 10;
@@ -166,7 +166,7 @@ module.exports = {
         .setDescription('Search through all cards')
         .addStringOption(option =>
             option.setName('card')
-                .setDescription('Type the character and press enter ( Suggestion is off )')
+                .setDescription('Search for a card by name')
                 .setRequired(true)),
 
     async execute(interaction) {
