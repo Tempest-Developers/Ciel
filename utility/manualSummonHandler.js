@@ -181,7 +181,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
             try {
                 countdownEmbed.fields[0] = {
                     name: 'Next Manual Summon can be claimed',
-                    value: `<t:${nextSummonTime}:R> 📵\n⭐ \`\\help\`\n⭐ \`\\wishlist\``
+                    value: `<t:${nextSummonTime}:R> 📵\n⭐ \`/help\`\n⭐ \`/wishlist\``
                 };
                 await countdownMsg.edit({
                     content: roleContent,

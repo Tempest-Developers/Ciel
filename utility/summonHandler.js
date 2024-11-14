@@ -213,7 +213,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             try {
                 countdownEmbed.fields[0] = {
                     name: 'Next Summon',
-                    value: `<t:${nextSummonTime}:R> 📵\n⭐ \`\\help\`\n⭐ \`\\wishlist\``
+                    value: `<t:${nextSummonTime}:R> 📵\n⭐ \`/help\`\n⭐ \`/wishlist\``
                 };
                 await countdownMsg.edit({
                     content: roleContent,
