@@ -81,9 +81,9 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
         `**Series:** ${eventMark}*${cardDetails.series}*`,
         `**Makers:** ${makerMentions}`,
         `**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`,
-        `**Lowest Print Out**: <${lowestPrint}>`,
-        `**Total Prints Claimed**: <${totalPrints}>`,
-        `**Total Owners**: <${ownersList.length}>`
+        `**Lowest Print Out**: *${lowestPrint}*`,
+        `**Total Prints Claimed**: *${totalPrints}*`,
+        `**Total Owners**: *${ownersList.length}*`
     ].join('\n');
 
     const embed = new EmbedBuilder()
