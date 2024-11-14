@@ -144,7 +144,7 @@ const createCardSelectMenu = (cards) => {
 const createWishlistButton = (isWishlisted) => {
     return new ButtonBuilder()
         .setCustomId('wishlist')
-        .setEmoji(isWishlisted ? '❎❤️' : '❤️')
+        .setEmoji(isWishlisted ? '❎' : '❤️')
         .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
 };
 
