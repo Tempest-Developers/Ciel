@@ -7,7 +7,7 @@ const getTierEmoji = require('../utility/getTierEmoji');
 const COOLDOWN_DURATION = 10000;
 const CARDS_PER_PAGE = 10;
 const INTERACTION_TIMEOUT = 900000; // 15 minutes
-const API_URL = 'https://api.mazoku.cc/api/get-cards';
+const API_URL = 'https://api.mazoku.cc/api';
 const MAX_RETRIES = 4;
 const RETRY_DELAY = 1000;
 
@@ -77,6 +77,34 @@ const paginateCards = (cards, page, pageSize = CARDS_PER_PAGE) => {
     return cards.slice(startIndex, endIndex);
 };
 
+// Function to fetch card details using GET API
+const fetchCardDetails = async (cardId) => {
+    try {
+        const response = await retryOperation(() => 
+            axios.get(`${API_URL}/get-card/${cardId}`, createAxiosConfig())
+        );
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching card ${cardId}:`, error);
+        return null;
+    }
+};
+
+// Function to fetch wishlisted cards
+const fetchWishlistedCards = async (userId) => {
+    // Get wishlisted card IDs
+    const cardIds = await db.getUserWishlist(userId);
+    if (!cardIds.length) return [];
+
+    // Fetch details for each card
+    const cardPromises = cardIds.map(cardId => fetchCardDetails(cardId));
+    const cards = await Promise.all(cardPromises);
+    
+    // Filter out any failed fetches and sort by wishlist count
+    const validCards = cards.filter(card => card !== null);
+    return sortByWishlistCount(validCards, userId);
+};
+
 const createCardListEmbed = async (cards, page, totalPages, userId) => {
     try {
         const embed = new EmbedBuilder()
@@ -135,22 +163,14 @@ const createCardDetailEmbed = async (card, userId) => {
             .setImage(`https://cdn.mazoku.cc/packs/${card.id}`)
             .setColor('#0099ff');
 
-        const [owners, wishlistCount] = await Promise.all([
-            db.getCardWishlistCount(card.id)
-        ]);
+        const wishlistCount = await db.getCardWishlistCount(card.id);
 
-        if (Array.isArray(owners) && owners.length > 0) {
-            const totalCopies = owners.length;
-            const uniqueOwners = new Set(owners.map(o => o.owner)).size;
-            const lowestPrint = Math.min(...owners.map(o => o.version).filter(v => v > 0));
-
-            embed.addFields(
-                { 
-                    name: 'Global Card Details:', 
-                    value: `**Prints Out** *${totalCopies.toString()}*\n**All Owners** *${uniqueOwners.toString()}*\n**Lowest Print** *#**${lowestPrint.toString()}***\n**Wishlist Count** *${wishlistCount}* ❤️`
-                }
-            );
-        }
+        embed.addFields(
+            { 
+                name: 'Global Card Details:', 
+                value: `**Wishlist Count** *${wishlistCount}* ❤️`
+            }
+        );
 
         return embed;
     } catch (error) {
@@ -217,44 +237,52 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('wishlist')
         .setDescription('View and manage your card wishlist')
-        .addStringOption(option =>
-            option.setName('name')
-                .setDescription('Filter cards by name'))
-        .addStringOption(option =>
-            option.setName('anime')
-                .setDescription('Filter cards by anime series'))
-        .addStringOption(option =>
-            option.setName('tier')
-                .setDescription('Filter cards by tier')
-                .addChoices(
-                    { name: 'C', value: 'C' },
-                    { name: 'R', value: 'R' },
-                    { name: 'SR', value: 'SR' },
-                    { name: 'SSR', value: 'SSR' },
-                    { name: 'UR', value: 'UR' }
-                ))
-        .addStringOption(option =>
-            option.setName('sort_by')
-                .setDescription('Sort cards by')
-                .addChoices(
-                    { name: 'Date Added', value: 'dateAdded' },
-                    { name: 'Name', value: 'name' },
-                    { name: 'Wishlist Count', value: 'wishlist' }
-                ))
-        .addStringOption(option =>
-            option.setName('sort_order')
-                .setDescription('Sort order')
-                .addChoices(
-                    { name: 'Ascending', value: 'asc' },
-                    { name: 'Descending', value: 'desc' }
-                ))
-        .addStringOption(option =>
-            option.setName('type')
-                .setDescription('Filter by card type')
-                .addChoices(
-                    { name: 'Event', value: 'event' },
-                    { name: 'Normal', value: 'normal' }
-                )),
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('list')
+                .setDescription('View your wishlisted cards'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('search')
+                .setDescription('Search through all cards')
+                .addStringOption(option =>
+                    option.setName('name')
+                        .setDescription('Filter cards by name'))
+                .addStringOption(option =>
+                    option.setName('anime')
+                        .setDescription('Filter cards by anime series'))
+                .addStringOption(option =>
+                    option.setName('tier')
+                        .setDescription('Filter cards by tier')
+                        .addChoices(
+                            { name: 'C', value: 'C' },
+                            { name: 'R', value: 'R' },
+                            { name: 'SR', value: 'SR' },
+                            { name: 'SSR', value: 'SSR' },
+                            { name: 'UR', value: 'UR' }
+                        ))
+                .addStringOption(option =>
+                    option.setName('sort_by')
+                        .setDescription('Sort cards by')
+                        .addChoices(
+                            { name: 'Date Added', value: 'dateAdded' },
+                            { name: 'Name', value: 'name' },
+                            { name: 'Wishlist Count', value: 'wishlist' }
+                        ))
+                .addStringOption(option =>
+                    option.setName('sort_order')
+                        .setDescription('Sort order')
+                        .addChoices(
+                            { name: 'Ascending', value: 'asc' },
+                            { name: 'Descending', value: 'desc' }
+                        ))
+                .addStringOption(option =>
+                    option.setName('type')
+                        .setDescription('Filter by card type')
+                        .addChoices(
+                            { name: 'Event', value: 'event' },
+                            { name: 'Normal', value: 'normal' }
+                        ))),
 
     async execute(interaction) {
         if (!interaction.isCommand()) return;
@@ -286,237 +314,111 @@ module.exports = {
 
             await interaction.deferReply();
 
-            let requestBody = createBaseRequestBody();
+            const subcommand = interaction.options.getSubcommand();
             let currentCards = [];
-
-            // Handle options with validation
-            const name = interaction.options.getString('name');
-            const anime = interaction.options.getString('anime');
-            const tier = interaction.options.getString('tier');
-            const sortBy = interaction.options.getString('sort_by');
-            const sortOrder = interaction.options.getString('sort_order') || 'desc';
-            const type = interaction.options.getString('type');
-
-            if (name?.trim()) requestBody.name = name.trim();
-            if (anime?.trim()) requestBody.seriesName = anime.trim();
-            if (tier) requestBody.tiers = [tier];
-            if (sortBy && sortBy !== 'wishlist') requestBody.sortBy = sortBy;
-            if (sortOrder && sortBy !== 'wishlist') requestBody.sortOrder = sortOrder;
-            if (type) requestBody.eventType = type === 'event';
-
             let currentPage = 1;
             let totalPages = 1;
+            let allCards = [];
 
-            const fetchCards = async (page) => {
-                if (sortBy === 'wishlist') {
-                    // Get cards from wishlist DB
-                    const cardIds = await db.getUserWishlist(interaction.user.id);
-                    
-                    if (!cardIds.length) {
-                        return {
-                            cards: [],
-                            totalPages: 1
-                        };
-                    }
-                    
-                    // Get card details from API
-                    const response = await retryOperation(async () => {
-                        return await axios.post(API_URL, {
-                            ...requestBody,
-                            cardIds,
-                            page: 1,
-                            pageSize: cardIds.length // Get all cards at once since we'll sort them
-                        }, createAxiosConfig());
-                    });
-                    
-                    let cards = response.data.cards || [];
-                    cards = await sortByWishlistCount(cards, interaction.user.id);
-                    
-                    // Manual pagination since we're handling all cards
-                    const startIdx = (page - 1) * CARDS_PER_PAGE;
-                    const endIdx = startIdx + CARDS_PER_PAGE;
-                    const paginatedCards = cards.slice(startIdx, endIdx);
-                    const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
-                    
-                    return {
-                        cards: paginatedCards,
-                        totalPages: totalPages || 1
-                    };
-                } else {
-                    const pageRequestBody = { ...requestBody, page };
-                    const response = await retryOperation(async () => {
-                        return await axios.post(API_URL, pageRequestBody, createAxiosConfig(pageRequestBody));
-                    });
-                    return {
-                        cards: response.data.cards || [],
-                        totalPages: response.data.pageCount || 1
-                    };
-                }
-            };
-
-            try {
-                const initialFetch = await fetchCards(currentPage);
-                currentCards = initialFetch.cards;
-                totalPages = initialFetch.totalPages;
-
-                if (currentCards.length === 0) {
-                    await interaction.editReply('No cards found matching your criteria.');
+            if (subcommand === 'list') {
+                // Fetch wishlisted cards
+                allCards = await fetchWishlistedCards(interaction.user.id);
+                if (!allCards.length) {
+                    await interaction.editReply('You have no cards in your wishlist.');
                     return;
                 }
 
-                const pageCards = currentCards;
-                const embed = await createCardListEmbed(pageCards, currentPage, totalPages, interaction.user.id);
-                const navigationButtons = createNavigationButtons(currentPage, totalPages);
-                const selectMenu = createCardSelectMenu(pageCards);
+                totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
+                currentCards = paginateCards(allCards, currentPage);
+            } else {
+                // Handle search subcommand with existing API
+                let requestBody = createBaseRequestBody();
+                const name = interaction.options.getString('name');
+                const anime = interaction.options.getString('anime');
+                const tier = interaction.options.getString('tier');
+                const sortBy = interaction.options.getString('sort_by');
+                const sortOrder = interaction.options.getString('sort_order') || 'desc';
+                const type = interaction.options.getString('type');
 
-                const components = [navigationButtons];
-                if (selectMenu) {
-                    components.push(selectMenu);
+                if (name?.trim()) requestBody.name = name.trim();
+                if (anime?.trim()) requestBody.seriesName = anime.trim();
+                if (tier) requestBody.tiers = [tier];
+                if (sortBy && sortBy !== 'wishlist') requestBody.sortBy = sortBy;
+                if (sortOrder && sortBy !== 'wishlist') requestBody.sortOrder = sortOrder;
+                if (type) requestBody.eventType = type === 'event';
+
+                const response = await retryOperation(() => 
+                    axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig(requestBody))
+                );
+
+                currentCards = response.data.cards || [];
+                totalPages = response.data.pageCount || 1;
+
+                if (sortBy === 'wishlist') {
+                    currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
                 }
+            }
 
-                const reply = await interaction.editReply({
-                    embeds: [embed],
-                    components
-                });
+            if (currentCards.length === 0) {
+                await interaction.editReply('No cards found matching your criteria.');
+                return;
+            }
 
-                const collector = reply.createMessageComponentCollector({
-                    time: INTERACTION_TIMEOUT
-                });
+            const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id);
+            const navigationButtons = createNavigationButtons(currentPage, totalPages);
+            const selectMenu = createCardSelectMenu(currentCards);
 
-                collector.on('collect', async i => {
-                    try {
-                        if (i.user.id !== interaction.user.id) {
-                            await i.reply({
-                                content: 'You cannot use these controls.',
-                                ephemeral: true
-                            });
-                            return;
-                        }
+            const components = [navigationButtons];
+            if (selectMenu) {
+                components.push(selectMenu);
+            }
 
-                        await i.deferUpdate();
+            const reply = await interaction.editReply({
+                embeds: [embed],
+                components
+            });
 
-                        if (i.isButton()) {
-                            if (i.customId === 'wishlist') {
-                                try {
-                                    const cardId = i.message.embeds[0].description.split('\n')[0].split('[')[1].split(']')[0];
-                                    const isWishlisted = await db.isInWishlist(i.user.id, cardId);
-                                    
-                                    let success;
-                                    if (isWishlisted) {
-                                        success = await db.removeFromWishlist(i.user.id, cardId);
-                                    } else {
-                                        success = await db.addToWishlist(i.user.id, cardId);
-                                    }
+            const collector = reply.createMessageComponentCollector({
+                time: INTERACTION_TIMEOUT
+            });
 
-                                    if (!success) {
-                                        await i.followUp({
-                                            content: 'Failed to update wishlist. Please try again.',
-                                            ephemeral: true
-                                        });
-                                        return;
-                                    }
+            collector.on('collect', async i => {
+                try {
+                    if (i.user.id !== interaction.user.id) {
+                        await i.reply({
+                            content: 'You cannot use these controls.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
 
-                                    const wishlistButton = new ButtonBuilder()
-                                        .setCustomId('wishlist')
-                                        .setEmoji(isWishlisted ? '❤️' : '❎')
-                                        .setStyle(isWishlisted ? ButtonStyle.Success : ButtonStyle.Danger);
+                    await i.deferUpdate();
 
-                                    const backButton = new ButtonBuilder()
-                                        .setCustomId('back')
-                                        .setLabel('Back to List')
-                                        .setStyle(ButtonStyle.Secondary);
+                    if (i.isButton()) {
+                        if (i.customId === 'wishlist') {
+                            try {
+                                const cardId = i.message.embeds[0].description.split('\n')[0].split('[')[1].split(']')[0];
+                                const isWishlisted = await db.isInWishlist(i.user.id, cardId);
+                                
+                                let success;
+                                if (isWishlisted) {
+                                    success = await db.removeFromWishlist(i.user.id, cardId);
+                                } else {
+                                    success = await db.addToWishlist(i.user.id, cardId);
+                                }
 
-                                    const actionRow = new ActionRowBuilder()
-                                        .addComponents(wishlistButton, backButton);
-
-                                    // Update the embed to show new wishlist count
-                                    const selectedCard = currentCards.find(c => c.id === cardId);
-                                    if (selectedCard) {
-                                        const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
-                                        await i.editReply({
-                                            embeds: [updatedEmbed],
-                                            components: [actionRow]
-                                        });
-                                    } else {
-                                        await i.editReply({ components: [actionRow] });
-                                    }
-                                } catch (error) {
-                                    console.log(`[Wishlist Error]
-Server: ${i.guild.name}
-User: ${i.user.tag}
-Error: ${error.stack}
-                                    `);
+                                if (!success) {
                                     await i.followUp({
-                                        content: 'An error occurred while updating wishlist. Please try again.',
+                                        content: 'Failed to update wishlist. Please try again.',
                                         ephemeral: true
                                     });
+                                    return;
                                 }
-                            } else if (i.customId === 'back') {
-                                const pageCards = currentCards;
-                                const newEmbed = await createCardListEmbed(pageCards, currentPage, totalPages, i.user.id);
-                                const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
-                                const newSelectMenu = createCardSelectMenu(pageCards);
-
-                                const newComponents = [newNavigationButtons];
-                                if (newSelectMenu) {
-                                    newComponents.push(newSelectMenu);
-                                }
-
-                                await i.editReply({
-                                    embeds: [newEmbed],
-                                    components: newComponents
-                                });
-                            } else {
-                                let newPage = currentPage;
-                                switch (i.customId) {
-                                    case 'first': newPage = 1; break;
-                                    case 'prev': newPage = Math.max(1, currentPage - 1); break;
-                                    case 'next': newPage = Math.min(totalPages, currentPage + 1); break;
-                                    case 'last': newPage = totalPages; break;
-                                }
-
-                                if (newPage !== currentPage) {
-                                    try {
-                                        const newData = await fetchCards(newPage);
-                                        currentCards = newData.cards;
-                                        currentPage = newPage;
-                                        
-                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id);
-                                        const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
-                                        const newSelectMenu = createCardSelectMenu(currentCards);
-
-                                        const newComponents = [newNavigationButtons];
-                                        if (newSelectMenu) {
-                                            newComponents.push(newSelectMenu);
-                                        }
-
-                                        await i.editReply({
-                                            embeds: [newEmbed],
-                                            components: newComponents
-                                        });
-                                    } catch (error) {
-                                        console.log(`[Wishlist Error]
-Server: ${i.guild.name}
-User: ${i.user.tag}
-Error: ${error.stack}
-                                        `);
-                                        await i.followUp({
-                                            content: 'Failed to load the next page. Please try again.',
-                                            ephemeral: true
-                                        });
-                                    }
-                                }
-                            }
-                        } else if (i.isStringSelectMenu()) {
-                            const selectedCard = currentCards.find(c => c.id === i.values[0]);
-                            if (selectedCard) {
-                                const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
-                                const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.id);
 
                                 const wishlistButton = new ButtonBuilder()
                                     .setCustomId('wishlist')
-                                    .setEmoji('❤️')
-                                    .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
+                                    .setEmoji(isWishlisted ? '❤️' : '❎')
+                                    .setStyle(isWishlisted ? ButtonStyle.Success : ButtonStyle.Danger);
 
                                 const backButton = new ButtonBuilder()
                                     .setCustomId('back')
@@ -526,46 +428,164 @@ Error: ${error.stack}
                                 const actionRow = new ActionRowBuilder()
                                     .addComponents(wishlistButton, backButton);
 
-                                await i.editReply({
-                                    embeds: [detailEmbed],
-                                    components: [actionRow]
-                                });
-                            }
-                        }
-                    } catch (error) {
-                        console.log(`[Wishlist Error]
+                                // Update the embed to show new wishlist count
+                                const selectedCard = currentCards.find(c => c.id === cardId);
+                                if (selectedCard) {
+                                    const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
+                                    await i.editReply({
+                                        embeds: [updatedEmbed],
+                                        components: [actionRow]
+                                    });
+                                } else {
+                                    await i.editReply({ components: [actionRow] });
+                                }
+                            } catch (error) {
+                                console.log(`[Wishlist Error]
 Server: ${i.guild.name}
 User: ${i.user.tag}
 Error: ${error.stack}
-                        `);
-                        await i.followUp({
-                            content: 'An error occurred. Please try again.',
-                            ephemeral: true
-                        });
+                                `);
+                                await i.followUp({
+                                    content: 'An error occurred while updating wishlist. Please try again.',
+                                    ephemeral: true
+                                });
+                            }
+                        } else if (i.customId === 'back') {
+                            const pageCards = currentCards;
+                            const newEmbed = await createCardListEmbed(pageCards, currentPage, totalPages, i.user.id);
+                            const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
+                            const newSelectMenu = createCardSelectMenu(pageCards);
+
+                            const newComponents = [newNavigationButtons];
+                            if (newSelectMenu) {
+                                newComponents.push(newSelectMenu);
+                            }
+
+                            await i.editReply({
+                                embeds: [newEmbed],
+                                components: newComponents
+                            });
+                        } else {
+                            let newPage = currentPage;
+                            switch (i.customId) {
+                                case 'first': newPage = 1; break;
+                                case 'prev': newPage = Math.max(1, currentPage - 1); break;
+                                case 'next': newPage = Math.min(totalPages, currentPage + 1); break;
+                                case 'last': newPage = totalPages; break;
+                            }
+
+                            if (newPage !== currentPage) {
+                                try {
+                                    if (subcommand === 'list') {
+                                        // For wishlist, paginate the existing cards
+                                        currentPage = newPage;
+                                        currentCards = paginateCards(allCards, currentPage);
+                                    } else {
+                                        // For search, fetch new page from API
+                                        const requestBody = {
+                                            page: newPage,
+                                            pageSize: CARDS_PER_PAGE,
+                                            name: name?.trim() || "",
+                                            type: "Card",
+                                            seriesName: anime?.trim() || "",
+                                            minVersion: 0,
+                                            maxVersion: 1000,
+                                            sortBy,
+                                            sortOrder
+                                        };
+
+                                        if (tier) requestBody.tiers = [tier];
+                                        if (type) requestBody.eventType = type === 'event';
+
+                                        const response = await retryOperation(() => 
+                                            axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig(requestBody))
+                                        );
+
+                                        currentCards = response.data.cards || [];
+                                        currentPage = newPage;
+
+                                        if (sortBy === 'wishlist') {
+                                            currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
+                                        }
+                                    }
+                                    
+                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id);
+                                    const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
+                                    const newSelectMenu = createCardSelectMenu(currentCards);
+
+                                    const newComponents = [newNavigationButtons];
+                                    if (newSelectMenu) {
+                                        newComponents.push(newSelectMenu);
+                                    }
+
+                                    await i.editReply({
+                                        embeds: [newEmbed],
+                                        components: newComponents
+                                    });
+                                } catch (error) {
+                                    console.log(`[Wishlist Error]
+Server: ${i.guild.name}
+User: ${i.user.tag}
+Error: ${error.stack}
+                                    `);
+                                    await i.followUp({
+                                        content: 'Failed to load the next page. Please try again.',
+                                        ephemeral: true
+                                    });
+                                }
+                            }
+                        }
+                    } else if (i.isStringSelectMenu()) {
+                        const selectedCard = currentCards.find(c => c.id === i.values[0]);
+                        if (selectedCard) {
+                            const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
+                            const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.id);
+
+                            const wishlistButton = new ButtonBuilder()
+                                .setCustomId('wishlist')
+                                .setEmoji('❤️')
+                                .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
+
+                            const backButton = new ButtonBuilder()
+                                .setCustomId('back')
+                                .setLabel('Back to List')
+                                .setStyle(ButtonStyle.Secondary);
+
+                            const actionRow = new ActionRowBuilder()
+                                .addComponents(wishlistButton, backButton);
+
+                            await i.editReply({
+                                embeds: [detailEmbed],
+                                components: [actionRow]
+                            });
+                        }
                     }
-                });
+                } catch (error) {
+                    console.log(`[Wishlist Error]
+Server: ${i.guild.name}
+User: ${i.user.tag}
+Error: ${error.stack}
+                    `);
+                    await i.followUp({
+                        content: 'An error occurred. Please try again.',
+                        ephemeral: true
+                    });
+                }
+            });
 
-                collector.on('end', async () => {
-                    try {
-                        const finalEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id)
-                            .setFooter({ text: 'This interaction has expired. Please run the command again.' });
+            collector.on('end', async () => {
+                try {
+                    const finalEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id)
+                        .setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
-                        await interaction.editReply({
-                            embeds: [finalEmbed],
-                            components: []
-                        });
-                    } catch (error) {
-                        console.error('Error handling collector end:', error);
-                    }
-                });
-
-            } catch (error) {
-                console.error('Error fetching cards:', error);
-                await interaction.editReply({
-                    content: 'An error occurred while fetching cards. Please try again later.',
-                    components: []
-                });
-            }
+                    await interaction.editReply({
+                        embeds: [finalEmbed],
+                        components: []
+                    });
+                } catch (error) {
+                    console.error('Error handling collector end:', error);
+                }
+            });
 
         } catch (error) {
             console.error('Command execution error:', error);
