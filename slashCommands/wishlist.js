@@ -289,11 +289,9 @@ module.exports = {
 
             try {
                 // Use retry mechanism for API call
-                console.log(requestBody);
                 const response = await retryOperation(async () => {
                     return await axios.post(API_URL, requestBody, createAxiosConfig(requestBody));
                 });
-                console.log(response.data)
                 
                 currentCards = response.data.cards || [];
                 const totalPages = response.data.pageCount || 1;
@@ -432,7 +430,7 @@ module.exports = {
 
                                 const wishlistButton = new ButtonBuilder()
                                     .setCustomId('wishlist')
-                                    .setEmoji('❤️')
+                                    .setEmoji(isCurrentlyWishlisted ? '❤️' : '❎')
                                     .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
 
                                 const backButton = new ButtonBuilder()
