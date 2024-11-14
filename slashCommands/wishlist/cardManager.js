@@ -1,6 +1,7 @@
 const db = require('../../database/mongo');
 const { fetchCardDetails } = require('./api');
 const { CARDS_PER_PAGE } = require('./constants');
+const { wrapDbOperation, connectDB } = require('../../database/modules/connection');
 
 const sortByWishlistCount = async (cards, userId) => {
     if (!Array.isArray(cards) || cards.length === 0) return cards;
@@ -29,45 +30,47 @@ const sortByWishlistCount = async (cards, userId) => {
 };
 
 const fetchAllWishlistedCards = async (userId) => {
-    try {
-        // Get all cards with their wishlist counts
-        const cardWishlistCounts = await db.getCardWishlistCount();
-        if (!cardWishlistCounts || cardWishlistCounts.size === 0) return [];
+    return wrapDbOperation(async () => {
+        const { mCardWishlistDB } = await connectDB();
+        try {
+            // Get all cards from mCardWishlistDB with count > 0
+            const wishlistedCards = await mCardWishlistDB.find({ count: { $gt: 0 } })
+                .sort({ count: -1 })
+                .toArray();
 
-        // Get user's wishlist status
-        const userWishlist = await db.getUserWishlist(userId);
-        const wishlistSet = new Set(userWishlist);
+            if (!wishlistedCards || wishlistedCards.length === 0) return [];
 
-        // Convert to array and sort by count
-        const sortedCardEntries = Array.from(cardWishlistCounts.entries())
-            .sort(([, countA], [, countB]) => countB - countA);
+            // Get user's wishlist status
+            const userWishlist = await db.getUserWishlist(userId);
+            const wishlistSet = new Set(userWishlist);
 
-        // Fetch details for each card
-        const cardPromises = sortedCardEntries.map(async ([cardId, count]) => {
-            try {
-                const cardDetails = await fetchCardDetails(cardId);
-                if (cardDetails) {
-                    return {
-                        ...cardDetails,
-                        wishlistCount: count,
-                        isWishlisted: wishlistSet.has(cardId)
-                    };
+            // Fetch details for each card
+            const cardPromises = wishlistedCards.map(async wishlistDoc => {
+                try {
+                    const cardDetails = await fetchCardDetails(wishlistDoc.cardId);
+                    if (cardDetails) {
+                        return {
+                            ...cardDetails,
+                            wishlistCount: wishlistDoc.count,
+                            isWishlisted: wishlistSet.has(wishlistDoc.cardId)
+                        };
+                    }
+                    return null;
+                } catch (error) {
+                    console.error(`Error fetching card ${wishlistDoc.cardId}:`, error);
+                    return null;
                 }
-                return null;
-            } catch (error) {
-                console.error(`Error fetching card ${cardId}:`, error);
-                return null;
-            }
-        });
+            });
 
-        const cardDetails = await Promise.all(cardPromises);
-        
-        // Filter out any failed fetches
-        return cardDetails.filter(card => card !== null);
-    } catch (error) {
-        console.error('Error fetching all wishlisted cards:', error);
-        return [];
-    }
+            const cardDetails = await Promise.all(cardPromises);
+            
+            // Filter out any failed fetches
+            return cardDetails.filter(card => card !== null);
+        } catch (error) {
+            console.error('Error fetching all wishlisted cards:', error);
+            return [];
+        }
+    });
 };
 
 const paginateCards = (cards, page, pageSize = CARDS_PER_PAGE) => {
