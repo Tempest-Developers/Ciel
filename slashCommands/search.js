@@ -179,7 +179,7 @@ module.exports = {
                 .slice(0, 25)
                 .map(card => ({
                     name: formatAutocompleteSuggestion(card),
-                    value: card.name
+                    value: card.id // Return card ID instead of name
                 }));
 
             await interaction.respond(suggestions);
@@ -208,28 +208,19 @@ module.exports = {
 
             await interaction.deferReply();
             
-            const searchTerm = interaction.options.getString('card').toLowerCase();
-            if (!searchTerm) {
+            const cardId = interaction.options.getString('card');
+            if (!cardId) {
                 return await interaction.editReply('Please provide a search term.');
             }
 
             try {
                 const cards = await loadCardsData();
                 
-                // First try exact match
-                let cardDetails = cards.find(card => 
-                    card?.name?.toLowerCase() === searchTerm
-                );
-
-                // Fall back to partial match if no exact match found
-                if (!cardDetails) {
-                    cardDetails = cards.find(card => 
-                        card?.name?.toLowerCase().includes(searchTerm)
-                    );
-                }
+                // Find card by ID (exact match)
+                const cardDetails = cards.find(card => card.id === cardId);
 
                 if (!cardDetails) {
-                    return await interaction.editReply('No cards found matching your search term.');
+                    return await interaction.editReply('No card found with the specified ID.');
                 }
 
                 // Fetch owners for the found card
