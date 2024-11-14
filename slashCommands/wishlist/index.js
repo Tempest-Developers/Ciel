@@ -89,10 +89,15 @@ module.exports = {
                 return;
             }
 
-            // Cooldown check
-            if (cooldowns.has(interaction.user.id)) {
-                const timeLeft = (cooldowns.get(interaction.user.id) - Date.now()) / 1000;
-                if (timeLeft > 0) {
+            // Cooldown check with guild-specific cooldown
+            const guildId = interaction.guild.id;
+            const userId = interaction.user.id;
+            const cooldownKey = `${guildId}-${userId}`;
+
+            if (cooldowns.has(cooldownKey)) {
+                const expirationTime = cooldowns.get(cooldownKey);
+                if (Date.now() < expirationTime) {
+                    const timeLeft = (expirationTime - Date.now()) / 1000;
                     await interaction.reply({
                         content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
                         ephemeral: true
@@ -101,8 +106,9 @@ module.exports = {
                 }
             }
 
-            cooldowns.set(interaction.user.id, Date.now() + COOLDOWN_DURATION);
-            setTimeout(() => cooldowns.delete(interaction.user.id), COOLDOWN_DURATION);
+            // Set cooldown
+            cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
+            setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
 
             await interaction.deferReply();
 

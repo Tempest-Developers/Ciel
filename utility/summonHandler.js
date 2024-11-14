@@ -171,10 +171,13 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             fields: [
                 {
                     name: 'Claim Time',
-                    value: `<t:${countdownTime}:R> 📵`
+                    value: `<t:${countdownTime}:R> 📵\n⭐ \`\\help\`\n⭐ \`\\wishlist\``
                 }
             ],
-            color: 0x0099ff
+            color: 0x0099ff,
+            footer: {
+                text: 'Wishlisted cards show up in summon information'
+            }
         };
 
         let roleContent = '';
@@ -210,7 +213,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             try {
                 countdownEmbed.fields[0] = {
                     name: 'Next Summon',
-                    value: `<t:${nextSummonTime}:R> 📵`
+                    value: `<t:${nextSummonTime}:R> 📵\n⭐ \`\\help\`\n⭐ \`\\wishlist\``
                 };
                 await countdownMsg.edit({
                     content: roleContent,
