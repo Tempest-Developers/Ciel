@@ -152,11 +152,13 @@ module.exports = {
         .setDescription('Search through all cards')
         .addStringOption(option =>
             option.setName('card')
-                .setDescription('Search for a card by name')
+                .setDescription('Search for a card by name ( Suggestion will be shown )')
                 .setRequired(true)
                 .setAutocomplete(true)),
 
     async autocomplete(interaction) {
+        if (!interaction.isAutocomplete()) return;
+        
         try {
             const focusedValue = interaction.options.getFocused().toLowerCase();
             if (!focusedValue) return await interaction.respond([]);
