@@ -2,10 +2,10 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelect
 const getTierEmoji = require('../../utility/getTierEmoji');
 const db = require('../../database/mongo');
 
-const createCardListEmbed = async (cards, page, totalPages, userId) => {
+const createCardListEmbed = async (cards, page, totalPages, userId, isListMode = false) => {
     try {
         const embed = new EmbedBuilder()
-            .setTitle('Most Wishlisted Cards')
+            .setTitle('Card Wishlist')
             .setColor('#0099ff');
 
         let description = `Page ${page} of ${totalPages}\n\n`;
@@ -13,15 +13,36 @@ const createCardListEmbed = async (cards, page, totalPages, userId) => {
         if (!Array.isArray(cards) || cards.length === 0) {
             description += 'No cards found.';
         } else {
-            // Create the description with all card information
-            cards.forEach(card => {
-                if (!card) return;
-                const tierEmoji = getTierEmoji(`${card.tier}T`);
-                const eventEmoji = card.eventType ? '🎃' : '';
-                const wishlistCount = card.wishlistCount || 0;
-                const heartEmoji = card.isWishlisted ? ':yellow_heart:' : '❤️';
-                description += `${tierEmoji} **${card.name}** ${eventEmoji}*${card.series}* (${wishlistCount} ${heartEmoji})\n`;
-            });
+            // Get all card IDs for bulk wishlist count fetch
+            const cardIds = cards.map(card => card.id);
+            
+            if (isListMode) {
+                // For list mode: Use pre-fetched wishlist counts and status
+                cards.forEach(card => {
+                    if (!card) return;
+                    const tierEmoji = getTierEmoji(`${card.tier}T`);
+                    const eventEmoji = card.eventType ? '🎃' : '';
+                    const wishlistCount = card.wishlistCount || 0;
+                    const heartEmoji = card.isWishlisted ? ':yellow_heart:' : '❤️';
+                    description += `${tierEmoji} **${card.name}** ${eventEmoji}*${card.series}* (${wishlistCount} ${heartEmoji})\n`;
+                });
+            } else {
+                // For search mode: Fetch both global counts and user status
+                const [wishlistCounts, userWishlistStatus] = await Promise.all([
+                    db.getCardWishlistCount(cardIds),
+                    Promise.all(cardIds.map(cardId => db.isInWishlist(userId, cardId)))
+                ]);
+
+                cards.forEach((card, index) => {
+                    if (!card) return;
+                    const tierEmoji = getTierEmoji(`${card.tier}T`);
+                    const eventEmoji = card.eventType ? '🎃' : '';
+                    const wishlistCount = wishlistCounts.get(card.id) || 0;
+                    const isWishlisted = userWishlistStatus[index];
+                    const heartEmoji = isWishlisted ? ':yellow_heart:' : '❤️';
+                    description += `${tierEmoji} **${card.name}** ${eventEmoji}*${card.series}* (${wishlistCount} ${heartEmoji})\n`;
+                });
+            }
         }
 
         embed.setDescription(description);
@@ -41,10 +62,11 @@ const createCardDetailEmbed = async (card, userId) => {
             throw new Error('Invalid card data');
         }
 
-        // Get current wishlist status if not provided
-        const isWishlisted = card.isWishlisted !== undefined ? 
-            card.isWishlisted : 
-            await db.isInWishlist(userId, card.id);
+        // Get both global wishlist count and user's wishlist status
+        const [wishlistCount, isWishlisted] = await Promise.all([
+            db.getCardWishlistCount(card.id),
+            db.isInWishlist(userId, card.id)
+        ]);
 
         const heartEmoji = isWishlisted ? '❤️' : '';
 
@@ -52,19 +74,11 @@ const createCardDetailEmbed = async (card, userId) => {
             .setTitle(`${getTierEmoji(`${card.tier}T`)} ${card.name} ${card.eventType ? '🎃' : ''} ${heartEmoji}`)
             .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n*${card.series}*`)
             .setImage(`https://cdn.mazoku.cc/packs/${card.id}`)
-            .setColor('#0099ff');
-
-        // Use provided wishlist count or fetch it
-        const wishlistCount = card.wishlistCount !== undefined ? 
-            card.wishlistCount : 
-            await db.getCardWishlistCount(card.id);
-
-        embed.addFields(
-            { 
+            .setColor('#0099ff')
+            .addFields({ 
                 name: 'Global Card Details:', 
                 value: `**Wishlist Count** *${wishlistCount}* ❤️`
-            }
-        );
+            });
 
         return embed;
     } catch (error) {
@@ -130,7 +144,7 @@ const createCardSelectMenu = (cards) => {
 const createWishlistButton = (isWishlisted) => {
     return new ButtonBuilder()
         .setCustomId('wishlist')
-        .setEmoji(isWishlisted ? '❎' : '❤️')
+        .setEmoji(isWishlisted ? '❤️' : '❎')
         .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
 };
 
