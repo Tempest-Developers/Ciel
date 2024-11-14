@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, EmbedBuilder } = require('discord.js');
 const db = require('../../database/mongo');
 const { COOLDOWN_DURATION, INTERACTION_TIMEOUT, CARDS_PER_PAGE } = require('./constants');
 const { searchCards } = require('./api');
@@ -13,6 +13,7 @@ const {
 const {
     sortByWishlistCount,
     fetchAllWishlistedCards,
+    fetchUserWishlistedCards,
     paginateCards,
     toggleWishlist
 } = require('./cardManager');
@@ -26,8 +27,12 @@ module.exports = {
         .setDescription('View and manage card wishlists')
         .addSubcommand(subcommand =>
             subcommand
-                .setName('list')
-                .setDescription('View most wishlisted cards'))
+                .setName('global')
+                .setDescription('View most wishlisted cards globally'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('me')
+                .setDescription('View your wishlisted cards'))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('search')
@@ -102,7 +107,8 @@ module.exports = {
             await interaction.deferReply();
 
             const subcommand = interaction.options.getSubcommand();
-            const isListMode = subcommand === 'list';
+            const isGlobalMode = subcommand === 'global';
+            const isMeMode = subcommand === 'me';
             let currentCards = [];
             let currentPage = 1;
             let totalPages = 1;
@@ -118,16 +124,20 @@ module.exports = {
                 type: interaction.options.getString('type')
             };
 
-            if (isListMode) {
+            if (isGlobalMode) {
                 // Fetch all wishlisted cards sorted by wishlist count
                 allCards = await fetchAllWishlistedCards(interaction.user.id);
                 if (!allCards.length) {
-                    await interaction.editReply('No wishlisted cards found.');
+                    await interaction.editReply('No wishlisted cards found globally.');
                     return;
                 }
-
-                totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
-                currentCards = paginateCards(allCards, currentPage);
+            } else if (isMeMode) {
+                // Fetch user's personal wishlist
+                allCards = await fetchUserWishlistedCards(interaction.user.id);
+                if (!allCards.length) {
+                    await interaction.editReply('You have no wishlisted cards.');
+                    return;
+                }
             } else {
                 try {
                     const result = await searchCards(searchParams, currentPage);
@@ -144,12 +154,17 @@ module.exports = {
                 }
             }
 
+            if (isGlobalMode || isMeMode) {
+                totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
+                currentCards = paginateCards(allCards, currentPage);
+            }
+
             if (currentCards.length === 0) {
                 await interaction.editReply('No cards found matching your criteria.');
                 return;
             }
 
-            const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isListMode);
+            const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode);
             const navigationButtons = createNavigationButtons(currentPage, totalPages);
             const selectMenu = createCardSelectMenu(currentCards);
 
@@ -200,14 +215,14 @@ module.exports = {
                             const selectedCard = currentCards.find(c => c.id === cardId);
                             if (selectedCard) {
                                 selectedCard.isWishlisted = result.isWishlisted;
-                                const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id, isListMode);
+                                const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id, isGlobalMode);
                                 await i.editReply({
                                     embeds: [updatedEmbed],
                                     components: [actionRow]
                                 });
                             }
                         } else if (i.customId === 'back') {
-                            const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isListMode);
+                            const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode);
                             const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                             const newSelectMenu = createCardSelectMenu(currentCards);
 
@@ -231,7 +246,7 @@ module.exports = {
 
                             if (newPage !== currentPage) {
                                 try {
-                                    if (isListMode) {
+                                    if (isGlobalMode || isMeMode) {
                                         currentPage = newPage;
                                         currentCards = paginateCards(allCards, currentPage);
                                     } else {
@@ -244,7 +259,7 @@ module.exports = {
                                         }
                                     }
                                     
-                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isListMode);
+                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode);
                                     const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                     const newSelectMenu = createCardSelectMenu(currentCards);
 
@@ -269,7 +284,7 @@ module.exports = {
                     } else if (i.isStringSelectMenu()) {
                         const selectedCard = currentCards.find(c => c.id === i.values[0]);
                         if (selectedCard) {
-                            const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id, isListMode);
+                            const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id, isGlobalMode);
                             const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.id);
 
                             const wishlistButton = createWishlistButton(isWishlisted);
@@ -294,11 +309,12 @@ module.exports = {
 
             collector.on('end', async () => {
                 try {
-                    const finalEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isListMode)
-                        .setFooter({ text: 'This interaction has expired. Please run the command again.' });
-
+                    const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode);
+                    const embedData = embed.toJSON();
+                    embedData.footer = { text: 'This interaction has expired. Please run the command again.' };
+                    
                     await interaction.editReply({
-                        embeds: [finalEmbed],
+                        embeds: [new EmbedBuilder(embedData)],
                         components: []
                     });
                 } catch (error) {

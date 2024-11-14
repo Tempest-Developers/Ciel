@@ -73,6 +73,45 @@ const fetchAllWishlistedCards = async (userId) => {
     });
 };
 
+const fetchUserWishlistedCards = async (userId) => {
+    try {
+        // Get user's wishlisted card IDs
+        const cardIds = await db.getUserWishlist(userId);
+        if (!cardIds || cardIds.length === 0) return [];
+
+        // Get global wishlist counts for these cards
+        const wishlistCounts = await db.getCardWishlistCount(cardIds);
+
+        // Fetch details for each card
+        const cardPromises = cardIds.map(async cardId => {
+            try {
+                const cardDetails = await fetchCardDetails(cardId);
+                if (cardDetails) {
+                    return {
+                        ...cardDetails,
+                        wishlistCount: wishlistCounts.get(cardId) || 0,
+                        isWishlisted: true // These are all from user's wishlist
+                    };
+                }
+                return null;
+            } catch (error) {
+                console.error(`Error fetching card ${cardId}:`, error);
+                return null;
+            }
+        });
+
+        const cardDetails = await Promise.all(cardPromises);
+        
+        // Filter out any failed fetches and sort by wishlist count
+        return cardDetails
+            .filter(card => card !== null)
+            .sort((a, b) => b.wishlistCount - a.wishlistCount);
+    } catch (error) {
+        console.error('Error fetching user wishlisted cards:', error);
+        return [];
+    }
+};
+
 const paginateCards = (cards, page, pageSize = CARDS_PER_PAGE) => {
     if (!Array.isArray(cards)) return [];
     
@@ -114,6 +153,7 @@ const toggleWishlist = async (userId, cardId) => {
 module.exports = {
     sortByWishlistCount,
     fetchAllWishlistedCards,
+    fetchUserWishlistedCards,
     paginateCards,
     toggleWishlist
 };
