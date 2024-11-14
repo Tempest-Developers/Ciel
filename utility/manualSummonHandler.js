@@ -14,17 +14,19 @@ setInterval(() => {
     }
 }, 60 * 60 * 1000);
 
-async function getCardInfo(cardId) {
+async function getCardInfo(cardId, userId) {
     try {
         const response = await axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`);
         const data = response.data;
         if (data && data.length > 0) {
             const card = data[0].card;
+            const wishlistCount = await client.database.wishlist.getCardWishlistCount(cardId);
             return {
                 name: card.name,
                 series: card.series,
                 tier: card.tier,
-                versions: await getAvailableVersions(data, card.tier)
+                versions: await getAvailableVersions(data, card.tier),
+                wishlistCount
             };
         }
     } catch (error) {
@@ -66,14 +68,14 @@ function getAvailableVersions(cardData, tier) {
     };
 }
 
-async function buildCardDescription(cardIds) {
+async function buildCardDescription(cardIds, userId) {
     let hasHighTierCard = false;
     let description = '';
     let lastTier = null;
     const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:', ':regional_indicator_d:'];
     
     // Get card info for all cards at once
-    const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id)));
+    const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id, userId)));
     
     // Build description
     for (let i = 0; i < cardInfoResults.length; i++) {
@@ -93,8 +95,10 @@ async function buildCardDescription(cardIds) {
             const remainingText = cardInfo.versions.remainingVersions > 0 
                 ? ` \`+${cardInfo.versions.remainingVersions}\`` 
                 : '';
+
+            const wishlistCount = cardInfo.wishlistCount > 0 ? ` ${cardInfo.wishlistCount}` : '';
             
-            description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n${versionsText}${remainingText}\n`;
+            description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n${versionsText}${remainingText} ❤️${wishlistCount}\n`;
         }
     }
     
@@ -132,7 +136,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
 
         // Wait for all card info and build description
-        const { description, hasHighTierCard } = await buildCardDescription(cardIds);
+        const { description, hasHighTierCard } = await buildCardDescription(cardIds, newMessage.author.id);
 
         // Determine elapsed time since message detection
         const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
@@ -186,7 +190,6 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
         }, (20 - elapsedTime) * 1000);
     }
 }
-
 
 module.exports = {
     handleManualSummonInfo,

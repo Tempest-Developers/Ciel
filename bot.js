@@ -13,6 +13,7 @@ const playerModule = require('./database/modules/player');
 const gateModule = require('./database/modules/gate');
 const giveawayModule = require('./database/modules/giveaway');
 const commandLogsModule = require('./database/modules/commandLogs');
+const wishlistModule = require('./database/modules/wishlist');
 
 const client = new Client({
     intents: [
@@ -38,7 +39,9 @@ async function initializeDatabase(retries = 5, delay = 5000) {
                 mGateDB, 
                 mGateServerDB,
                 mCommandLogsDB,
-                mGiveawayDB
+                mGiveawayDB,
+                mCardWishlistDB,
+                mUserWishlistDB
             } = await db.connectDB();
 
             // Make database collections and methods accessible throughout the bot
@@ -69,6 +72,9 @@ async function initializeDatabase(retries = 5, delay = 5000) {
                 // Command logs module methods
                 logCommand: commandLogsModule.logCommand,
 
+                // Wishlist module methods
+                ...wishlistModule,
+
                 // Set specific collections so they don't get overwritten
                 servers: mServerDB,
                 users: mUserDB,
@@ -76,7 +82,9 @@ async function initializeDatabase(retries = 5, delay = 5000) {
                 mGateDB,
                 mGateServerDB,
                 mCommandLogsDB,
-                mGiveawayDB
+                mGiveawayDB,
+                mCardWishlistDB,
+                mUserWishlistDB
             };
             
             console.log('Database initialization successful');

@@ -4,6 +4,7 @@ const commandLogs = require('./modules/commandLogs');
 const server = require('./modules/server');
 const player = require('./modules/player');
 const gate = require('./modules/gate');
+const wishlist = require('./modules/wishlist');
 
 // Export all functionality
 module.exports = {
@@ -40,6 +41,15 @@ module.exports = {
     createGateServer: gate.createGateServer,
     updateUserCurrency: gate.updateUserCurrency,
     getGateUser: gate.getGateUser,
+
+    // Wishlist functions
+    addToWishlist: wishlist.addToWishlist,
+    removeFromWishlist: wishlist.removeFromWishlist,
+    isInWishlist: wishlist.isInWishlist,
+    getCardWishlistCount: wishlist.getCardWishlistCount,
+    getUserWishlistCount: wishlist.getUserWishlistCount,
+    getUserWishlist: wishlist.getUserWishlist,
+    getCardWishers: wishlist.getCardWishers,
     
     // Database collections (from connection module)
     mServerDB: connection.mServerDB,
@@ -48,5 +58,7 @@ module.exports = {
     mGateDB: connection.mGateDB,
     mGateServerDB: connection.mGateServerDB,
     mCommandLogsDB: connection.mCommandLogsDB,
-    mGiveawayDB: connection.mGiveawayDB
+    mGiveawayDB: connection.mGiveawayDB,
+    mCardWishlistDB: connection.mCardWishlistDB,
+    mUserWishlistDB: connection.mUserWishlistDB
 };

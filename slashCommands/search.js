@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const fs = require('fs').promises;
 const path = require('path');
+const { getCardWishlistCount, isInWishlist } = require('../database/modules/wishlist');
 
 // Utility constants
 const COOLDOWN_DURATION = 10000;
@@ -65,7 +66,7 @@ const formatAutocompleteSuggestion = (card) => {
     return `${tierDisplay} ${card.name} ${eventMark}${series}`;
 };
 
-const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, totalPages) => {
+const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 1, totalPages, userId) => {
     const cardImageUrl = `https://cdn.mazoku.cc/packs/${cardDetails.id}`;
     const eventMark = cardDetails.eventType ? EVENT_EMOJI : '';
     const lowestPrint = findLowestPrint(ownersList);
@@ -77,13 +78,18 @@ const createOwnersEmbed = (cardDetails, ownersList, userOwnership, page = 1, tot
 
     const tierDisplay = `[${cardDetails.tier}]`;
 
+    // Get wishlist information
+    const wishlistCount = await getCardWishlistCount(cardDetails.id);
+    const isWishlisted = await isInWishlist(userId, cardDetails.id);
+    const wishlistInfo = wishlistCount > 0 ? `\n${isWishlisted ? '❤️ ' : ''}${wishlistCount}` : '';
+
     const statsInfo = [
         `**Series:** ${eventMark}*${cardDetails.series}*`,
         `**Makers:** ${makerMentions}`,
         `**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`,
         `**Lowest Print Out**: *${lowestPrint}*`,
         `**Total Prints Claimed**: *${totalPrints}*`,
-        `**Total Owners**: *${ownersList.length}*`
+        `**Total Owners**: *${ownersList.length}*${wishlistInfo}`
     ].join('\n');
 
     const embed = new EmbedBuilder()
@@ -277,7 +283,7 @@ module.exports = {
                 const userOwnership = ownerCounts[interaction.user.id];
                 let currentPage = 1;
                 
-                const initialEmbed = createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages);
+                const initialEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, interaction.user.id);
                 const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages)] : [];
                 
                 const response = await interaction.editReply({
@@ -316,7 +322,7 @@ module.exports = {
                                     break;
                             }
 
-                            const newEmbed = createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages);
+                            const newEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, i.user.id);
                             await i.update({
                                 embeds: [newEmbed],
                                 components: [createNavigationButtons(currentPage, totalPages)]

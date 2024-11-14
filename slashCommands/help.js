@@ -42,6 +42,11 @@ module.exports = {
                         inline: false
                     },
                     {
+                        name: '`/mycards`',
+                        value: 'View your card collection and manage your cards',
+                        inline: false
+                    },
+                    {
                         name: '`/mystats`',
                         value: 'View your card collection stats and completion status',
                         inline: false
@@ -61,16 +66,21 @@ module.exports = {
                         value: 'View server-wide card statistics and activity',
                         inline: false
                     },
-                    // {
-                    //     name: '`/hightiertole`',
-                    //     value: 'Toggle notifications for high tier card drops',
-                    //     inline: false
-                    // },
-                    // {
-                    //     name: '🛡️ Admin Commands',
-                    //     value: '`/allowtierdisplay` - Toggle high tier role ping feature\n`/registerguild` - Register server for bot usage',
-                    //     inline: false
-                    // }
+                    {
+                        name: '`/wishlist`',
+                        value: 'View and manage your card wishlist',
+                        inline: false
+                    },
+                    {
+                        name: '🛡️ `/registerguild`',
+                        value: 'Register your server for bot usage',
+                        inline: false
+                    },
+                    {
+                        name: '🛡️ Admin Commands',
+                        value: '`/allowtierdisplay` - Toggle high tier role ping feature',
+                        inline: false
+                    }
                 )
                 .setFooter({ text: '🛡️ = Requires Admin/Manage Server permission' });
 

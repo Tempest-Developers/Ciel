@@ -15,11 +15,15 @@ const client = new MongoClient(uri, {
 });
 
 let mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB, mGiveawayDB;
+let mCardWishlistDB, mUserWishlistDB;
 let isConnected = false;
 
 async function connectDB() {
     if (isConnected) {
-        return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB, mGiveawayDB };
+        return { 
+            mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, 
+            mCommandLogsDB, mGiveawayDB, mCardWishlistDB, mUserWishlistDB 
+        };
     }
 
     try {
@@ -48,10 +52,15 @@ async function connectDB() {
         mGateServerDB = client.db('MainDB').collection('mGateServerDB');
         mCommandLogsDB = client.db('MainDB').collection('mCommandLogsDB');
         mGiveawayDB = client.db('MainDB').collection('mGiveawayDB');
+        mCardWishlistDB = client.db('MainDB').collection('mCardWishlistDB');
+        mUserWishlistDB = client.db('MainDB').collection('mUserWishlistDB');
 
         await initializeIndexes();
 
-        return { mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB, mGiveawayDB };
+        return { 
+            mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, 
+            mCommandLogsDB, mGiveawayDB, mCardWishlistDB, mUserWishlistDB 
+        };
     } catch (err) {
         console.error('Error connecting to MongoDB:', err);
         isConnected = false;
@@ -68,6 +77,14 @@ async function initializeIndexes() {
     await mGateDB.createIndex({ userID: 1 }, { unique: true });
     await mGateServerDB.createIndex({ serverID: 1 }, { unique: true });
     await mGiveawayDB.createIndex({ giveawayID: 1 }, { unique: true });
+
+    // Create indexes for wishlist collections
+    await mCardWishlistDB.createIndex({ cardId: 1 }, { unique: true });
+    await mUserWishlistDB.createIndex({ userId: 1 }, { unique: true });
+    await mCardWishlistDB.createIndex({ count: 1 });
+    await mUserWishlistDB.createIndex({ count: 1 });
+    await mCardWishlistDB.createIndex({ 'userWishes': 1 });
+    await mUserWishlistDB.createIndex({ 'cardIds': 1 });
 
     // Create index for command logs
     await mCommandLogsDB.createIndex({ serverID: 1 });
@@ -145,5 +162,7 @@ module.exports = {
     mGateDB,
     mGateServerDB,
     mCommandLogsDB,
-    mGiveawayDB
+    mGiveawayDB,
+    mCardWishlistDB,
+    mUserWishlistDB
 };
