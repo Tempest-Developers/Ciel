@@ -345,47 +345,59 @@ module.exports = {
 
                         if (i.isButton()) {
                             if (i.customId === 'wishlist') {
-                                const cardId = i.message.embeds[0].description.split('\n')[0].split('[')[1].split(']')[0];
-                                const isWishlisted = await db.isInWishlist(i.user.id, cardId);
-                                
-                                let success;
-                                if (isWishlisted) {
-                                    success = await db.removeFromWishlist(i.user.id, cardId);
-                                } else {
-                                    success = await db.addToWishlist(i.user.id, cardId);
-                                }
+                                try {
+                                    const cardId = i.message.embeds[0].description.split('\n')[0].split('[')[1].split(']')[0];
+                                    const isWishlisted = await db.isInWishlist(i.user.id, cardId);
+                                    
+                                    let success;
+                                    if (isWishlisted) {
+                                        success = await db.removeFromWishlist(i.user.id, cardId);
+                                    } else {
+                                        success = await db.addToWishlist(i.user.id, cardId);
+                                    }
 
-                                if (!success) {
+                                    if (!success) {
+                                        await i.followUp({
+                                            content: 'Failed to update wishlist. Please try again.',
+                                            ephemeral: true
+                                        });
+                                        return;
+                                    }
+
+                                    const wishlistButton = new ButtonBuilder()
+                                        .setCustomId('wishlist')
+                                        .setEmoji(isWishlisted ? '❤️' : '❎')
+                                        .setStyle(isWishlisted ? ButtonStyle.Success : ButtonStyle.Danger);
+
+                                    const backButton = new ButtonBuilder()
+                                        .setCustomId('back')
+                                        .setLabel('Back to List')
+                                        .setStyle(ButtonStyle.Secondary);
+
+                                    const actionRow = new ActionRowBuilder()
+                                        .addComponents(wishlistButton, backButton);
+
+                                    // Update the embed to show new wishlist count
+                                    const selectedCard = currentCards.find(c => c.id === cardId);
+                                    if (selectedCard) {
+                                        const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
+                                        await i.editReply({
+                                            embeds: [updatedEmbed],
+                                            components: [actionRow]
+                                        });
+                                    } else {
+                                        await i.editReply({ components: [actionRow] });
+                                    }
+                                } catch (error) {
+                                    console.log(`[Wishlist Error]
+Server: ${i.guild.name}
+User: ${i.user.tag}
+Error: ${error.stack}
+                                    `);
                                     await i.followUp({
-                                        content: 'Failed to update wishlist. Please try again.',
+                                        content: 'An error occurred while updating wishlist. Please try again.',
                                         ephemeral: true
                                     });
-                                    return;
-                                }
-
-                                const wishlistButton = new ButtonBuilder()
-                                    .setCustomId('wishlist')
-                                    .setEmoji(isCurrentlyWishlisted ? '❤️' : '❎')
-                                    .setStyle(isWishlisted ? ButtonStyle.Success : ButtonStyle.Danger);
-
-                                const backButton = new ButtonBuilder()
-                                    .setCustomId('back')
-                                    .setLabel('Back to List')
-                                    .setStyle(ButtonStyle.Secondary);
-
-                                const actionRow = new ActionRowBuilder()
-                                    .addComponents(wishlistButton, backButton);
-
-                                // Update the embed to show new wishlist count
-                                const selectedCard = currentCards.find(c => c.id === cardId);
-                                if (selectedCard) {
-                                    const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
-                                    await i.editReply({
-                                        embeds: [updatedEmbed],
-                                        components: [actionRow]
-                                    });
-                                } else {
-                                    await i.editReply({ components: [actionRow] });
                                 }
                             } else if (i.customId === 'back') {
                                 const pageCards = currentCards;
@@ -431,7 +443,11 @@ module.exports = {
                                             components: newComponents
                                         });
                                     } catch (error) {
-                                        console.error('Error fetching new page:', error);
+                                        console.log(`[Wishlist Error]
+Server: ${i.guild.name}
+User: ${i.user.tag}
+Error: ${error.stack}
+                                        `);
                                         await i.followUp({
                                             content: 'Failed to load the next page. Please try again.',
                                             ephemeral: true
@@ -465,9 +481,13 @@ module.exports = {
                             }
                         }
                     } catch (error) {
-                        console.error('Error handling interaction:', error);
+                        console.log(`[Wishlist Error]
+Server: ${i.guild.name}
+User: ${i.user.tag}
+Error: ${error.stack}
+                        `);
                         await i.followUp({
-                            content: 'An error occurred while processing your request. Please try again.',
+                            content: 'An error occurred. Please try again.',
                             ephemeral: true
                         });
                     }
