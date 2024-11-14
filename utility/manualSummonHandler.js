@@ -152,7 +152,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
             fields: [
                 {
                     name: 'Claim Time',
-                    value: `<t:${countdownTime}:R> 📵\n⭐ \`\\help\`\n⭐ \`\\wishlist\``
+                    value: `<t:${countdownTime}:R> 📵\n⭐ \`/help\`\n⭐ \`\/wishlist\``
                 }
             ],
             color: 0x0099ff,
