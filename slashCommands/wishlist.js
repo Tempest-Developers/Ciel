@@ -294,35 +294,58 @@ module.exports = {
             const anime = interaction.options.getString('anime');
             const tier = interaction.options.getString('tier');
             const sortBy = interaction.options.getString('sort_by');
-            const sortOrder = interaction.options.getString('sort_order');
+            const sortOrder = interaction.options.getString('sort_order') || 'desc';
             const type = interaction.options.getString('type');
 
             if (name?.trim()) requestBody.name = name.trim();
             if (anime?.trim()) requestBody.seriesName = anime.trim();
             if (tier) requestBody.tiers = [tier];
             if (sortBy && sortBy !== 'wishlist') requestBody.sortBy = sortBy;
-            if (sortOrder) requestBody.sortOrder = sortOrder;
+            if (sortOrder && sortBy !== 'wishlist') requestBody.sortOrder = sortOrder;
             if (type) requestBody.eventType = type === 'event';
 
             let currentPage = 1;
             let totalPages = 1;
 
             const fetchCards = async (page) => {
-                const pageRequestBody = { ...requestBody, page };
-                const response = await retryOperation(async () => {
-                    return await axios.post(API_URL, pageRequestBody, createAxiosConfig(pageRequestBody));
-                });
-                let cards = response.data.cards || [];
-                
-                // Apply wishlist count sorting if selected
                 if (sortBy === 'wishlist') {
+                    // Get cards from wishlist DB
+                    const wishlistCards = await db.getWishlistCards(interaction.user.id);
+                    const cardIds = wishlistCards.map(card => card.cardId);
+                    
+                    // Get card details from API
+                    const response = await retryOperation(async () => {
+                        return await axios.post(API_URL, {
+                            ...requestBody,
+                            cardIds,
+                            page: 1,
+                            pageSize: cardIds.length // Get all cards at once since we'll sort them
+                        }, createAxiosConfig());
+                    });
+                    
+                    let cards = response.data.cards || [];
                     cards = await sortByWishlistCount(cards, interaction.user.id);
+                    
+                    // Manual pagination since we're handling all cards
+                    const startIdx = (page - 1) * CARDS_PER_PAGE;
+                    const endIdx = startIdx + CARDS_PER_PAGE;
+                    const paginatedCards = cards.slice(startIdx, endIdx);
+                    const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
+                    
+                    return {
+                        cards: paginatedCards,
+                        totalPages: totalPages || 1
+                    };
+                } else {
+                    const pageRequestBody = { ...requestBody, page };
+                    const response = await retryOperation(async () => {
+                        return await axios.post(API_URL, pageRequestBody, createAxiosConfig(pageRequestBody));
+                    });
+                    return {
+                        cards: response.data.cards || [],
+                        totalPages: response.data.pageCount || 1
+                    };
                 }
-                
-                return {
-                    cards,
-                    totalPages: response.data.pageCount || 1
-                };
             };
 
             try {
