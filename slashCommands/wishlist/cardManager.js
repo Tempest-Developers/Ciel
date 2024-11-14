@@ -30,7 +30,7 @@ const sortByWishlistCount = async (cards, userId) => {
 
 const fetchAllWishlistedCards = async (userId) => {
     try {
-        // Get all cards with wishlist counts
+        // Get all cards with their wishlist counts
         const cardWishlistCounts = await db.getCardWishlistCount();
         if (!cardWishlistCounts || cardWishlistCounts.size === 0) return [];
 
@@ -39,18 +39,17 @@ const fetchAllWishlistedCards = async (userId) => {
         const wishlistSet = new Set(userWishlist);
 
         // Convert to array and sort by count
-        const sortedCardIds = Array.from(cardWishlistCounts.entries())
-            .sort(([, countA], [, countB]) => countB - countA)
-            .map(([cardId]) => cardId);
+        const sortedCardEntries = Array.from(cardWishlistCounts.entries())
+            .sort(([, countA], [, countB]) => countB - countA);
 
         // Fetch details for each card
-        const cardPromises = sortedCardIds.map(async cardId => {
+        const cardPromises = sortedCardEntries.map(async ([cardId, count]) => {
             try {
                 const cardDetails = await fetchCardDetails(cardId);
                 if (cardDetails) {
                     return {
                         ...cardDetails,
-                        wishlistCount: cardWishlistCounts.get(cardId) || 0,
+                        wishlistCount: count,
                         isWishlisted: wishlistSet.has(cardId)
                     };
                 }
@@ -63,10 +62,8 @@ const fetchAllWishlistedCards = async (userId) => {
 
         const cardDetails = await Promise.all(cardPromises);
         
-        // Filter out any failed fetches and sort by wishlist count
-        return cardDetails
-            .filter(card => card !== null)
-            .sort((a, b) => b.wishlistCount - a.wishlistCount);
+        // Filter out any failed fetches
+        return cardDetails.filter(card => card !== null);
     } catch (error) {
         console.error('Error fetching all wishlisted cards:', error);
         return [];
