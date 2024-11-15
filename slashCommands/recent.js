@@ -70,7 +70,7 @@ module.exports = {
         const embed = new EmbedBuilder()
           .setTitle(`Last 15 Claims ${getTierEmoji(tierDisplay)}`)
           .setAuthor({ 
-            name: `Recent Claims (Including Summons)`, 
+            name: `Recent Claims (Auto Summons)`, 
             iconURL: interaction.guild.iconURL() 
           })
           .setColor('#FFC0CB')

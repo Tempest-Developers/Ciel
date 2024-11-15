@@ -194,9 +194,6 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
 
         try {
-            // Wait for all card info and build description
-            const { description, hasHighTierCard } = await buildCardDescription(cardIds, client);
-
             // Determine elapsed time since message detection
             const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
 
@@ -210,7 +207,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                 fields: [
                     {
                         name: 'Claim Time',
-                        value: `<t:${countdownTime}:R> 📵\n⭐ \`/help\`\n⭐ \`\/wishlist\``
+                        value: `<t:${countdownTime}:R> 📵\n⭐ \`/help\`\n⭐ \`/wishlist\``
                     }
                 ],
                 color: 0x0099ff,
@@ -221,6 +218,16 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
 
             let roleContent = '';
             let roleId = null;
+            let description = null;
+            let hasHighTierCard = false;
+
+            // Only execute buildCardDescription if allowRolePing is true
+            if (allowRolePing) {
+                // Wait for all card info and build description
+                const result = await buildCardDescription(cardIds, client);
+                description = result.description;
+                hasHighTierCard = result.hasHighTierCard;
+            }
 
             // Add description to embed if role pinging is allowed
             if (description && allowRolePing) {
@@ -228,7 +235,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             }
 
             // Only add role ping if allowRolePing is true AND there's a high tier card
-            if (guildId === GATE_GUILD && hasHighTierCard) {
+            if (guildId === GATE_GUILD && hasHighTierCard && allowRolePing) {
                 console.log("Attempting to get High Tier Role");
                 const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
                 if (highTierRole) {
