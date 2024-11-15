@@ -312,19 +312,10 @@ module.exports = {
                 }
             });
 
-            collector.on('end', async () => {
-                try {
-                    const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode);
-                    const embedData = embed.toJSON();
-                    embedData.footer = { text: 'This interaction has expired. Please run the command again.' };
-                    
-                    await interaction.editReply({
-                        embeds: [new EmbedBuilder(embedData)],
-                        components: []
-                    });
-                } catch (error) {
-                    console.error('Error handling collector end:', error);
-                }
+            collector.on('end', () => {
+                // Simply log that the collector ended, without trying to edit the message
+                console.log('Wishlist command interaction collector ended');
+                console.log(`${interaction.user.tag} | ${interaction.user.id} | ${interaction.guild.name} | ${interaction.guild.id}`);
             });
 
         } catch (error) {
