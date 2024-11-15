@@ -16,8 +16,26 @@ const INTERACTION_TIMEOUT = 300000; // 5 minutes
 const cooldowns = new Map();
 const rateLimit = new Map();
 
+// Function to handle Mazoku API errors
+const handleMazokuAPICall = async (apiCall) => {
+    try {
+        const response = await apiCall();
+        return response;
+    } catch (error) {
+        console.error('Mazoku API Error:', error);
+        if (error.response) {
+            const status = error.response.status;
+            if (status === 400 || status === 404 || status === 500) {
+                throw new Error("The Mazoku Servers are currently unavailable. Please try again later.");
+            }
+        }
+        throw error;
+    }
+};
+
 // Utility functions
 const formatSeriesName = (series) => {
+    if (!series) return '*Data Unavailable*';
     return series.length > MAX_SERIES_LENGTH ? 
         series.substring(0, MAX_SERIES_LENGTH - 3) + '...' : 
         series;
@@ -42,10 +60,11 @@ const findLowestPrint = (ownersList) => {
             }
         });
     });
-    return lowest === Infinity ? 'N/A' : lowest;
+    return lowest === Infinity ? '*Data Unavailable*' : lowest;
 };
 
 const formatVersionsDisplay = (versions) => {
+    if (!versions || versions.length === 0) return '*Data Unavailable*';
     if (versions.length <= MAX_VERSIONS_DISPLAY) {
         return versions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ');
     }
@@ -60,10 +79,11 @@ const loadCardsData = async () => {
 };
 
 const formatAutocompleteSuggestion = (card) => {
-    const tierDisplay = `[${card.tier}]`;
+    const tierDisplay = `[${card.tier || 'Unknown'}]`;
     const eventMark = card.eventType ? EVENT_EMOJI : '';
     const series = formatSeriesName(card.series);
-    return `${tierDisplay} ${card.name} ${eventMark}${series}`;
+    const name = card.name || '*Data Unavailable*';
+    return `${tierDisplay} ${name} ${eventMark}${series}`;
 };
 
 const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 1, totalPages, userId) => {
@@ -74,9 +94,11 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
     
     const makerMentions = (cardDetails.makers || [])
         .map(maker => `<@${maker}>`)
-        .join(' ') || 'No makers listed';
+        .join(' ') || '*Data Unavailable*';
 
-    const tierDisplay = `[${cardDetails.tier}]`;
+    const tierDisplay = `[${cardDetails.tier || 'Unknown'}]`;
+    const cardName = cardDetails.name || '*Data Unavailable*';
+    const cardSeries = cardDetails.series || '*Data Unavailable*';
 
     // Get wishlist information
     const wishlistCount = await getCardWishlistCount(cardDetails.id);
@@ -84,7 +106,7 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
     const wishlistInfo = wishlistCount > 0 ? `\n${isWishlisted ? ':yellow_heart: ' : '❤️ '}${wishlistCount}` : '';
 
     const statsInfo = [
-        `**Series:** ${eventMark}*${cardDetails.series}*`,
+        `**Series:** ${eventMark}*${cardSeries}*`,
         `**Makers:** ${makerMentions}`,
         `**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`,
         `**Lowest Print Out**: *${lowestPrint}*`,
@@ -93,7 +115,7 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
     ].join('\n');
 
     const embed = new EmbedBuilder()
-        .setTitle(`${tierDisplay} ${cardDetails.name} ${eventMark}`)
+        .setTitle(`${tierDisplay} ${cardName} ${eventMark}`)
         .setDescription(statsInfo)
         .setThumbnail(cardImageUrl);
 
@@ -111,7 +133,7 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
     if (pageOwners.length > 0) {
         const ownersText = pageOwners
             .map(owner => {
-                const displayName = owner.user?.username || owner.id;
+                const displayName = owner.user?.username || owner.id || '*Data Unavailable*';
                 const versionsString = formatVersionsDisplay(owner.versions);
                 return `🔰 *[${displayName}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) [ **${owner.versionCount}** ]`;
             })
@@ -119,7 +141,7 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
 
         embed.addFields({
             name: `Owners (Page ${page}/${totalPages})`,
-            value: ownersText
+            value: ownersText || '*Data Unavailable*'
         });
     }
 
@@ -180,13 +202,13 @@ module.exports = {
             
             // First try to find exact matches
             const exactMatches = cards.filter(card => 
-                card.name.toLowerCase() === focusedValue
+                card.name?.toLowerCase() === focusedValue
             );
 
             // If no exact matches, fall back to partial matches
             const matches = exactMatches.length > 0 ? exactMatches : 
                 cards.filter(card => 
-                    card.name.toLowerCase().includes(focusedValue)
+                    card.name?.toLowerCase().includes(focusedValue)
                 );
 
             const suggestions = matches
@@ -238,137 +260,158 @@ module.exports = {
                 }
 
                 // Fetch owners for the found card
-                const ownersResponse = await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardDetails.id}`);
-                const owners = await ownersResponse.json();
-                if (!Array.isArray(owners)) {
-                    throw new Error('Invalid owners data format received from API');
-                }
+                try {
+                    const ownersResponse = await handleMazokuAPICall(async () => {
+                        const response = await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardDetails.id}`);
+                        const data = await response.json();
+                        return { response, data };
+                    });
 
-                const ownerCounts = (owners || []).reduce((acc, item) => {
-                    if (!item || !item.owner) return acc;
+                    const owners = ownersResponse.data;
+                    if (!Array.isArray(owners)) {
+                        throw new Error('Invalid owners data format received from API');
+                    }
+
+                    const ownerCounts = (owners || []).reduce((acc, item) => {
+                        if (!item || !item.owner) return acc;
+                        
+                        const ownerId = item.owner;
+                        if (!acc[ownerId]) {
+                            acc[ownerId] = {
+                                user: item.user || null,
+                                versions: []
+                            };
+                        }
+                        if (item.version !== undefined && item.version !== null) {
+                            acc[ownerId].versions.push(item.version);
+                        }
+                        return acc;
+                    }, {});
+
+                    Object.values(ownerCounts).forEach(owner => {
+                        owner.versions = sortVersions(owner.versions);
+                    });
+
+                    const ownersList = Object.entries(ownerCounts)
+                        .map(([ownerId, data]) => ({
+                            id: ownerId,
+                            user: data.user,
+                            versionCount: data.versions.length,
+                            versions: data.versions
+                        }))
+                        .sort((a, b) => {
+                            const aCM = hasCMPrint(a.versions);
+                            const bCM = hasCMPrint(b.versions);
+                            if (aCM && !bCM) return -1;
+                            if (!aCM && bCM) return 1;
+                            return 0;
+                        });
+
+                    const totalPages = Math.min(Math.ceil(ownersList.length / OWNERS_PER_PAGE), MAX_PAGES);
+                    const userOwnership = ownerCounts[interaction.user.id];
+                    let currentPage = 1;
                     
-                    const ownerId = item.owner;
-                    if (!acc[ownerId]) {
-                        acc[ownerId] = {
-                            user: item.user || null,
-                            versions: []
-                        };
-                    }
-                    if (item.version !== undefined && item.version !== null) {
-                        acc[ownerId].versions.push(item.version);
-                    }
-                    return acc;
-                }, {});
-
-                Object.values(ownerCounts).forEach(owner => {
-                    owner.versions = sortVersions(owner.versions);
-                });
-
-                const ownersList = Object.entries(ownerCounts)
-                    .map(([ownerId, data]) => ({
-                        id: ownerId,
-                        user: data.user,
-                        versionCount: data.versions.length,
-                        versions: data.versions
-                    }))
-                    .sort((a, b) => {
-                        const aCM = hasCMPrint(a.versions);
-                        const bCM = hasCMPrint(b.versions);
-                        if (aCM && !bCM) return -1;
-                        if (!aCM && bCM) return 1;
-                        return 0;
+                    const initialEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, interaction.user.id);
+                    const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages)] : [];
+                    
+                    const response = await interaction.editReply({
+                        embeds: [initialEmbed],
+                        components
                     });
 
-                const totalPages = Math.min(Math.ceil(ownersList.length / OWNERS_PER_PAGE), MAX_PAGES);
-                const userOwnership = ownerCounts[interaction.user.id];
-                let currentPage = 1;
-                
-                const initialEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, interaction.user.id);
-                const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages)] : [];
-                
-                const response = await interaction.editReply({
-                    embeds: [initialEmbed],
-                    components
-                });
+                    if (totalPages > 1) {
+                        const collector = response.createMessageComponentCollector({
+                            componentType: ComponentType.Button,
+                            time: INTERACTION_TIMEOUT
+                        });
 
-                if (totalPages > 1) {
-                    const collector = response.createMessageComponentCollector({
-                        componentType: ComponentType.Button,
-                        time: INTERACTION_TIMEOUT
-                    });
-
-                    collector.on('collect', async i => {
-                        try {
-                            if (i.user.id !== interaction.user.id) {
-                                await i.reply({ 
-                                    content: 'You cannot use these buttons.', 
-                                    ephemeral: true 
-                                });
-                                return;
-                            }
-
-                            switch (i.customId) {
-                                case 'first':
-                                    currentPage = 1;
-                                    break;
-                                case 'prev':
-                                    currentPage = Math.max(1, currentPage - 1);
-                                    break;
-                                case 'next':
-                                    currentPage = Math.min(totalPages, currentPage + 1);
-                                    break;
-                                case 'last':
-                                    currentPage = totalPages;
-                                    break;
-                            }
-
-                            const newEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, i.user.id);
-                            await i.update({
-                                embeds: [newEmbed],
-                                components: [createNavigationButtons(currentPage, totalPages)]
-                            }).catch(error => {
-                                console.error('Failed to update interaction:', error);
-                                collector.stop('updateFailed');
-                            });
-                        } catch (error) {
-                            console.error('Error handling button interaction:', error);
+                        collector.on('collect', async i => {
                             try {
-                                await i.reply({
-                                    content: 'An error occurred while processing your request.',
-                                    ephemeral: true
-                                });
-                            } catch (replyError) {
-                                console.error('Failed to send error message:', replyError);
-                            }
-                        }
-                    });
+                                if (i.user.id !== interaction.user.id) {
+                                    await i.reply({ 
+                                        content: 'You cannot use these buttons.', 
+                                        ephemeral: true 
+                                    });
+                                    return;
+                                }
 
-                    collector.on('end', async (collected, reason) => {
-                        try {
-                            if (reason === 'updateFailed') {
-                                await interaction.editReply({
-                                    content: 'This search result has expired. Please run the command again.',
-                                    embeds: [],
-                                    components: []
-                                }).catch(console.error);
-                            } else {
-                                await response.edit({
-                                    components: []
-                                }).catch(console.error);
+                                switch (i.customId) {
+                                    case 'first':
+                                        currentPage = 1;
+                                        break;
+                                    case 'prev':
+                                        currentPage = Math.max(1, currentPage - 1);
+                                        break;
+                                    case 'next':
+                                        currentPage = Math.min(totalPages, currentPage + 1);
+                                        break;
+                                    case 'last':
+                                        currentPage = totalPages;
+                                        break;
+                                }
+
+                                const newEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, i.user.id);
+                                await i.update({
+                                    embeds: [newEmbed],
+                                    components: [createNavigationButtons(currentPage, totalPages)]
+                                }).catch(error => {
+                                    console.error('Failed to update interaction:', error);
+                                    collector.stop('updateFailed');
+                                });
+                            } catch (error) {
+                                console.error('Error handling button interaction:', error);
+                                try {
+                                    await i.reply({
+                                        content: 'An error occurred while processing your request.',
+                                        ephemeral: true
+                                    });
+                                } catch (replyError) {
+                                    console.error('Failed to send error message:', replyError);
+                                }
                             }
-                        } catch (error) {
-                            console.error('Failed to cleanup after collector end:', error);
-                        }
-                    });
+                        });
+
+                        collector.on('end', async (collected, reason) => {
+                            try {
+                                if (reason === 'updateFailed') {
+                                    await interaction.editReply({
+                                        content: 'This search result has expired. Please run the command again.',
+                                        embeds: [],
+                                        components: []
+                                    }).catch(console.error);
+                                } else {
+                                    await response.edit({
+                                        components: []
+                                    }).catch(console.error);
+                                }
+                            } catch (error) {
+                                console.error('Failed to cleanup after collector end:', error);
+                            }
+                        });
+                    }
+                } catch (error) {
+                    if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
+                        await interaction.editReply(error.message);
+                    } else {
+                        console.error('API Error:', error);
+                        await interaction.editReply({
+                            content: 'Failed to fetch card data. Please try again later.'
+                        });
+                    }
                 }
 
             } catch (error) {
-                console.error('API Error:', error);
-                await interaction.editReply({
-                    content: `Failed to fetch card data: ${error.message}. Please try again later.`
-                });
+                console.error('Error in execute:', error);
+                const errorMessage = error.message === "The Mazoku Servers are currently unavailable. Please try again later."
+                    ? error.message
+                    : 'An error occurred while processing your request. Please try again later.';
+                
+                if (interaction.deferred) {
+                    await interaction.editReply({ content: errorMessage });
+                } else {
+                    await interaction.reply({ content: errorMessage, ephemeral: true });
+                }
             }
-
         } catch (error) {
             console.error('Error in execute:', error);
             const errorMessage = 'An error occurred while processing your request. Please try again later.';

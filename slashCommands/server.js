@@ -7,6 +7,23 @@ const { enrichClaimWithCardData } = require('../utility/cardAPI');
 const cooldowns = new Map();
 const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
 
+// Function to handle Mazoku API errors
+const handleMazokuAPICall = async (apiCall) => {
+    try {
+        const response = await apiCall();
+        return response;
+    } catch (error) {
+        console.error('Mazoku API Error:', error);
+        if (error.response) {
+            const status = error.response.status;
+            if (status === 400 || status === 404 || status === 500) {
+                throw new Error("The Mazoku Servers are currently unavailable. Please try again later.");
+            }
+        }
+        throw error;
+    }
+};
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('server')
@@ -210,18 +227,40 @@ module.exports = {
 
                 case 'best':
                     if (bestPrint) {
-                        const enrichedCard = await enrichClaimWithCardData(bestPrint);
-                        if (enrichedCard) {
-                            const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
+                        try {
+                            const enrichedCard = await handleMazokuAPICall(async () => {
+                                return await enrichClaimWithCardData(bestPrint);
+                            });
+                            
+                            if (enrichedCard && enrichedCard.card) {
+                                const makers = enrichedCard.card.makers?.map(id => `<@${id}>`).join(', ') || '*Data Unavailable*';
+                                const cardName = enrichedCard.cardName || '*Data Unavailable*';
+                                const series = enrichedCard.card.series || '*Data Unavailable*';
+                                
+                                embed.addFields({
+                                    name: 'Best Drop Yet',
+                                    value: `*${series}*\n` +
+                                           `${getTierEmoji(bestPrint.tier)} **${cardName}** #**${enrichedCard.print}** \n` +
+                                           `**Maker(s)**: ${makers}\n` +
+                                           `**Owner**: ${enrichedCard.owner}\n` +
+                                           `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
+                                })
+                                .setThumbnail(`https://cdn.mazoku.cc/packs/${bestPrint.cardID}`);
+                            } else {
+                                embed.addFields({
+                                    name: 'Best Drop Yet',
+                                    value: '*Data Unavailable*'
+                                });
+                            }
+                        } catch (error) {
+                            if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
+                                return await interaction.editReply(error.message);
+                            }
+                            console.error('Error enriching card data:', error);
                             embed.addFields({
                                 name: 'Best Drop Yet',
-                                value: `*${enrichedCard.card.series}*\n` +
-                                       `${getTierEmoji(bestPrint.tier)} **${enrichedCard.cardName}** #**${enrichedCard.print}** \n` +
-                                       `**Maker(s)**: ${makers}\n` +
-                                       `**Owner**: ${enrichedCard.owner}\n` +
-                                       `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
-                            })
-                            .setThumbnail(`https://cdn.mazoku.cc/packs/${bestPrint.cardID}`);
+                                value: '*Data Unavailable*'
+                            });
                         }
                     }
                     break;
@@ -257,9 +296,9 @@ module.exports = {
                             .filter(([_, times]) => times.length > 0)
                             .map(([tier, times]) => {
                                 const avgTime = calculateAverageTimeBetweenClaims(times);
-                                return `${getTierEmoji(tier)}: ${avgTime || 'N/A'}`;
+                                return `${getTierEmoji(tier)}: ${avgTime || '*Data Unavailable*'}`;
                             })
-                            .join('\n') || 'No claim time data available'
+                            .join('\n') || '*Data Unavailable*'
                     });
                     break;
 
@@ -270,9 +309,9 @@ module.exports = {
                             .filter(([_, times]) => times.length > 0)
                             .map(([range, times]) => {
                                 const avgTime = calculateAverageTimeBetweenClaims(times);
-                                return `**${range}** (${getRangeDescription(range)}): ${avgTime || 'N/A'}`;
+                                return `**${range}** (${getRangeDescription(range)}): ${avgTime || '*Data Unavailable*'}`;
                             })
-                            .join('\n') || 'No claim time data available'
+                            .join('\n') || '*Data Unavailable*'
                     });
                     break;
             }
@@ -282,18 +321,21 @@ module.exports = {
         } catch (error) {
             console.error('Error in serverstats command:', error);
             
+            const errorMessage = error.message === "The Mazoku Servers are currently unavailable. Please try again later."
+                ? error.message
+                : 'An error occurred while fetching server stats.';
+            
             if (!hasDeferred) {
                 await interaction.reply({
-                    content: 'An error occurred while fetching server stats.',
+                    content: errorMessage,
                     ephemeral: true
                 });
             } else {
                 await interaction.editReply({
-                    content: 'An error occurred while fetching server stats.',
+                    content: errorMessage,
                     ephemeral: true
                 });
             }
-            throw error;
         }
     },
 };

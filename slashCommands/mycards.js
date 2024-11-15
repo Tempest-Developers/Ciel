@@ -11,6 +11,23 @@ const API_URL = 'https://api.mazoku.cc/api/get-inventory-items/';
 const MAX_RETRIES = 4;
 const RETRY_DELAY = 1000;
 
+// Function to handle Mazoku API errors
+const handleMazokuAPICall = async (apiCall) => {
+    try {
+        const response = await apiCall();
+        return response;
+    } catch (error) {
+        console.error('Mazoku API Error:', error);
+        if (error.response) {
+            const status = error.response.status;
+            if (status === 400 || status === 404 || status === 500) {
+                throw new Error("The Mazoku Servers are currently unavailable. Please try again later.");
+            }
+        }
+        throw error;
+    }
+};
+
 // Function to create axios config with content length
 const createAxiosConfig = (body) => ({
     headers: {
@@ -56,8 +73,12 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
     for (let i = 0; i < maxRetries; i++) {
         try {
-            return await operation();
+            const result = await handleMazokuAPICall(operation);
+            return result;
         } catch (error) {
+            if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
+                throw error;
+            }
             if (i === maxRetries - 1) throw error;
             await delay(RETRY_DELAY * Math.pow(2, i));
         }
@@ -93,7 +114,9 @@ const createCardListEmbed = async (cards, page, totalPages, userId) => {
                 const wishlistCount = wishlistCounts.get(card.id) || 0;
                 const isWishlisted = userWishlistStatus[index];
                 const heartEmoji = isWishlisted ? ':yellow_heart:' : '❤️';
-                description += `${tierEmoji} #${item.version} **${card.name}** ${eventEmoji}*${card.series}* ${heartEmoji} (${wishlistCount} ${heartEmoji})\n`;
+                const cardName = card.name || '*Data Unavailable*';
+                const cardSeries = card.series || '*Data Unavailable*';
+                description += `${tierEmoji} #${item.version} **${cardName}** ${eventEmoji}*${cardSeries}* ${heartEmoji} (${wishlistCount} ${heartEmoji})\n`;
             });
         }
 
@@ -117,42 +140,55 @@ const createCardDetailEmbed = async (item, userId) => {
         const card = item.card;
         const isWishlisted = await db.isInWishlist(userId, card.id);
         const heartEmoji = isWishlisted ? '❤️' : '';
+        const cardName = card.name || '*Data Unavailable*';
+        const cardSeries = card.series || '*Data Unavailable*';
 
         const embed = new EmbedBuilder()
-            .setTitle(`${getTierEmoji(formatTier(card.tier))} ${card.name} #${item.version} ${card.eventType ? '🎃' : ''} ${heartEmoji}`)
-            .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n*${card.series}*`)
+            .setTitle(`${getTierEmoji(formatTier(card.tier))} ${cardName} #${item.version} ${card.eventType ? '🎃' : ''} ${heartEmoji}`)
+            .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n*${cardSeries}*`)
             .setImage(`https://cdn.mazoku.cc/packs/${card.id}`)
             .setColor('#0099ff');
 
-        const [owners, wishlistCount] = await Promise.all([
-            retryOperation(async () => {
-                const response = await axios.get(
-                    `https://api.mazoku.cc/api/get-inventory-items-by-card/${card.id}`,
-                    {
-                        headers: {
-                            'Cache-Control': 'no-cache',
-                            'Content-Type': 'application/json',
-                            'Host': 'api.mazoku.cc'
-                        },
-                        timeout: 10000
+        try {
+            const [owners, wishlistCount] = await Promise.all([
+                retryOperation(async () => {
+                    const response = await axios.get(
+                        `https://api.mazoku.cc/api/get-inventory-items-by-card/${card.id}`,
+                        {
+                            headers: {
+                                'Cache-Control': 'no-cache',
+                                'Content-Type': 'application/json',
+                                'Host': 'api.mazoku.cc'
+                            },
+                            timeout: 10000
+                        }
+                    );
+                    return response.data;
+                }),
+                db.getCardWishlistCount(card.id)
+            ]);
+
+            if (Array.isArray(owners) && owners.length > 0) {
+                const totalCopies = owners.length;
+                const uniqueOwners = new Set(owners.map(o => o.owner)).size;
+                const lowestPrint = Math.min(...owners.map(o => o.version).filter(v => v > 0));
+
+                embed.addFields(
+                    { 
+                        name: 'Global Card Details:', 
+                        value: `**Prints Out** *${totalCopies.toString()}*\n**All Owners** *${uniqueOwners.toString()}*\n**Lowest Print** *#**${lowestPrint.toString()}***\n**Wishlist Count** *${wishlistCount}* ❤️`
                     }
                 );
-                return response.data;
-            }),
-            db.getCardWishlistCount(card.id)
-        ]);
-
-        if (Array.isArray(owners) && owners.length > 0) {
-            const totalCopies = owners.length;
-            const uniqueOwners = new Set(owners.map(o => o.owner)).size;
-            const lowestPrint = Math.min(...owners.map(o => o.version).filter(v => v > 0));
-
-            embed.addFields(
-                { 
-                    name: 'Global Card Details:', 
-                    value: `**Prints Out** *${totalCopies.toString()}*\n**All Owners** *${uniqueOwners.toString()}*\n**Lowest Print** *#**${lowestPrint.toString()}***\n**Wishlist Count** *${wishlistCount}* ❤️`
-                }
-            );
+            }
+        } catch (error) {
+            if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
+                embed.addFields(
+                    { 
+                        name: 'Global Card Details:', 
+                        value: '*Data Unavailable*'
+                    }
+                );
+            }
         }
 
         return embed;
