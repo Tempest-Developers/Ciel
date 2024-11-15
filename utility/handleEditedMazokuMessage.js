@@ -5,6 +5,8 @@ const { handleSummonInfo } = require('./summonHandler');
 const { handleManualSummonInfo } = require('./manualSummonHandler');
 const GATE_GUILD = '1240866080985976844';
 
+ManualSummonGuild = [process.env.GATE_GUILD, process.env.ORCA_GUILD, process.env.HTTAG_GUILD ]
+
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
         // Check if message is from exempt bot
@@ -46,7 +48,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     await handleClaim(client, newMessage, newEmbed, field, guildId);
                 }
             }
-        } else if (oldEmbed.title.includes("Manual Summon") && guildId === GATE_GUILD) {
+        } else if (oldEmbed.title.includes("Manual Summon") && ManualSummonGuild.includes(guildId)) {
             // Handle manual summon information if it's a pack image
             await handleManualSummonInfo(client, newMessage, newEmbed, messageId);
 

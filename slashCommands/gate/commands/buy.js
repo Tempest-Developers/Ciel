@@ -1,5 +1,5 @@
 const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
-const { SR_PING_ROLE, COSTS } = require('../utils/constants');
+const { SR_PING_ROLE, COSTS, MAX_TOKENS_TICKET } = require('../utils/constants');
 const { ensureUser } = require('../utils/database');
 
 module.exports = {
@@ -124,6 +124,14 @@ module.exports = {
         }
         else if (type === 'ticket') {
             const ticketCost = COSTS.TICKET;
+            const currentTickets = userData.currency[5] || 0;
+
+            if (currentTickets >= MAX_TOKENS_TICKET) {
+                return interaction.reply({
+                    content: `❌ You already have the maximum number of tickets (${MAX_TOKENS_TICKET})!`,
+                    ephemeral: true
+                });
+            }
 
             if (currentSlimeTokens < ticketCost) {
                 return interaction.reply({
@@ -167,6 +175,16 @@ module.exports = {
                 else if (i.customId === 'buy_confirm') {
                     // Get fresh user data to ensure accurate balance check
                     const updatedUserData = await database.mGateDB.findOne({ userID: interaction.user.id });
+                    const updatedTickets = updatedUserData.currency[5] || 0;
+
+                    if (updatedTickets >= MAX_TOKENS_TICKET) {
+                        await i.update({
+                            content: `❌ You already have the maximum number of tickets (${MAX_TOKENS_TICKET})!`,
+                            components: []
+                        });
+                        return;
+                    }
+
                     if (updatedUserData.currency[0] < ticketCost) {
                         await i.update({
                             content: `❌ You don't have enough Slime Tokens! You need ${ticketCost} Slime Tokens but only have ${updatedUserData.currency[0]}.`,

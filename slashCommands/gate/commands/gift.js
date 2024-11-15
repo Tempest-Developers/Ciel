@@ -1,4 +1,4 @@
-const { COSTS } = require('../utils/constants');
+const { COSTS, MAX_TOKENS_TICKET } = require('../utils/constants');
 const { ensureUser } = require('../utils/database');
 
 module.exports = {
@@ -24,14 +24,24 @@ module.exports = {
             });
         }
 
+        // Check target user's current ticket count
+        const targetUserData = await ensureUser(targetUser.id, database.mGateDB);
+        const targetTickets = targetUserData.currency[5] || 0;
+
+        if (targetTickets >= MAX_TOKENS_TICKET) {
+            return interaction.reply({
+                content: `❌ ${targetUser.username} already has the maximum number of tickets (${MAX_TOKENS_TICKET})!`,
+                ephemeral: true
+            });
+        }
+
         // Update sender's balance
         await database.mGateDB.updateOne(
             { userID: interaction.user.id },
             { $inc: { 'currency.0': -cost } }
         );
 
-        // Use ensureUser utility function for target user and update their balance
-        await ensureUser(targetUser.id, database.mGateDB);
+        // Update target user's balance
         await database.mGateDB.updateOne(
             { userID: targetUser.id },
             { $inc: { 'currency.5': 1 } }
