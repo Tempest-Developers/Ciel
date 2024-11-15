@@ -498,7 +498,7 @@ module.exports = {
 
                 collector.on('end', async () => {
                     try {
-                        const finalEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id)
+                        const finalEmbed = EmbedBuilder.from(await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id))
                             .setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
                         await interaction.editReply({

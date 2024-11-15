@@ -81,7 +81,7 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
     // Get wishlist information
     const wishlistCount = await getCardWishlistCount(cardDetails.id);
     const isWishlisted = await isInWishlist(userId, cardDetails.id);
-    const wishlistInfo = wishlistCount > 0 ? `\n${isWishlisted ? '❤️ ' : ''}${wishlistCount}` : '';
+    const wishlistInfo = wishlistCount > 0 ? `\n${isWishlisted ? ':yellow_heart: ' : '❤️ '}${wishlistCount}` : '';
 
     const statsInfo = [
         `**Series:** ${eventMark}*${cardDetails.series}*`,
