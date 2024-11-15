@@ -7,14 +7,8 @@ const handleMazokuAPICall = async (apiCall) => {
         const response = await apiCall();
         return response;
     } catch (error) {
-        console.error('Mazoku API Error:', error);
-        if (error.response) {
-            const status = error.response.status;
-            if (status === 400 || status === 404 || status === 500) {
-                throw new Error("The Mazoku Servers are currently unavailable. Please try again later.");
-            }
-        }
-        throw error;
+        console.log('Mazoku API Error:', error.message);
+        throw new Error("Mazoku Servers unavailable");
     }
 };
 
@@ -35,9 +29,6 @@ const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
             const result = await handleMazokuAPICall(operation);
             return result;
         } catch (error) {
-            if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
-                throw error;
-            }
             lastError = error;
             if (i === maxRetries - 1) break;
             await delay(RETRY_DELAY * Math.pow(2, i));
@@ -73,7 +64,6 @@ const fetchCardDetails = async (cardId) => {
             };
         }
 
-        // Add fallbacks for missing data
         return {
             ...response.data,
             name: response.data.name || '*Data Unavailable*',
@@ -81,16 +71,8 @@ const fetchCardDetails = async (cardId) => {
             makers: response.data.makers || []
         };
     } catch (error) {
-        if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
-            throw error;
-        }
-        console.error(`Error fetching card ${cardId}:`, error);
-        return {
-            name: '*Data Unavailable*',
-            series: '*Data Unavailable*',
-            tier: 'Unknown',
-            makers: []
-        };
+        console.log('Error fetching card details:', error.message);
+        throw new Error("Mazoku Servers unavailable");
     }
 };
 
@@ -116,7 +98,6 @@ const searchCards = async (searchParams, page = 1) => {
             axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig())
         );
 
-        // Process each card to ensure data availability
         const cards = (response.data.cards || []).map(card => ({
             ...card,
             name: card.name || '*Data Unavailable*',
@@ -129,11 +110,8 @@ const searchCards = async (searchParams, page = 1) => {
             totalPages: response.data.pageCount || 1
         };
     } catch (error) {
-        if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
-            throw error;
-        }
-        console.error('Error searching cards:', error);
-        throw new Error('Failed to fetch cards. Please try again.');
+        console.log('Error searching cards:', error.message);
+        throw new Error("Mazoku Servers unavailable");
     }
 };
 

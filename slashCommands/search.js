@@ -22,14 +22,8 @@ const handleMazokuAPICall = async (apiCall) => {
         const response = await apiCall();
         return response;
     } catch (error) {
-        console.error('Mazoku API Error:', error);
-        if (error.response) {
-            const status = error.response.status;
-            if (status === 400 || status === 404 || status === 500) {
-                throw new Error("The Mazoku Servers are currently unavailable. Please try again later.");
-            }
-        }
-        throw error;
+        console.log('Mazoku API Error:', error.message);
+        throw new Error("Mazoku Servers unavailable");
     }
 };
 
@@ -215,12 +209,12 @@ module.exports = {
                 .slice(0, 25)
                 .map(card => ({
                     name: formatAutocompleteSuggestion(card),
-                    value: card.id // Return card ID instead of name
+                    value: card.id
                 }));
 
             await interaction.respond(suggestions);
         } catch (error) {
-            console.error('Error in autocomplete:', error);
+            console.log('Error in autocomplete:', error.message);
             await interaction.respond([]);
         }
     },
@@ -251,15 +245,12 @@ module.exports = {
 
             try {
                 const cards = await loadCardsData();
-                
-                // Find card by ID (exact match)
                 const cardDetails = cards.find(card => card.id === cardId);
 
                 if (!cardDetails) {
                     return await interaction.editReply('No card found with the specified ID.');
                 }
 
-                // Fetch owners for the found card
                 try {
                     const ownersResponse = await handleMazokuAPICall(async () => {
                         const response = await fetch(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardDetails.id}`);
@@ -390,31 +381,17 @@ module.exports = {
                         });
                     }
                 } catch (error) {
-                    if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
-                        await interaction.editReply(error.message);
-                    } else {
-                        console.error('API Error:', error);
-                        await interaction.editReply({
-                            content: 'Failed to fetch card data. Please try again later.'
-                        });
-                    }
+                    return await interaction.editReply("Mazoku Servers unavailable");
                 }
 
             } catch (error) {
-                console.error('Error in execute:', error);
-                const errorMessage = error.message === "The Mazoku Servers are currently unavailable. Please try again later."
-                    ? error.message
-                    : 'An error occurred while processing your request. Please try again later.';
-                
-                if (interaction.deferred) {
-                    await interaction.editReply({ content: errorMessage });
-                } else {
-                    await interaction.reply({ content: errorMessage, ephemeral: true });
-                }
+                console.log('Error in execute:', error.message);
+                return await interaction.editReply("Mazoku Servers unavailable");
             }
         } catch (error) {
-            console.error('Error in execute:', error);
-            const errorMessage = 'An error occurred while processing your request. Please try again later.';
+            console.log('Error in execute:', error.message);
+            const errorMessage = "Mazoku Servers unavailable";
+            
             if (interaction.deferred) {
                 await interaction.editReply({ content: errorMessage });
             } else {

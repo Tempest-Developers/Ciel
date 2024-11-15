@@ -8,8 +8,6 @@ const COOLDOWN_DURATION = 10000;
 const CARDS_PER_PAGE = 10;
 const INTERACTION_TIMEOUT = 900000; // 15 minutes
 const API_URL = 'https://api.mazoku.cc/api/get-inventory-items/';
-const MAX_RETRIES = 4;
-const RETRY_DELAY = 1000;
 
 // Function to handle Mazoku API errors
 const handleMazokuAPICall = async (apiCall) => {
@@ -17,18 +15,24 @@ const handleMazokuAPICall = async (apiCall) => {
         const response = await apiCall();
         return response;
     } catch (error) {
-        console.error('Mazoku API Error:', error);
-        if (error.response) {
-            const status = error.response.status;
-            if (status === 400 || status === 404 || status === 500) {
-                throw new Error("The Mazoku Servers are currently unavailable. Please try again later.");
-            }
-        }
-        throw error;
+        console.log('Mazoku API Error:', error.message);
+        throw new Error("Mazoku Servers unavailable");
     }
 };
 
-// Function to create axios config with content length
+// Cooldown management
+const cooldowns = new Map();
+
+const versionRanges = {
+    'SP': { min: 0, max: 10 },
+    'LP': { min: 0, max: 100 },
+    'MP': { min: 0, max: 499 },
+    'HP': { min: 0, max: 1000 }
+};
+
+// Convert tier to format expected by getTierEmoji
+const formatTier = (tier) => `${tier}T`;
+
 const createAxiosConfig = (body) => ({
     headers: {
         'Cache-Control': 'no-cache',
@@ -39,7 +43,6 @@ const createAxiosConfig = (body) => ({
     timeout: 10000 // 10 second timeout
 });
 
-// Base request body
 const createBaseRequestBody = (userId) => ({
     page: 1,
     pageSize: CARDS_PER_PAGE,
@@ -53,38 +56,6 @@ const createBaseRequestBody = (userId) => ({
     owner: userId
 });
 
-// Cooldown management with Map to prevent memory leaks
-const cooldowns = new Map();
-
-const versionRanges = {
-    'SP': { min: 0, max: 10 },
-    'LP': { min: 0, max: 100 },
-    'MP': { min: 0, max: 499 },
-    'HP': { min: 0, max: 1000 }
-};
-
-// Convert tier to format expected by getTierEmoji
-const formatTier = (tier) => `${tier}T`;
-
-// Utility function for delayed execution
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Retry mechanism for API calls
-const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const result = await handleMazokuAPICall(operation);
-            return result;
-        } catch (error) {
-            if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
-                throw error;
-            }
-            if (i === maxRetries - 1) throw error;
-            await delay(RETRY_DELAY * Math.pow(2, i));
-        }
-    }
-};
-
 const createCardListEmbed = async (cards, page, totalPages, userId) => {
     try {
         const embed = new EmbedBuilder()
@@ -96,16 +67,12 @@ const createCardListEmbed = async (cards, page, totalPages, userId) => {
         if (!Array.isArray(cards) || cards.length === 0) {
             description += 'No cards found.';
         } else {
-            // Get all card IDs for bulk wishlist count fetch
             const cardIds = cards.map(item => item.card.id);
-            
-            // Fetch wishlist counts and wishlist status for all cards at once
             const [wishlistCounts, userWishlistStatus] = await Promise.all([
                 db.getCardWishlistCount(cardIds),
                 Promise.all(cards.map(item => db.isInWishlist(userId, item.card.id)))
             ]);
 
-            // Create the description with all card information
             cards.forEach((item, index) => {
                 if (!item || !item.card) return;
                 const card = item.card;
@@ -123,7 +90,7 @@ const createCardListEmbed = async (cards, page, totalPages, userId) => {
         embed.setDescription(description);
         return embed;
     } catch (error) {
-        console.error('Error creating card list embed:', error);
+        console.log('Error creating card list embed:', error.message);
         return new EmbedBuilder()
             .setTitle('Error')
             .setDescription('An error occurred while creating the card list.')
@@ -151,17 +118,10 @@ const createCardDetailEmbed = async (item, userId) => {
 
         try {
             const [owners, wishlistCount] = await Promise.all([
-                retryOperation(async () => {
+                handleMazokuAPICall(async () => {
                     const response = await axios.get(
                         `https://api.mazoku.cc/api/get-inventory-items-by-card/${card.id}`,
-                        {
-                            headers: {
-                                'Cache-Control': 'no-cache',
-                                'Content-Type': 'application/json',
-                                'Host': 'api.mazoku.cc'
-                            },
-                            timeout: 10000
-                        }
+                        createAxiosConfig({})
                     );
                     return response.data;
                 }),
@@ -181,19 +141,17 @@ const createCardDetailEmbed = async (item, userId) => {
                 );
             }
         } catch (error) {
-            if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
-                embed.addFields(
-                    { 
-                        name: 'Global Card Details:', 
-                        value: '*Data Unavailable*'
-                    }
-                );
-            }
+            embed.addFields(
+                { 
+                    name: 'Global Card Details:', 
+                    value: '*Data Unavailable*'
+                }
+            );
         }
 
         return embed;
     } catch (error) {
-        console.error('Error creating card detail embed:', error);
+        console.log('Error creating card detail embed:', error.message);
         return new EmbedBuilder()
             .setTitle('Error')
             .setDescription('An error occurred while fetching card details.')
@@ -247,7 +205,7 @@ const createCardSelectMenu = (cards) => {
                     )
             );
     } catch (error) {
-        console.error('Error creating card select menu:', error);
+        console.log('Error creating card select menu:', error.message);
         return null;
     }
 };
@@ -295,19 +253,11 @@ module.exports = {
                     { name: 'Ascending', value: 'asc' },
                     { name: 'Descending', value: 'desc' }
                 )),
-        // .addStringOption(option =>
-        //     option.setName('type')
-        //         .setDescription('Filter by card type')
-        //         .addChoices(
-        //             { name: 'Event', value: 'event' },
-        //             { name: 'Normal', value: 'normal' }
-        //         )),
 
     async execute(interaction) {
         if (!interaction.isCommand()) return;
 
         try {
-            // Guard against non-guild usage
             if (!interaction.guild) {
                 await interaction.reply({
                     content: 'This command can only be used in a server.',
@@ -316,7 +266,6 @@ module.exports = {
                 return;
             }
 
-            // Cooldown check with proper cleanup
             if (cooldowns.has(interaction.user.id)) {
                 const timeLeft = (cooldowns.get(interaction.user.id) - Date.now()) / 1000;
                 if (timeLeft > 0) {
@@ -334,7 +283,6 @@ module.exports = {
             await interaction.deferReply();
 
             let requestBody = createBaseRequestBody(interaction.user.id);
-            let currentCards = [];
 
             // Handle options with validation
             const name = interaction.options.getString('name');
@@ -360,12 +308,11 @@ module.exports = {
             if (type) requestBody.eventType = type === 'event';
 
             try {
-                // Use retry mechanism for API call
-                const response = await retryOperation(async () => {
+                const response = await handleMazokuAPICall(async () => {
                     return await axios.post(API_URL, requestBody, createAxiosConfig(requestBody));
                 });
                 
-                currentCards = response.data.cards || [];
+                const currentCards = response.data.cards || [];
                 const totalPages = response.data.pageCount || 1;
 
                 if (currentCards.length === 0) {
@@ -378,16 +325,8 @@ module.exports = {
                 const navigationButtons = createNavigationButtons(currentPage, totalPages);
                 const selectMenu = createCardSelectMenu(currentCards);
 
-                if (!selectMenu) {
-                    await interaction.editReply({
-                        content: 'An error occurred while creating the card selection menu.',
-                        embeds: [embed],
-                        components: [navigationButtons]
-                    });
-                    return;
-                }
-
-                const components = [navigationButtons, selectMenu];
+                const components = [navigationButtons];
+                if (selectMenu) components.push(selectMenu);
 
                 const reply = await interaction.editReply({
                     embeds: [embed],
@@ -443,7 +382,6 @@ module.exports = {
                                 const actionRow = new ActionRowBuilder()
                                     .addComponents(wishlistButton, backButton);
 
-                                // Update the embed to show new wishlist count
                                 const selectedCard = currentCards.find(c => c.card.id === cardId);
                                 if (selectedCard) {
                                     const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
@@ -478,24 +416,26 @@ module.exports = {
                                     currentPage = newPage;
                                     requestBody.page = currentPage;
 
-                                    const newResponse = await retryOperation(async () => {
-                                        return await axios.post(API_URL, requestBody, createAxiosConfig(requestBody));
-                                    });
+                                    try {
+                                        const newResponse = await handleMazokuAPICall(async () => {
+                                            return await axios.post(API_URL, requestBody, createAxiosConfig(requestBody));
+                                        });
 
-                                    currentCards = newResponse.data.cards || [];
-                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id);
-                                    const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
-                                    const newSelectMenu = createCardSelectMenu(currentCards);
+                                        const newCards = newResponse.data.cards || [];
+                                        const newEmbed = await createCardListEmbed(newCards, currentPage, totalPages, i.user.id);
+                                        const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
+                                        const newSelectMenu = createCardSelectMenu(newCards);
 
-                                    const newComponents = [
-                                        newNavigationButtons,
-                                        newSelectMenu
-                                    ].filter(Boolean);
+                                        const newComponents = [newNavigationButtons];
+                                        if (newSelectMenu) newComponents.push(newSelectMenu);
 
-                                    await i.editReply({
-                                        embeds: [newEmbed],
-                                        components: newComponents
-                                    });
+                                        await i.editReply({
+                                            embeds: [newEmbed],
+                                            components: newComponents
+                                        });
+                                    } catch (error) {
+                                        await i.editReply("Mazoku Servers unavailable");
+                                    }
                                 }
                             }
                         } else if (i.isStringSelectMenu()) {
@@ -524,9 +464,9 @@ module.exports = {
                             }
                         }
                     } catch (error) {
-                        console.error('Error handling interaction:', error);
+                        console.log('Error handling interaction:', error.message);
                         await i.followUp({
-                            content: 'An error occurred while processing your request. Please try again.',
+                            content: "Mazoku Servers unavailable",
                             ephemeral: true
                         });
                     }
@@ -542,36 +482,22 @@ module.exports = {
                             components: []
                         });
                     } catch (error) {
-                        console.error('Error handling collector end:', error);
+                        console.log('Error handling collector end:', error.message);
                     }
                 });
 
             } catch (error) {
-                console.error('Error fetching cards:', error);
-                await interaction.editReply({
-                    content: 'An error occurred while fetching your cards. Please try again later.',
-                    components: []
-                });
+                return await interaction.editReply("Mazoku Servers unavailable");
             }
 
         } catch (error) {
-            console.error('Command execution error:', error);
-            const errorMessage = 'An error occurred while processing your request. Please try again later.';
+            console.log('Error in execute:', error.message);
+            const errorMessage = "Mazoku Servers unavailable";
             
-            try {
-                if (interaction.deferred) {
-                    await interaction.editReply({ 
-                        content: errorMessage,
-                        components: []
-                    });
-                } else {
-                    await interaction.reply({ 
-                        content: errorMessage, 
-                        ephemeral: true 
-                    });
-                }
-            } catch (replyError) {
-                console.error('Error sending error message:', replyError);
+            if (interaction.deferred) {
+                await interaction.editReply({ content: errorMessage });
+            } else {
+                await interaction.reply({ content: errorMessage, ephemeral: true });
             }
         }
     }
