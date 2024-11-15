@@ -1,75 +1,24 @@
-const axios = require('axios');
-const { API_URL, MAX_RETRIES, RETRY_DELAY, CARDS_PER_PAGE } = require('./constants');
+const { CARDS_PER_PAGE } = require('./constants');
+const allCards = require('../../assets/all-cards-mazoku.json');
 
-let failureCount = 0;
-const MAX_FAILURES = 2; // If 2 or more cards fail, we consider the server down
-
-// Function to handle Mazoku API errors
-const handleMazokuAPICall = async (apiCall) => {
+// Function to handle data lookup errors
+const handleDataLookup = (operation) => {
     try {
-        const response = await apiCall();
-        return response;
+        const result = operation();
+        return result;
     } catch (error) {
-        failureCount++;
-        if (failureCount >= MAX_FAILURES) {
-            console.log('Mazoku API Error: Multiple failures detected');
-            throw new Error("Mazoku Servers unavailable");
-        }
-        console.log('Mazoku API Error:', error.message);
-        throw error;
+        console.log('Data lookup error:', error.message);
+        throw new Error("Data unavailable");
     }
 };
-
-const createAxiosConfig = () => ({
-    headers: {
-        'Cache-Control': 'no-cache',
-        'Content-Type': 'application/json',
-        'Host': 'api.mazoku.cc'
-    }
-});
-
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
-    let lastError;
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const result = await handleMazokuAPICall(operation);
-            return result;
-        } catch (error) {
-            lastError = error;
-            if (error.message === "Mazoku Servers unavailable" || i === maxRetries - 1) {
-                throw error;
-            }
-            await delay(RETRY_DELAY * Math.pow(2, i));
-        }
-    }
-    throw lastError;
-};
-
-const createBaseRequestBody = (page = 1) => ({
-    page,
-    pageSize: CARDS_PER_PAGE,
-    name: "",
-    type: "Card",
-    seriesName: "",
-    minVersion: 0,
-    maxVersion: 1000,
-    sortBy: "dateAdded",
-    sortOrder: "desc"
-});
 
 const fetchCardDetails = async (cardId) => {
     try {
-        const response = await retryOperation(() => 
-            axios.get(`${API_URL}/get-card/${cardId}`, createAxiosConfig())
+        const card = handleDataLookup(() => 
+            allCards.find(card => card.id === cardId)
         );
         
-        if (!response.data) {
-            failureCount++;
-            if (failureCount >= MAX_FAILURES) {
-                throw new Error("Mazoku Servers unavailable");
-            }
+        if (!card) {
             return {
                 name: '*Data Unavailable*',
                 series: '*Data Unavailable*',
@@ -79,66 +28,93 @@ const fetchCardDetails = async (cardId) => {
         }
 
         return {
-            ...response.data,
-            name: response.data.name || '*Data Unavailable*',
-            series: response.data.series || '*Data Unavailable*',
-            makers: response.data.makers || []
+            ...card,
+            name: card.name || '*Data Unavailable*',
+            series: card.series || '*Data Unavailable*',
+            makers: card.makers || []
         };
     } catch (error) {
-        if (error.message === "Mazoku Servers unavailable") {
-            throw error;
-        }
         console.log('Error fetching card details:', error.message);
-        throw new Error("Mazoku Servers unavailable");
+        return {
+            name: '*Data Unavailable*',
+            series: '*Data Unavailable*',
+            tier: 'Unknown',
+            makers: []
+        };
     }
 };
 
 const searchCards = async (searchParams, page = 1) => {
     try {
-        const requestBody = {
-            ...createBaseRequestBody(page),
-            name: searchParams.name || "",
-            seriesName: searchParams.anime || "",
-            sortBy: searchParams.sortBy || "dateAdded",
-            sortOrder: searchParams.sortOrder || "desc"
-        };
+        let filteredCards = [...allCards];
+
+        // Apply filters
+        if (searchParams.name) {
+            const searchName = searchParams.name.toLowerCase();
+            filteredCards = filteredCards.filter(card => 
+                card.name.toLowerCase().includes(searchName)
+            );
+        }
+
+        if (searchParams.anime) {
+            const searchSeries = searchParams.anime.toLowerCase();
+            filteredCards = filteredCards.filter(card => 
+                card.series.toLowerCase().includes(searchSeries)
+            );
+        }
 
         if (searchParams.tier) {
-            requestBody.tiers = [searchParams.tier];
+            filteredCards = filteredCards.filter(card => 
+                card.tier === searchParams.tier
+            );
         }
 
         if (searchParams.type) {
-            requestBody.eventType = searchParams.type === 'event';
+            const isEvent = searchParams.type === 'event';
+            filteredCards = filteredCards.filter(card => 
+                isEvent ? card.eventType !== null : card.eventType === null
+            );
         }
 
-        const response = await retryOperation(() => 
-            axios.post(`${API_URL}/get-cards`, requestBody, createAxiosConfig())
-        );
+        // Sort cards
+        const sortBy = searchParams.sortBy || "dateAdded";
+        const sortOrder = searchParams.sortOrder || "desc";
+        
+        filteredCards.sort((a, b) => {
+            let comparison = 0;
+            if (sortBy === "dateAdded") {
+                comparison = new Date(a.createdDate) - new Date(b.createdDate);
+            } else if (sortBy === "name") {
+                comparison = a.name.localeCompare(b.name);
+            }
+            return sortOrder === "desc" ? -comparison : comparison;
+        });
 
-        const cards = (response.data.cards || []).map(card => ({
-            ...card,
-            name: card.name || '*Data Unavailable*',
-            series: card.series || '*Data Unavailable*',
-            makers: card.makers || []
-        }));
+        // Pagination
+        const totalPages = Math.ceil(filteredCards.length / CARDS_PER_PAGE);
+        const startIndex = (page - 1) * CARDS_PER_PAGE;
+        const endIndex = startIndex + CARDS_PER_PAGE;
+        const paginatedCards = filteredCards.slice(startIndex, endIndex);
 
         return {
-            cards,
-            totalPages: response.data.pageCount || 1
+            cards: paginatedCards.map(card => ({
+                ...card,
+                name: card.name || '*Data Unavailable*',
+                series: card.series || '*Data Unavailable*',
+                makers: card.makers || []
+            })),
+            totalPages: totalPages || 1
         };
     } catch (error) {
-        if (error.message === "Mazoku Servers unavailable") {
-            throw error;
-        }
         console.log('Error searching cards:', error.message);
-        throw new Error("Mazoku Servers unavailable");
+        return {
+            cards: [],
+            totalPages: 1
+        };
     }
 };
 
 module.exports = {
-    createAxiosConfig,
-    retryOperation,
-    createBaseRequestBody,
     fetchCardDetails,
     searchCards
 };
