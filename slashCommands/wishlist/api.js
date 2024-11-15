@@ -1,14 +1,22 @@
 const axios = require('axios');
 const { API_URL, MAX_RETRIES, RETRY_DELAY, CARDS_PER_PAGE } = require('./constants');
 
+let failureCount = 0;
+const MAX_FAILURES = 2; // If 2 or more cards fail, we consider the server down
+
 // Function to handle Mazoku API errors
 const handleMazokuAPICall = async (apiCall) => {
     try {
         const response = await apiCall();
         return response;
     } catch (error) {
+        failureCount++;
+        if (failureCount >= MAX_FAILURES) {
+            console.log('Mazoku API Error: Multiple failures detected');
+            throw new Error("Mazoku Servers unavailable");
+        }
         console.log('Mazoku API Error:', error.message);
-        throw new Error("Mazoku Servers unavailable");
+        throw error;
     }
 };
 
@@ -30,7 +38,9 @@ const retryOperation = async (operation, maxRetries = MAX_RETRIES) => {
             return result;
         } catch (error) {
             lastError = error;
-            if (i === maxRetries - 1) break;
+            if (error.message === "Mazoku Servers unavailable" || i === maxRetries - 1) {
+                throw error;
+            }
             await delay(RETRY_DELAY * Math.pow(2, i));
         }
     }
@@ -56,6 +66,10 @@ const fetchCardDetails = async (cardId) => {
         );
         
         if (!response.data) {
+            failureCount++;
+            if (failureCount >= MAX_FAILURES) {
+                throw new Error("Mazoku Servers unavailable");
+            }
             return {
                 name: '*Data Unavailable*',
                 series: '*Data Unavailable*',
@@ -71,6 +85,9 @@ const fetchCardDetails = async (cardId) => {
             makers: response.data.makers || []
         };
     } catch (error) {
+        if (error.message === "Mazoku Servers unavailable") {
+            throw error;
+        }
         console.log('Error fetching card details:', error.message);
         throw new Error("Mazoku Servers unavailable");
     }
@@ -110,6 +127,9 @@ const searchCards = async (searchParams, page = 1) => {
             totalPages: response.data.pageCount || 1
         };
     } catch (error) {
+        if (error.message === "Mazoku Servers unavailable") {
+            throw error;
+        }
         console.log('Error searching cards:', error.message);
         throw new Error("Mazoku Servers unavailable");
     }

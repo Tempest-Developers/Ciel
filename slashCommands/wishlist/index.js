@@ -67,13 +67,6 @@ module.exports = {
                             { name: 'Ascending', value: 'asc' },
                             { name: 'Descending', value: 'desc' }
                         ))),
-                // .addStringOption(option =>
-                //     option.setName('type')
-                //         .setDescription('Filter by card type')
-                //         .addChoices(
-                //             { name: 'Event', value: 'event' },
-                //             { name: 'Normal', value: 'normal' }
-                //         ))),
 
     async execute(interaction) {
         if (!interaction.isCommand()) return;
@@ -129,22 +122,22 @@ module.exports = {
                 type: interaction.options.getString('type')
             };
 
-            if (isGlobalMode) {
-                // Fetch all wishlisted cards sorted by wishlist count
-                allCards = await fetchAllWishlistedCards(interaction.user.id);
-                if (!allCards.length) {
-                    await interaction.editReply('No wishlisted cards found globally.');
-                    return;
-                }
-            } else if (isMeMode) {
-                // Fetch user's personal wishlist
-                allCards = await fetchUserWishlistedCards(interaction.user.id);
-                if (!allCards.length) {
-                    await interaction.editReply('You have no wishlisted cards.');
-                    return;
-                }
-            } else {
-                try {
+            try {
+                if (isGlobalMode) {
+                    // Fetch all wishlisted cards sorted by wishlist count
+                    allCards = await fetchAllWishlistedCards(interaction.user.id);
+                    if (!allCards.length) {
+                        await interaction.editReply('No wishlisted cards found globally.');
+                        return;
+                    }
+                } else if (isMeMode) {
+                    // Fetch user's personal wishlist
+                    allCards = await fetchUserWishlistedCards(interaction.user.id);
+                    if (!allCards.length) {
+                        await interaction.editReply('You have no wishlisted cards.');
+                        return;
+                    }
+                } else {
                     const result = await searchCards(searchParams, currentPage);
                     currentCards = result.cards;
                     totalPages = result.totalPages;
@@ -152,11 +145,15 @@ module.exports = {
                     if (searchParams.sortBy === 'wishlist') {
                         currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
                     }
-                } catch (error) {
-                    console.error('API request error:', error);
-                    await interaction.editReply('Failed to fetch cards. Please try again.');
+                }
+            } catch (error) {
+                console.error('API request error:', error);
+                if (error.message === "Mazoku Servers unavailable") {
+                    await interaction.editReply('Mazoku Servers unavailable');
                     return;
                 }
+                await interaction.editReply('Failed to fetch cards. Please try again.');
+                return;
             }
 
             if (isGlobalMode || isMeMode) {
@@ -279,6 +276,13 @@ module.exports = {
                                     });
                                 } catch (error) {
                                     console.error('Pagination error:', error);
+                                    if (error.message === "Mazoku Servers unavailable") {
+                                        await i.followUp({
+                                            content: 'Mazoku Servers unavailable',
+                                            ephemeral: true
+                                        });
+                                        return;
+                                    }
                                     await i.followUp({
                                         content: 'Failed to load the next page. Please try again.',
                                         ephemeral: true
@@ -305,6 +309,13 @@ module.exports = {
                     }
                 } catch (error) {
                     console.error('Interaction error:', error);
+                    if (error.message === "Mazoku Servers unavailable") {
+                        await i.followUp({
+                            content: 'Mazoku Servers unavailable',
+                            ephemeral: true
+                        });
+                        return;
+                    }
                     await i.followUp({
                         content: 'An error occurred. Please try again.',
                         ephemeral: true
@@ -313,14 +324,15 @@ module.exports = {
             });
 
             collector.on('end', () => {
-                // Simply log that the collector ended, without trying to edit the message
                 console.log('Wishlist command interaction collector ended');
                 console.log(`${interaction.user.tag} | ${interaction.user.id} | ${interaction.guild.name} | ${interaction.guild.id}`);
             });
 
         } catch (error) {
             console.error('Command execution error:', error);
-            const errorMessage = 'An error occurred while processing your request. Please try again later.';
+            const errorMessage = error.message === "Mazoku Servers unavailable" 
+                ? 'Mazoku Servers unavailable'
+                : 'An error occurred while processing your request. Please try again later.';
             
             try {
                 if (interaction.deferred) {

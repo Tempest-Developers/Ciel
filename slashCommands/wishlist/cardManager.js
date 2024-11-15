@@ -57,16 +57,32 @@ const fetchAllWishlistedCards = async (userId) => {
                     }
                     return null;
                 } catch (error) {
+                    // If we get the server unavailable error, propagate it immediately
+                    if (error.message === "Mazoku Servers unavailable") {
+                        throw error;
+                    }
                     console.error(`Error fetching card ${wishlistDoc.cardId}:`, error);
                     return null;
                 }
             });
 
-            const cardDetails = await Promise.all(cardPromises);
-            
-            // Filter out any failed fetches
-            return cardDetails.filter(card => card !== null);
+            try {
+                const cardDetails = await Promise.all(cardPromises);
+                // Filter out any failed fetches
+                return cardDetails.filter(card => card !== null);
+            } catch (error) {
+                // Re-throw "Mazoku Servers unavailable" error
+                if (error.message === "Mazoku Servers unavailable") {
+                    throw error;
+                }
+                console.error('Error in Promise.all:', error);
+                return [];
+            }
         } catch (error) {
+            // Re-throw "Mazoku Servers unavailable" error
+            if (error.message === "Mazoku Servers unavailable") {
+                throw error;
+            }
             console.error('Error fetching all wishlisted cards:', error);
             return [];
         }
@@ -95,18 +111,34 @@ const fetchUserWishlistedCards = async (userId) => {
                 }
                 return null;
             } catch (error) {
+                // If we get the server unavailable error, propagate it immediately
+                if (error.message === "Mazoku Servers unavailable") {
+                    throw error;
+                }
                 console.error(`Error fetching card ${cardId}:`, error);
                 return null;
             }
         });
 
-        const cardDetails = await Promise.all(cardPromises);
-        
-        // Filter out any failed fetches and sort by wishlist count
-        return cardDetails
-            .filter(card => card !== null)
-            .sort((a, b) => b.wishlistCount - a.wishlistCount);
+        try {
+            const cardDetails = await Promise.all(cardPromises);
+            // Filter out any failed fetches and sort by wishlist count
+            return cardDetails
+                .filter(card => card !== null)
+                .sort((a, b) => b.wishlistCount - a.wishlistCount);
+        } catch (error) {
+            // Re-throw "Mazoku Servers unavailable" error
+            if (error.message === "Mazoku Servers unavailable") {
+                throw error;
+            }
+            console.error('Error in Promise.all:', error);
+            return [];
+        }
     } catch (error) {
+        // Re-throw "Mazoku Servers unavailable" error
+        if (error.message === "Mazoku Servers unavailable") {
+            throw error;
+        }
         console.error('Error fetching user wishlisted cards:', error);
         return [];
     }
