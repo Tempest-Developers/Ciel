@@ -80,10 +80,10 @@ const createCardListEmbed = async (cards, page, totalPages, userId) => {
                 const eventEmoji = card.eventType ? '🎃' : '';
                 const wishlistCount = wishlistCounts.get(card.id) || 0;
                 const isWishlisted = userWishlistStatus[index];
-                const heartEmoji = isWishlisted ? ':yellow_heart:' : '❤️';
+                const heartEmoji = isWishlisted ? ':yellow_heart:' : '';
                 const cardName = card.name || '*Data Unavailable*';
                 const cardSeries = card.series || '*Data Unavailable*';
-                description += `${tierEmoji} #${item.version} **${cardName}** ${eventEmoji}*${cardSeries}* ${heartEmoji} (${wishlistCount} ${heartEmoji})\n`;
+                description += `${tierEmoji} \`❤️ ${wishlistCount}\` #${item.version} **${cardName}** *${cardSeries}* ${eventEmoji} ${heartEmoji}\n`;
             });
         }
 
@@ -136,7 +136,7 @@ const createCardDetailEmbed = async (item, userId) => {
                 embed.addFields(
                     { 
                         name: 'Global Card Details:', 
-                        value: `**Prints Out** *${totalCopies.toString()}*\n**All Owners** *${uniqueOwners.toString()}*\n**Lowest Print** *#**${lowestPrint.toString()}***\n**Wishlist Count** *${wishlistCount}* ❤️`
+                        value: `Prints Out **${totalCopies.toString()}**\nAll Owners **${uniqueOwners.toString()}**\nLowest Print *#**${lowestPrint.toString()}***\n**Wishlist Count** **${wishlistCount}** ❤️`
                     }
                 );
             }

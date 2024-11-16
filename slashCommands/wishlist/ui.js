@@ -23,8 +23,8 @@ const createCardListEmbed = async (cards, page, totalPages, userId, isListMode =
                     const tierEmoji = getTierEmoji(`${card.tier}T`);
                     const eventEmoji = card.eventType ? '🎃' : '';
                     const wishlistCount = card.wishlistCount || 0;
-                    const heartEmoji = card.isWishlisted ? ':yellow_heart:' : '❤️';
-                    description += `${tierEmoji} **${card.name}** ${eventEmoji}*${card.series}* (${wishlistCount} ${heartEmoji})\n`;
+                    const heartEmoji = isWishlisted ? ':yellow_heart:' : '';
+                    description += `${tierEmoji} \`❤️ ${wishlistCount}\` **${card.name}** *${card.series}* ${eventEmoji} ${heartEmoji}\n`;
                 });
             } else {
                 // For search mode: Fetch both global counts and user status
@@ -39,8 +39,8 @@ const createCardListEmbed = async (cards, page, totalPages, userId, isListMode =
                     const eventEmoji = card.eventType ? '🎃' : '';
                     const wishlistCount = wishlistCounts.get(card.id) || 0;
                     const isWishlisted = userWishlistStatus[index];
-                    const heartEmoji = isWishlisted ? ':yellow_heart:' : '❤️';
-                    description += `${tierEmoji} **${card.name}** ${eventEmoji}*${card.series}* (${wishlistCount} ${heartEmoji})\n`;
+                    const heartEmoji = isWishlisted ? ':yellow_heart:' : '';
+                    description += `${tierEmoji} \`❤️ ${wishlistCount}\` **${card.name}** *${card.series}* ${eventEmoji} ${heartEmoji}\n`;
                 });
             }
         }
