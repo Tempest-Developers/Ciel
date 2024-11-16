@@ -8,7 +8,7 @@ const config = require('../config.json');
 let lastCheck = 0;
 const CHECK_INTERVAL = 60000; // 1 minute in milliseconds
 const GUILD_CHANNELS = {
-    '1240866080985976844': '1245303280599433256' // Map of guild ID to channel ID
+    '1240866080985976844': '1307335913462038639' // Map of guild ID to channel ID
 };
 
 module.exports = {

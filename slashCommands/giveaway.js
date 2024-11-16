@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const MIMS_GUILD = process.env.MIMS_GUILD;
 const GUILD_CHANNELS = {
-    '1240866080985976844': '1245303055004733460' // Map of guild ID to channel ID
+    '1240866080985976844': '1307335913462038639' // Map of guild ID to channel ID
 };
 
 // Helper function to parse duration string to milliseconds
