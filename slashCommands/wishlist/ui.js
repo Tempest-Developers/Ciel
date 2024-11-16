@@ -23,7 +23,7 @@ const createCardListEmbed = async (cards, page, totalPages, userId, isListMode =
                     const tierEmoji = getTierEmoji(`${card.tier}T`);
                     const eventEmoji = card.eventType ? '🎃' : '';
                     const wishlistCount = card.wishlistCount || 0;
-                    const heartEmoji = isWishlisted ? ':yellow_heart:' : '';
+                    const heartEmoji = card.isWishlisted ? ':yellow_heart:' : '';
                     description += `${tierEmoji} \`❤️ ${wishlistCount}\` **${card.name}** *${card.series}* ${eventEmoji} ${heartEmoji}\n`;
                 });
             } else {

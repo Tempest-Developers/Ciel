@@ -5,6 +5,13 @@ const { enrichClaimWithCardData } = require('../utility/cardAPI');
 
 // Create a cooldown collection
 const cooldowns = new Map();
+const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
+
+// Function to check if timestamp is within last 30 minutes
+const isWithinLast30Minutes = (timestamp) => {
+    const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
+    return new Date(timestamp).getTime() > thirtyMinutesAgo;
+};
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -40,7 +47,6 @@ module.exports = {
             const userId = interaction.user.id;
             const guildId = interaction.guild.id;
             const cooldownKey = `${userId}-${guildId}`;
-            const cooldownAmount = 5000; // 5 seconds in milliseconds
 
             if (cooldowns.has(cooldownKey)) {
                 const expirationTime = cooldowns.get(cooldownKey);
@@ -110,27 +116,40 @@ module.exports = {
             const getPrintQuality = (print) => {
                 if (print >= 1 && print <= 10) return 'SP';
                 if (print >= 11 && print <= 99) return 'LP';
+                if (print >= 100 && print <= 499) return 'MP';
+                if (print >= 500 && print <= 1000) return 'HP';
                 return 'OTHER';
             };
 
-            // Function to compare card quality
+            // Function to compare card quality (prioritizing print rank over tier rank)
             const isHigherQuality = (card1, card2) => {
+                const printRank = { 'SP': 4, 'LP': 3, 'MP': 2, 'HP': 1, 'OTHER': 0 };
                 const tierRank = { 'SSRT': 4, 'SRT': 3, 'RT': 2, 'CT': 1 };
-                const printRank = { 'SP': 2, 'LP': 1, 'OTHER': 0 };
+                
+                const print1Quality = getPrintQuality(card1.print);
+                const print2Quality = getPrintQuality(card2.print);
+                
+                const print1Rank = printRank[print1Quality];
+                const print2Rank = printRank[print2Quality];
+                
+                if (print1Rank !== print2Rank) {
+                    return print1Rank > print2Rank;
+                }
                 
                 const tier1Rank = tierRank[card1.tier] || 0;
                 const tier2Rank = tierRank[card2.tier] || 0;
-                const print1Rank = printRank[getPrintQuality(card1.print)];
-                const print2Rank = printRank[getPrintQuality(card2.print)];
-
-                const combo1Score = (tier1Rank * 10) + print1Rank;
-                const combo2Score = (tier2Rank * 10) + print2Rank;
                 
-                return combo1Score > combo2Score;
+                if (tier1Rank !== tier2Rank) {
+                    return tier1Rank > tier2Rank;
+                }
+                
+                // If both print rank and tier rank are equal, prefer lower print number
+                return card1.print < card2.print;
             };
 
-            // Find best quality card
+            // Find best quality card and count recent claims
             let bestCard = null;
+            let recentClaimsCount = 0;
 
             // Process claims
             for (const tier in userData.claims) {
@@ -140,6 +159,15 @@ module.exports = {
                     if (claim.timestamp) {
                         const timestamp = new Date(claim.timestamp);
                         claimTimesByTier[tier].push(timestamp);
+                        
+                        if (isWithinLast30Minutes(claim.timestamp)) {
+                            recentClaimsCount++;
+                            
+                            // Only consider claims from last 30 minutes for best card
+                            if (!bestCard || isHigherQuality({ ...claim, tier }, { ...bestCard, tier: bestCard.tier })) {
+                                bestCard = { ...claim, tier };
+                            }
+                        }
                         
                         if (printNum >= 1 && printNum <= 10) {
                             printRangeCounts.SP++;
@@ -158,10 +186,6 @@ module.exports = {
                             claimTimesByPrintRange.HP.push(timestamp);
                         }
                     }
-
-                    if (!bestCard || isHigherQuality({ ...claim, tier }, { ...bestCard, tier: bestCard.tier })) {
-                        bestCard = { ...claim, tier };
-                    }
                 }
             }
 
@@ -173,6 +197,10 @@ module.exports = {
                 
                 const timestamps = times.map(time => Math.floor(time.getTime() / 1000));
                 timestamps.sort((a, b) => a - b);
+                
+                // Add current time as the last timestamp to account for time since last claim
+                const currentTimestamp = Math.floor(Date.now() / 1000);
+                timestamps.push(currentTimestamp);
                 
                 let totalDiff = 0;
                 let diffCount = 0;
@@ -221,32 +249,47 @@ module.exports = {
                     embed = createBaseEmbed()
                         .setTitle('Overview')
                         .addFields({ 
-                            name: 'Total Claims', 
-                            value: totalClaims.toString(), 
-                            inline: true 
+                            name: `Total Claims: ${totalClaims.toString()}`,
+                            value: `*Claims in last 30 minutes*: ${recentClaimsCount.toString()}`
                         });
                     break;
 
                 case 'best':
-                    embed = createBaseEmbed().setTitle('Best Claimed Card');
+                    embed = createBaseEmbed().setTitle('Best Card (Last 30 Minutes)');
                     if (bestCard) {
-                        const enrichedCard = await enrichClaimWithCardData(bestCard);
-                        if (enrichedCard) {
-                            const makers = enrichedCard.card.makers.map(id => `<@${id}>`).join(', ');
+                        try {
+                            const enrichedCard = await enrichClaimWithCardData(bestCard);
+                            if (enrichedCard && enrichedCard.card) {
+                                const makers = enrichedCard.card.makers?.map(id => `<@${id}>`).join(', ') || '*Data Unavailable*';
+                                const cardName = enrichedCard.cardName || '*Data Unavailable*';
+                                const series = enrichedCard.card.series || '*Data Unavailable*';
+                                
+                                embed.addFields({
+                                    name: 'Card Details',
+                                    value: `*${series}*\n` +
+                                           `${getTierEmoji(bestCard.tier)} **${cardName}** #**${enrichedCard.print}** \n` +
+                                           `**Maker(s)**: ${makers}\n` +
+                                           `**Owner**: ${enrichedCard.owner}\n` +
+                                           `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
+                                })
+                                .setThumbnail(`https://cdn.mazoku.cc/packs/${bestCard.cardID}`);
+                            } else {
+                                embed.addFields({
+                                    name: 'No Cards',
+                                    value: '*No drops in the last 30 minutes*'
+                                });
+                            }
+                        } catch (error) {
+                            console.error('Error enriching card data:', error);
                             embed.addFields({
-                                name: 'Card Details',
-                                value: `*${enrichedCard.card.series}*\n` +
-                                       `${getTierEmoji(bestCard.tier)} **${enrichedCard.cardName}** #**${enrichedCard.print}** \n` +
-                                       `**Maker(s)**: ${makers}\n` +
-                                       `**Owner**: ${enrichedCard.owner}\n` +
-                                       `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
-                            })
-                            .setThumbnail(`https://cdn.mazoku.cc/packs/${bestCard.cardID}`);
+                                name: 'Error',
+                                value: '*Data Unavailable*'
+                            });
                         }
                     } else {
                         embed.addFields({
                             name: 'No Cards',
-                            value: 'No cards claimed yet'
+                            value: '*No drops in the last 30 minutes*'
                         });
                     }
                     break;
@@ -259,7 +302,7 @@ module.exports = {
                             value: Object.entries(printRangeCounts)
                                 .map(([range, count]) => {
                                     const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
-                                    return `**${range}** (${getRangeDescription(range)}): **${count}** *${percentage.toFixed(0)}%*`;
+                                    return `**${range}** (${getRangeDescription(range)}): **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
                                 })
                                 .join('\n')
                         });
@@ -273,7 +316,7 @@ module.exports = {
                             value: Object.entries(tierCounts)
                                 .map(([tier, count]) => {
                                     const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
-                                    return `${getTierEmoji(tier)} **${count}** *${percentage.toFixed(0)}%* `;
+                                    return `${getTierEmoji(tier)} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
                                 })
                                 .join('\n')
                         });
@@ -288,9 +331,9 @@ module.exports = {
                                 .filter(([_, times]) => times.length > 0)
                                 .map(([tier, times]) => {
                                     const avgTime = calculateAverageTimeBetweenClaims(times);
-                                    return `${getTierEmoji(tier)}: ${avgTime || 'N/A'}`;
+                                    return `${getTierEmoji(tier)}: ${avgTime || '*Data Unavailable*'}`;
                                 })
-                                .join('\n') || 'No claim time data available'
+                                .join('\n') || '*Data Unavailable*'
                         });
                     break;
 
@@ -303,9 +346,9 @@ module.exports = {
                                 .filter(([_, times]) => times.length > 0)
                                 .map(([range, times]) => {
                                     const avgTime = calculateAverageTimeBetweenClaims(times);
-                                    return `**${range}** (${getRangeDescription(range)}): ${avgTime || 'N/A'}`;
+                                    return `**${range}** (${getRangeDescription(range)}): ${avgTime || '*Data Unavailable*'}`;
                                 })
-                                .join('\n') || 'No claim time data available'
+                                .join('\n') || '*Data Unavailable*'
                         });
                     break;
             }
@@ -313,10 +356,10 @@ module.exports = {
             await interaction.editReply({ embeds: [embed] });
 
             // Set cooldown
-            cooldowns.set(cooldownKey, Date.now() + cooldownAmount);
+            cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
 
             // Clean up expired cooldowns
-            setTimeout(() => cooldowns.delete(cooldownKey), cooldownAmount);
+            setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
 
         } catch (error) {
             console.error('Error in stats command:', error);
