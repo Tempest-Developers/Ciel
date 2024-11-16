@@ -136,7 +136,7 @@ const createCardDetailEmbed = async (item, userId) => {
                 embed.addFields(
                     { 
                         name: 'Global Card Details:', 
-                        value: `Prints Out \`${totalCopies.toString()}\`\nAll Owners \`${uniqueOwners.toString()}*\`\nLowest Print \`#${lowestPrint.toString()}\n\`❤️ ${wishlistCount}\``
+                        value: `Prints Out \`${totalCopies.toString()}\`\nAll Owners \`${uniqueOwners.toString()}\`\nLowest Print \`#${lowestPrint.toString()}\`\n\`❤️ ${wishlistCount}\` `
                     }
                 );
             }
