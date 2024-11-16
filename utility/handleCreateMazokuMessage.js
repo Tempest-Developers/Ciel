@@ -73,7 +73,7 @@ module.exports = async (message, exemptBotId, database) => {
             );
 
             if (rewardMessage && winners.length > 0) {
-              const rewardEmbed = createRewardEmbed(rewardMessage);
+              const rewardEmbed = createRewardEmbed(rewardMessage, participants);
               await message.channel.send({ embeds: [rewardEmbed] });
             }
           } catch (error) {
@@ -228,10 +228,10 @@ async function processWinners(winners, message, database, participants) {
   else if (highestReward >= TOKEN_REWARDS.rareDrop) colorEmbed = '#00FFFF'; // Red
   else if (highestReward >= TOKEN_REWARDS.luckyDraw) colorEmbed = '#FFFF00'; // Yellow
 
-  return { rewardMessage, bonusMessage, colorEmbed, hasSpecialReward };
+  return { rewardMessage, bonusMessage, colorEmbed, hasSpecialReward, participants };
 }
 
-function createRewardEmbed({ rewardMessage, bonusMessage, colorEmbed, hasSpecialReward }) {
+function createRewardEmbed({ rewardMessage, bonusMessage, colorEmbed, hasSpecialReward, participants }) {
   const rewardEmbed = new EmbedBuilder()
     .setColor(colorEmbed)
     .setTitle(hasSpecialReward ? '🌟 Bonus Power Ups! 🌟' : '🎉 Token Rewards')
