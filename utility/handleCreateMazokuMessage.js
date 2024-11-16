@@ -72,7 +72,7 @@ module.exports = async (message, exemptBotId, database) => {
               gateServerData
             );
 
-            if (rewardMessage) {
+            if (rewardMessage && winners.length > 0) {
               const rewardEmbed = createRewardEmbed(rewardMessage);
               await message.channel.send({ embeds: [rewardEmbed] });
             }
@@ -207,9 +207,11 @@ async function processWinners(winners, message, database, gateServerData) {
 
   // Add role bonus notation
   if ((hasBoosterRole && hasClanRole) || hasBoosterRole) {
+    hasSpecialReward = true;
     bonusMessage += `<a:Gate_Nitro:1307184792990781480> **Booster Role Present** \`+50%\` More <:Slime_Token:1304929154285703179>!\n`;
   } else if (hasClanRole) {
     bonusMessage += `<:GoldenGate_Logo:1307187315566706812> **Clan Role Present** \`+25%\` More <:Slime_Token:1304929154285703179>!\n`;
+    hasSpecialReward = true;
   }
 
   if (highestReward >= TOKEN_REWARDS.incredibleLuck) colorEmbed = '#FF00FF'; // Magenta
@@ -231,7 +233,7 @@ function createRewardEmbed({ rewardMessage, bonusMessage, colorEmbed, hasSpecial
     })
     .setFooter({ 
       // Adjust footer calculation to handle empty rewardMessage
-      text: `Claimers ${rewardMessage ? rewardMessage.split('\n').length - 1 : 0}  | \\gate help` 
+      text: `Claimers ${rewardMessage ? rewardMessage.split('\n').length - 1 : 0}` 
     });
 
   return rewardEmbed;

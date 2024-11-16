@@ -34,6 +34,20 @@ module.exports = {
             const totalEntries = giveaway.entries?.length || 0;
             const userEntries = giveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
 
+            // Calculate chance of winning before buying another ticket
+            const currentChanceOfWinning = ((userEntries / totalEntries) * 100).toFixed(2);
+
+            // Calculate chance of winning if user buys another ticket
+            const newTotalEntries = totalEntries + 1;
+            const newUserEntries = userEntries + 1;
+            const newChanceOfWinning = ((newUserEntries / newTotalEntries) * 100).toFixed(2);
+
+
+            // Calculate percentage chance of improvement
+            const chanceOfImprovement = ((newChanceOfWinning - currentChanceOfWinning) / currentChanceOfWinning * 100).toFixed(2);
+            if (isNaN(chanceOfImprovement)) chanceOfImprovement = newChanceOfWinning; // if current chance of winning is 0
+
+
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
                 .setTitle('🎉 Current Giveaway')
@@ -41,7 +55,10 @@ module.exports = {
                                  `**Description:** ${giveaway.item.description || 'N/A'}\n` +
                                  `🎫 Your Tickets: **${userTickets}**\n` +
                                  `🎯 Your Entries: **${userEntries}**\n` +
-                                 `👥 Total Entries: **${totalEntries}**`)
+                                 `👥 Total Entries: **${totalEntries}**\n` +
+                                 `:game_die: Chance of winning: **${currentChanceOfWinning}%**\n` +
+                                 `:shopping_bags: Buy/Join another ticket to increase your chance by **${chanceOfImprovement}%**`
+                                )
                 .setImage(giveaway.item.imageUrl || null)
                 .addFields({
                     name: 'Time Remaining',
