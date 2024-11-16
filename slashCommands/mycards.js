@@ -312,7 +312,7 @@ module.exports = {
                     return await axios.post(API_URL, requestBody, createAxiosConfig(requestBody));
                 });
                 
-                const currentCards = response.data.cards || [];
+                let currentCards = response.data.cards || [];
                 const totalPages = response.data.pageCount || 1;
 
                 if (currentCards.length === 0) {
@@ -421,10 +421,10 @@ module.exports = {
                                             return await axios.post(API_URL, requestBody, createAxiosConfig(requestBody));
                                         });
 
-                                        const newCards = newResponse.data.cards || [];
-                                        const newEmbed = await createCardListEmbed(newCards, currentPage, totalPages, i.user.id);
+                                        currentCards = newResponse.data.cards || []; // Update currentCards
+                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id);
                                         const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
-                                        const newSelectMenu = createCardSelectMenu(newCards);
+                                        const newSelectMenu = createCardSelectMenu(currentCards);
 
                                         const newComponents = [newNavigationButtons];
                                         if (newSelectMenu) newComponents.push(newSelectMenu);
