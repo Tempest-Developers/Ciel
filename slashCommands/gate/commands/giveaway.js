@@ -53,9 +53,7 @@ module.exports = {
                                  `**Description:** ${giveaway.item.description || 'N/A'}\n` +
                                  `🎫 Your Tickets: **${userTickets}**\n` +
                                  `🎯 Your Entries: **${userEntries}**\n` +
-                                 `👥 Total Entries: **${totalEntries}**\n` +
-                                 `:game_die: Chance of winning: **${currentChanceOfWinning}%**\n` +
-                                 `:shopping_bags: Buy/Join another ticket to increase your chance by **${chanceOfImprovement}%**`
+                                 `👥 Total Entries: **${totalEntries}**\n`
                                 )
                 .setImage(giveaway.item.imageUrl || null)
                 .addFields({
