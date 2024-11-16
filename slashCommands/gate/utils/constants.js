@@ -9,5 +9,6 @@ module.exports = {
         GIFT_TICKET: 30
     },
     MAX_TOKENS: 30000,
-    MAX_TOKENS_TICKET: 5
+    MAX_TOKENS_TICKET: 5,
+    GIVEAWAY_FIRST_TICKET_FREE: true // New toggle for first ticket being free
 };

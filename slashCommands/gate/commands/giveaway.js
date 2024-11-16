@@ -1,6 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const getTierEmoji = require('../../../utility/getTierEmoji');
 const { createGateUser, getGateUser } = require('../../../database/modules/gate');
+const { GIVEAWAY_FIRST_TICKET_FREE } = require('../utils/constants');
 
 module.exports = {
     subcommand: subcommand =>
@@ -64,10 +65,14 @@ module.exports = {
             // Adjust button based on giveaway level and user's tickets
             const button = new ButtonBuilder()
                 .setCustomId('giveaway_join')
-                .setLabel(giveaway.level === 2 ? 'Join Giveaway (1st Free)' : 'Join Giveaway (1 Ticket)')
+                .setLabel(
+                    GIVEAWAY_FIRST_TICKET_FREE ? 
+                    'Join Giveaway (1st Free)' : 
+                    'Join Giveaway (1 Ticket)'
+                )
                 .setStyle(ButtonStyle.Primary)
-                // Only disable if it's not a level 2 giveaway or user has no tickets
-                .setDisabled(giveaway.level !== 2 && userTickets < 1);
+                // Only disable if first ticket is not free and user has no tickets
+                .setDisabled(!GIVEAWAY_FIRST_TICKET_FREE && userTickets < 1);
 
             const row = new ActionRowBuilder().addComponents(button);
 
@@ -113,16 +118,16 @@ module.exports = {
             const updatedGiveaway = await mGiveawayDB.findOne({ giveawayID: giveaway.giveawayID });
             const userEntries = updatedGiveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
             
-            // Determine if entry is free (first entry for level 2 giveaway)
-            const isFreeEntry = giveaway.level === 2 && userEntries === 0;
+            // Determine if entry is free based on the GIVEAWAY_FIRST_TICKET_FREE toggle
+            const isFreeEntry = GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0;
 
-            // Check ticket requirement
+            // Check ticket requirement for paid entries
             if (!isFreeEntry && tickets < 1) {
                 return interaction.editReply({ content: '❌ You need at least 1 ticket to join!' });
             }
 
             try {
-                // Update user's tickets only if not a free entry
+                // Only consume ticket if it's a paid entry
                 if (!isFreeEntry) {
                     const updateResult = await mGateDB.updateOne(
                         { 
@@ -160,10 +165,10 @@ module.exports = {
                 const totalEntries = finalGiveaway.entries?.length || 0;
 
                 // Ensure currency exists before accessing
-                const remainingTickets = updatedUser?.currency?.[5] || 0;
+                const remainingTickets = !isFreeEntry ? (updatedUser?.currency?.[5] || 0) : tickets;
 
                 await interaction.editReply({ 
-                    content: `✅ ${isFreeEntry ? 'Free first entry for Level 2 Giveaway!' : 'You joined the giveaway!'}\n` +
+                    content: `✅ ${isFreeEntry ? 'Free first entry!' : 'You joined the giveaway!'}\n` +
                         `🎫 Remaining Tickets: **${remainingTickets}**\n` +
                         `🎯 Your Entries: **${finalUserEntries}**\n` +
                         `👥 Total Entries: **${totalEntries}**`
