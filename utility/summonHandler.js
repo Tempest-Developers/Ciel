@@ -207,7 +207,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                 title: 'Summon Information',
                 fields: [
                     {
-                        name: 'Claim Time <t:${countdownTime}:R> 📵',
+                        name: `Claim Time <t:${countdownTime}:R> 📵`,
                         value: `⭐ \`/help\` \`\/wishlist\``
                     }
                 ],

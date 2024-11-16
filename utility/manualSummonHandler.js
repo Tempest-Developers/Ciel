@@ -191,7 +191,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                 title: 'Manual Summon Information',
                 fields: [
                     {
-                        name: 'Claim Time <t:${countdownTime}:R> 📵',
+                        name: `Claim Time <t:${countdownTime}:R> 📵`,
                         value: `⭐ \`/help\` \`\/wishlist\``
                     }
                 ],
