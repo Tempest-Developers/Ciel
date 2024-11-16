@@ -68,7 +68,7 @@ const createCardDetailEmbed = async (card, userId) => {
             db.isInWishlist(userId, card.id)
         ]);
 
-        const heartEmoji = isWishlisted ? '❤️' : '';
+        const heartEmoji = isWishlisted ? ':yellow_heart:' : '';
 
         const embed = new EmbedBuilder()
             .setTitle(`${getTierEmoji(`${card.tier}T`)} ${card.name} ${card.eventType ? '🎃' : ''} ${heartEmoji}`)
@@ -77,7 +77,7 @@ const createCardDetailEmbed = async (card, userId) => {
             .setColor('#0099ff')
             .addFields({ 
                 name: 'Global Card Details:', 
-                value: `**Wishlist Count** *${wishlistCount}* ❤️`
+                value: `\`❤️ ${wishlistCount}\``
             });
 
         return embed;
@@ -95,7 +95,7 @@ const createNavigationButtons = (currentPage, totalPages) => {
         .addComponents(
             new ButtonBuilder()
                 .setCustomId('first')
-                .setLabel('<<')
+                .setLabel('First')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(currentPage === 1),
             new ButtonBuilder()
@@ -110,7 +110,7 @@ const createNavigationButtons = (currentPage, totalPages) => {
                 .setDisabled(currentPage === totalPages),
             new ButtonBuilder()
                 .setCustomId('last')
-                .setLabel('>>')
+                .setLabel('Last')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(currentPage === totalPages)
         );

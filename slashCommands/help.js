@@ -1,8 +1,116 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require('discord.js');
 
 // Add cooldown system
 const cooldowns = new Map();
 const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
+
+const COMMAND_DETAILS = {
+    'leaderboard': {
+        description: 'View rankings by tier, print ranges, or total claims',
+        usage: [
+            '`/leaderboard tier` - Show leaderboard for a specific tier',
+            '`/leaderboard total` - Show total claims leaderboard'
+        ],
+        examples: [
+            'View Common Tier leaderboard: `/leaderboard tier tier:CT`',
+            'View total claims: `/leaderboard total`'
+        ]
+    },
+    'mycards': {
+        description: 'View and manage your card collection with advanced filtering',
+        usage: [
+            '`/mycards` - View your entire card collection',
+            '`/mycards name:` - Filter cards by character name',
+            '`/mycards anime:` - Filter cards by anime series',
+            '`/mycards tier:` - Filter cards by tier',
+            '`/mycards version:` - Filter cards by print range'
+        ],
+        examples: [
+            'View all your SR cards: `/mycards tier:SR`',
+            'Find cards from Naruto: `/mycards anime:Naruto`'
+        ]
+    },
+    'mystats': {
+        description: 'Detailed personal card collection statistics',
+        usage: [
+            '`/mystats overview` - General stats overview',
+            '`/mystats best` - Best card in last 30 minutes',
+            '`/mystats prints` - Print distribution',
+            '`/mystats tiers` - Tier distribution',
+            '`/mystats tier_times` - Average claim times by tier',
+            '`/mystats print_times` - Average print claim times'
+        ],
+        examples: [
+            'View your tier distribution: `/mystats tiers`',
+            'Check your best recent card: `/mystats best`'
+        ]
+    },
+    'recent': {
+        description: 'View recent card claims with tier filtering',
+        usage: [
+            '`/recent` - Show last 15 claims across all tiers',
+            'Use dropdown to filter by specific tier'
+        ],
+        examples: [
+            'View recent SR claims: Select SR in dropdown'
+        ]
+    },
+    'search': {
+        description: 'Search cards by character name with autocomplete',
+        usage: [
+            '`/search card:` - Search for a specific card',
+            'Use autocomplete to find exact card takes time after typing wait for `1` sec'
+        ],
+        examples: [
+            'Find Naruto card: `/search card:Naruto`'
+        ]
+    },
+    'server': {
+        description: 'View server-wide card statistics',
+        usage: [
+            '`/server overview` - Server stats overview',
+            '`/server best` - Best server drop',
+            '`/server tiers` - Tier distribution',
+            '`/server prints` - Print distribution',
+            '`/server tiertimes` - Average claim times by tier',
+            '`/server printtimes` - Average print claim times'
+        ],
+        examples: [
+            'View server tier distribution: `/server tiers`',
+            'Check server best drop: `/server best`'
+        ]
+    },
+    'wishlist': {
+        description: 'View and manage your card wishlist',
+        usage: [
+            '`/wishlist add` - Add/Remove a card from all Mazoku card list',
+            '`/wishlist list` - View your wishlist',
+            '`/wishlist global` - View global wishlist stats'
+        ],
+        examples: [
+            'Add card to wishlist: `/wishlist add card_id`',
+            'View your wishlist: `/wishlist list`'
+        ]
+    },
+    'allowtierdisplay': {
+        description: 'Toggle high tier role ping feature (Admin Only)',
+        usage: [
+            '`/allowtierdisplay` - Toggle tier display for server'
+        ],
+        examples: [
+            'Enable tier display: `/allowtierdisplay`'
+        ]
+    },
+    'registerguild': {
+        description: 'Register your server for bot usage (Admin Only)',
+        usage: [
+            '`/registerguild` - Register current server'
+        ],
+        examples: [
+            'Register server: `/registerguild`'
+        ]
+    }
+};
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -32,59 +140,78 @@ module.exports = {
 
         try {
             const helpEmbed = new EmbedBuilder()
-                .setTitle('Available Commands')
+                .setTitle('Mazoku Card Bot Commands')
                 .setColor('#FFC0CB')
-                .setDescription('Here are the available commands:')
+                .setDescription('Select a command from the dropdown to view detailed information.')
                 .addFields(
-                    {
-                        name: '`/leaderboard`',
-                        value: 'View rankings by tier, print ranges, or total claims',
-                        inline: false
-                    },
-                    {
-                        name: '`/mycards`',
-                        value: 'View your card collection and manage your cards',
-                        inline: false
-                    },
-                    {
-                        name: '`/mystats`',
-                        value: 'View your card collection stats and completion status',
-                        inline: false
-                    },
-                    {
-                        name: '`/recent`',
-                        value: 'View recent card claims with tier filters',
-                        inline: false
-                    },
-                    {
-                        name: '`/search`',
-                        value: 'Search cards by character name with autocomplete',
-                        inline: false
-                    },
-                    {
-                        name: '`/server`',
-                        value: 'View server-wide card statistics and activity',
-                        inline: false
-                    },
-                    {
-                        name: '`/wishlist`',
-                        value: 'View and manage your card wishlist',
-                        inline: false
-                    },
-                    {
-                        name: '🛡️ `/registerguild`',
-                        value: 'Register your server for bot usage',
-                        inline: false
-                    },
-                    {
-                        name: '🛡️ Admin Commands',
-                        value: '`/allowtierdisplay` - Toggle high tier role ping feature',
-                        inline: false
+                    { 
+                        name: 'Quick Overview', 
+                        value: Object.entries(COMMAND_DETAILS)
+                            .map(([cmd, details]) => `**/${cmd}**: ${details.description}`)
+                            .join('\n')
                     }
                 )
-                .setFooter({ text: '🛡️ = Requires Admin/Manage Server permission' });
+                .setFooter({ text: 'Use the dropdown to explore each command in detail' });
 
-            await interaction.reply({ embeds: [helpEmbed], ephemeral: false });
+            const commandSelectMenu = new StringSelectMenuBuilder()
+                .setCustomId('help_command_select')
+                .setPlaceholder('Select a command to view details')
+                .addOptions(
+                    Object.keys(COMMAND_DETAILS)
+                        .filter(cmd => !['ping', 'giveaway'].includes(cmd))
+                        .map(cmd => ({
+                            label: `/${cmd}`,
+                            value: cmd,
+                            description: COMMAND_DETAILS[cmd].description.substring(0, 100)
+                        }))
+                );
+
+            const actionRow = new ActionRowBuilder().addComponents(commandSelectMenu);
+
+            const response = await interaction.reply({ 
+                embeds: [helpEmbed], 
+                components: [actionRow],
+                ephemeral: false 
+            });
+
+            const collector = response.createMessageComponentCollector({
+                componentType: ComponentType.StringSelect,
+                time: 300000 // 5 minutes
+            });
+
+            collector.on('collect', async i => {
+                if (i.user.id !== interaction.user.id) {
+                    await i.reply({ 
+                        content: 'You cannot use these controls.', 
+                        ephemeral: true 
+                    });
+                    return;
+                }
+
+                const selectedCommand = i.values[0];
+                const commandInfo = COMMAND_DETAILS[selectedCommand];
+
+                const detailEmbed = new EmbedBuilder()
+                    .setTitle(`/${selectedCommand} Command Details`)
+                    .setColor('#FFC0CB')
+                    .addFields(
+                        { name: 'Description', value: commandInfo.description },
+                        { name: 'Usage', value: commandInfo.usage.join('\n') },
+                        { name: 'Examples', value: commandInfo.examples.join('\n') }
+                    )
+                    .setFooter({ text: 'Select another command or close the help menu' });
+
+                await i.update({ embeds: [detailEmbed], components: [actionRow] });
+            });
+
+            collector.on('end', async () => {
+                try {
+                    await response.edit({ components: [] });
+                } catch (error) {
+                    console.error('Error removing components:', error);
+                }
+            });
+
         } catch (error) {
             console.error('Error executing help command:', error);
             await interaction.reply({ 

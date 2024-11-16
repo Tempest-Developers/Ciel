@@ -42,7 +42,8 @@ module.exports = {
                 `\`/gate giveaway\` - View giveaway rewards\n` +
                 `**Cooldown**: ${constants.USER_COOLDOWN} seconds`, inline: false },
             { name: 'Information', value:
-                `• Earn 0-5 Slime Tokens or rarely 100 by chatting while claiming cards\n` +
+                `• Earn Slime Tokens 1 up to rare 100 by chatting and claiming cards\n` +
+                `• Earn bonus Slime Tokens when Booster role or Clan role is present\n` +
                 `• Maximum balance: ${constants.MAX_TOKENS} Slime Tokens\n` +
                 `• Regular ticket: ${constants.COSTS.TICKET} Slime Tokens\n` +
                 `• Special Gift Ticket: ${constants.COSTS.GIFT_TICKET} Slime Tokens\n` +

@@ -35,7 +35,7 @@ module.exports = {
                 .setDescription('View your wishlisted cards'))
         .addSubcommand(subcommand =>
             subcommand
-                .setName('search')
+                .setName('add')
                 .setDescription('Search through all cards')
                 .addStringOption(option =>
                     option.setName('name')

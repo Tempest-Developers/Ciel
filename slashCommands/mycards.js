@@ -136,7 +136,7 @@ const createCardDetailEmbed = async (item, userId) => {
                 embed.addFields(
                     { 
                         name: 'Global Card Details:', 
-                        value: `Prints Out **${totalCopies.toString()}**\nAll Owners **${uniqueOwners.toString()}**\nLowest Print *#**${lowestPrint.toString()}***\n**Wishlist Count** **${wishlistCount}** ❤️`
+                        value: `Prints Out \`${totalCopies.toString()}\`\nAll Owners \`${uniqueOwners.toString()}*\`\nLowest Print \`#${lowestPrint.toString()}\n\`❤️ ${wishlistCount}\``
                     }
                 );
             }
@@ -164,7 +164,7 @@ const createNavigationButtons = (currentPage, totalPages) => {
         .addComponents(
             new ButtonBuilder()
                 .setCustomId('first')
-                .setLabel('<<')
+                .setLabel('First')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(currentPage === 1),
             new ButtonBuilder()
@@ -179,7 +179,7 @@ const createNavigationButtons = (currentPage, totalPages) => {
                 .setDisabled(currentPage === totalPages),
             new ButtonBuilder()
                 .setCustomId('last')
-                .setLabel('>>')
+                .setLabel('Last')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(currentPage === totalPages)
         );

@@ -28,24 +28,24 @@ module.exports = {
                         )
                 )
         )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('print')
-                .setDescription('Show leaderboard for a specific print range')
-                .addStringOption(option =>
-                    option
-                        .setName('range')
-                        .setDescription('Print range to show')
-                        .setRequired(true)
-                        .addChoices(
-                            { name: 'Super Print (1-10)', value: 'SP' },
-                            { name: 'Low Print (11-99)', value: 'LP' },
-                            { name: 'Mid Print (100-499)', value: 'MP' },
-                            { name: 'High Print (500-1000)', value: 'HP' },
-                            { name: 'All Prints', value: 'ALL' }
-                        )
-                )
-        )
+        // .addSubcommand(subcommand =>
+        //     subcommand
+        //         .setName('print')
+        //         .setDescription('Show leaderboard for a specific print range')
+        //         .addStringOption(option =>
+        //             option
+        //                 .setName('range')
+        //                 .setDescription('Print range to show')
+        //                 .setRequired(true)
+        //                 .addChoices(
+        //                     { name: 'Super Print (1-10)', value: 'SP' },
+        //                     { name: 'Low Print (11-99)', value: 'LP' },
+        //                     { name: 'Mid Print (100-499)', value: 'MP' },
+        //                     { name: 'High Print (500-1000)', value: 'HP' },
+        //                     { name: 'All Prints', value: 'ALL' }
+        //                 )
+        //         )
+        // )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('total')
