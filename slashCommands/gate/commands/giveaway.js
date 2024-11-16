@@ -87,7 +87,7 @@ module.exports = {
         }
 
         if (!interaction.deferred && !interaction.replied) {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ ephemeral: false });
         }
 
         try {
