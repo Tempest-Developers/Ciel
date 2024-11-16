@@ -127,7 +127,7 @@ async function buildCardDescription(cardIds, client) {
                     ? ` \`+${cardInfo.versions.remainingVersions}\`` 
                     : '';
 
-                const wishlistCount = cardInfo.wishlistCount > 0 ? ` ${cardInfo.wishlistCount}` : '';
+                const wishlistCount = cardInfo.wishlistCount;
                 
                 description += `${letters[i]} \`❤️${wishlistCount}\` ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}*\n${versionsText}${remainingText} \n`;
             }
