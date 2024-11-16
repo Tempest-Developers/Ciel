@@ -42,11 +42,9 @@ module.exports = {
             const newUserEntries = userEntries + 1;
             const newChanceOfWinning = ((newUserEntries / newTotalEntries) * 100).toFixed(2);
 
-
             // Calculate percentage chance of improvement
-            const chanceOfImprovement = ((newChanceOfWinning - currentChanceOfWinning) / currentChanceOfWinning * 100).toFixed(2);
+            let chanceOfImprovement = ((newChanceOfWinning - currentChanceOfWinning) / currentChanceOfWinning * 100).toFixed(2);
             if (isNaN(chanceOfImprovement)) chanceOfImprovement = newChanceOfWinning; // if current chance of winning is 0
-
 
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
