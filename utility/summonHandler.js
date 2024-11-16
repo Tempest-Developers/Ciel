@@ -207,8 +207,8 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                 title: 'Summon Information',
                 fields: [
                     {
-                        name: 'Claim Time',
-                        value: `<t:${countdownTime}:R> 📵\n⭐ \`/help\`\n⭐ \`/wishlist\``
+                        name: 'Claim Time <t:${countdownTime}:R> 📵',
+                        value: `⭐ \`/help\` \`\/wishlist\``
                     }
                 ],
                 color: 0x0099ff,
@@ -259,8 +259,8 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             setTimeout(async () => {
                 try {
                     countdownEmbed.fields[0] = {
-                        name: 'Next Summon',
-                        value: `<t:${nextSummonTime}:R> 📵\n⭐ \`/help\`\n⭐ \`/wishlist\``
+                        name: `Next Summon <t:${nextSummonTime}:R> 📵`,
+                        value: `⭐ \`/help\` \`/wishlist\``
                     };
                     await countdownMsg.edit({
                         content: roleContent,
