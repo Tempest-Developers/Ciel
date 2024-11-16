@@ -69,7 +69,7 @@ module.exports = async (message, exemptBotId, database) => {
               winners,
               message,
               database,
-              gateServerData
+              participants
             );
 
             if (rewardMessage && winners.length > 0) {
@@ -123,7 +123,7 @@ function selectWinners(participants, numWinners) {
   return winners;
 }
 
-async function processWinners(winners, message, database, gateServerData) {
+async function processWinners(winners, message, database, participants) {
   let rewardMessage = '';
   let bonusMessage = '';
   let highestReward = 0;
@@ -239,11 +239,11 @@ function createRewardEmbed({ rewardMessage, bonusMessage, colorEmbed, hasSpecial
     .addFields({
       name: `Winners`,
       // Add a fallback value if rewardMessage is empty
-      value: rewardMessage || 'No winners this time!',
+      value: rewardMessage || 'Sorry no winners this time!',
     })
     .setFooter({ 
       // Adjust footer calculation to handle empty rewardMessage
-      text: `Claimers ${rewardMessage ? rewardMessage.split('\n').length - 1 : 0}` 
+      text: `Claimers ${participants.length}` 
     });
 
   return rewardEmbed;
