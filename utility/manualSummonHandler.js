@@ -183,7 +183,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
             const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
 
             // Calculate countdown times by subtracting the elapsed time from the intended durations
-            const countdownTime = startTime + 20 - elapsedTime;
+            const countdownTime = startTime + 18 - elapsedTime;
             const nextSummonTime = startTime + 1780 - elapsedTime;
 
             // Create base embed with countdown
@@ -231,7 +231,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                 } catch (error) {
                     console.error('Error editing countdown message:', error);
                 }
-            }, (18 - elapsedTime) * 1000);
+            }, (16 - elapsedTime) * 1000);
         } catch (error) {
             console.error('Error in handleManualSummonInfo:', error);
             const errorMessage = error.message === "The Mazoku Servers are currently unavailable. Please try again later."

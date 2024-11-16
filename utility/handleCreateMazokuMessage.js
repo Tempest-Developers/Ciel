@@ -5,11 +5,11 @@ const GATE_BOOSTER_ROLE = '1301138394079952948';
 const GATE_CLAN_ROLE = '1299135748984934431';
 
 const SUMMON_EVENT_DURATION = 19000; // 19 seconds
-const MAX_WINNERS = 5;
+const MAX_WINNERS = 4;
 const SPECIAL_REWARD_CHANCES = {
   incredibleLuck: 0.001,
   rareDrop: 0.01,
-  luckyDraw: 0.1,
+  luckyDraw: 0.5,
 };
 const TOKEN_REWARDS = {
   incredibleLuck: 100,
@@ -175,7 +175,7 @@ async function processWinners(winners, message, database, gateServerData) {
       tokenReward = specialTokenReward;
     } else {
       // Otherwise give normal reward
-      tokenReward = Math.floor(Math.random() * 5);
+      tokenReward = Math.floor(Math.random() * 3);
       if (highestReward < tokenReward) highestReward = tokenReward;
     }
 
