@@ -9,7 +9,7 @@ module.exports = {
             .setDescription('Show giveaway details and rewards'),
 
     async execute(interaction, { database }) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ ephemeral: false });
 
         try {
             // Ensure user exists in the database
@@ -87,7 +87,7 @@ module.exports = {
         }
 
         if (!interaction.deferred && !interaction.replied) {
-            await interaction.deferReply({ ephemeral: false });
+            await interaction.deferReply({ ephemeral: true });
         }
 
         try {
