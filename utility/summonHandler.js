@@ -148,7 +148,7 @@ async function buildCardDescription(cardIds, client) {
 
                 const wishlistCount = cardInfo.wishlistCount;
                 
-                description += `${letters[i]} \`❤️${wishlistCount}\` ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}*\n${versionsText}${remainingText} \n`;
+                description += `${letters[i]} \`❤️ ${wishlistCount}\` ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}*\n${versionsText}${remainingText} \n`;
             }
         }
     } catch (error) {
