@@ -85,7 +85,7 @@ function getAvailableVersions(cardData, tier) {
     for (let i = 1; i <= (totalVersions[tier] || 0); i++) {
         if (!existingVersions.has(i)) {
             availableVersions.push(i);
-            if (availableVersions.length >= 5) break;
+            if (availableVersions.length >= 4) break;
         }
     }
     
@@ -129,7 +129,7 @@ async function buildCardDescription(cardIds, client) {
 
                 const wishlistCount = cardInfo.wishlistCount > 0 ? ` ${cardInfo.wishlistCount}` : '';
                 
-                description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n${versionsText}${remainingText}${wishlistCount ? ` ❤️${wishlistCount}` : ''}\n`;
+                description += `${letters[i]} ${tierEmoji} **${cardInfo.name}** *${cardInfo.series}* \n${versionsText}${remainingText}${wishlistCount ? ` ❤️\`${wishlistCount}\`` : ''}\n`;
             }
         }
     } catch (error) {
@@ -182,7 +182,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
             const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
 
             // Calculate countdown times by subtracting the elapsed time from the intended durations
-            const countdownTime = startTime + 20 - elapsedTime;
+            const countdownTime = startTime + 18 - elapsedTime;
             const nextSummonTime = startTime + 1780 - elapsedTime;
 
             // Create base embed with countdown
@@ -230,7 +230,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                 } catch (error) {
                     console.error('Error editing countdown message:', error);
                 }
-            }, (20 - elapsedTime) * 1000);
+            }, (18 - elapsedTime) * 1000);
         } catch (error) {
             console.error('Error in handleManualSummonInfo:', error);
             const errorMessage = error.message === "The Mazoku Servers are currently unavailable. Please try again later."
