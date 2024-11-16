@@ -139,23 +139,23 @@ module.exports = {
         setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
 
         try {
+            // Create a more comprehensive initial embed with a detailed list of commands
             const helpEmbed = new EmbedBuilder()
-                .setTitle('Mazoku Card Bot Commands')
+                .setTitle('Mazoku Card Bot - Command List')
                 .setColor('#FFC0CB')
-                .setDescription('Select a command from the dropdown to view detailed information.')
+                .setDescription('**All Available Commands:**')
                 .addFields(
-                    { 
-                        name: 'Quick Overview', 
-                        value: Object.entries(COMMAND_DETAILS)
-                            .map(([cmd, details]) => `**/${cmd}**: ${details.description}`)
-                            .join('\n')
-                    }
+                    Object.entries(COMMAND_DETAILS).map(([cmd, details]) => ({
+                        name: `\`/${cmd}\``,
+                        value: `*${details.description}*`,
+                        inline: false
+                    }))
                 )
-                .setFooter({ text: 'Use the dropdown to explore each command in detail' });
+                .setFooter({ text: 'Select a command from the dropdown for more details' });
 
             const commandSelectMenu = new StringSelectMenuBuilder()
                 .setCustomId('help_command_select')
-                .setPlaceholder('Select a command to view details')
+                .setPlaceholder('Select a command to view detailed information')
                 .addOptions(
                     Object.keys(COMMAND_DETAILS)
                         .filter(cmd => !['ping', 'giveaway'].includes(cmd))

@@ -226,10 +226,13 @@ function createRewardEmbed({ rewardMessage, bonusMessage, colorEmbed, hasSpecial
     .setDescription(bonusMessage ? `${bonusMessage}` : `<:Slime_Token:1304929154285703179> are rewarded for chatting and claiming`)
     .addFields({
       name: `Winners`,
-      value: `${rewardMessage}`,
+      // Add a fallback value if rewardMessage is empty
+      value: rewardMessage || 'No winners this time!',
     })
-    .setFooter({ text: `${rewardMessage.split('\n').length - 1} claimers | \`\\gate help\`` });
+    .setFooter({ 
+      // Adjust footer calculation to handle empty rewardMessage
+      text: `Claimers ${rewardMessage ? rewardMessage.split('\n').length - 1 : 0}  | \\gate help` 
+    });
 
   return rewardEmbed;
 }
-
