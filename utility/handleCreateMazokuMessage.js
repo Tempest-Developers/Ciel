@@ -131,6 +131,7 @@ async function processWinners(winners, message, database, gateServerData) {
   let hasBoosterRole = false;
   let hasSpecialReward = false;
   let hasClanRole = false;
+  let specialRewardWinner = null;
 
   // Check if any participant has the booster role
   const boosterParticipants = winners.filter((winnerID) =>
@@ -142,29 +143,38 @@ async function processWinners(winners, message, database, gateServerData) {
   hasBoosterRole = boosterParticipants.length > 0;
   hasClanRole = clanParticipants.length > 0;
 
-  for (const winnerID of winners) {
-    // Generate token reward with adjusted probabilities
-    let tokenReward = 0;
-    const rand = Math.random() * 100;
+  // First determine if there's a special reward winner
+  const rand = Math.random() * 100;
+  let specialTokenReward = 0;
 
-    if (rand < SPECIAL_REWARD_CHANCES.incredibleLuck) {
-      tokenReward = TOKEN_REWARDS.incredibleLuck;
-      highestReward = TOKEN_REWARDS.incredibleLuck;
-      hasSpecialReward = true;
-      rewardMessage += `🏆 **Incredible Luck!** What are the odds they won with this? 🎲\n`;
-      break;
-    } else if (rand < SPECIAL_REWARD_CHANCES.rareDrop) {
-      tokenReward = TOKEN_REWARDS.rareDrop;
-      if (highestReward < TOKEN_REWARDS.rareDrop) highestReward = TOKEN_REWARDS.rareDrop;
-      hasSpecialReward = true;
-      rewardMessage += `🏆 **Rare Drop!** Unbelievable fortune! 🎲\n`;
-      break;
-    } else if (rand < SPECIAL_REWARD_CHANCES.luckyDraw) {
-      tokenReward = TOKEN_REWARDS.luckyDraw;
-      if (highestReward < TOKEN_REWARDS.luckyDraw) highestReward = TOKEN_REWARDS.luckyDraw;
-      hasSpecialReward = true;
-      rewardMessage += `🏆 **Lucky Draw!** Quite a rare occurrence! 🎲\n`;
+  if (rand < SPECIAL_REWARD_CHANCES.incredibleLuck) {
+    specialTokenReward = TOKEN_REWARDS.incredibleLuck;
+    highestReward = TOKEN_REWARDS.incredibleLuck;
+    hasSpecialReward = true;
+    specialRewardWinner = winners[0]; // Give to first winner
+    rewardMessage += `🏆 **Incredible Luck!** What are the odds they won with this? 🎲\n`;
+  } else if (rand < SPECIAL_REWARD_CHANCES.rareDrop) {
+    specialTokenReward = TOKEN_REWARDS.rareDrop;
+    highestReward = TOKEN_REWARDS.rareDrop;
+    hasSpecialReward = true;
+    specialRewardWinner = winners[0]; // Give to first winner
+    rewardMessage += `🏆 **Rare Drop!** Unbelievable fortune! 🎲\n`;
+  } else if (rand < SPECIAL_REWARD_CHANCES.luckyDraw) {
+    specialTokenReward = TOKEN_REWARDS.luckyDraw;
+    highestReward = TOKEN_REWARDS.luckyDraw;
+    hasSpecialReward = true;
+    specialRewardWinner = winners[0]; // Give to first winner
+    rewardMessage += `🏆 **Lucky Draw!** Quite a rare occurrence! 🎲\n`;
+  }
+
+  for (const winnerID of winners) {
+    let tokenReward = 0;
+
+    // If this winner is the special reward winner, give them the special reward
+    if (winnerID === specialRewardWinner) {
+      tokenReward = specialTokenReward;
     } else {
+      // Otherwise give normal reward
       tokenReward = Math.floor(Math.random() * 5);
       if (highestReward < tokenReward) highestReward = tokenReward;
     }
