@@ -56,13 +56,13 @@ const createBaseRequestBody = (userId) => ({
     owner: userId
 });
 
-const createCardListEmbed = async (cards, page, totalPages, userId, targetUser) => {
+const createCardListEmbed = async (cards, page, totalPages, userId, targetUser, totalCards) => {
     try {
         const embed = new EmbedBuilder()
             .setTitle(targetUser ? `${targetUser.username}'s Card Collection` : 'Your Card Collection')
             .setColor('#0099ff');
 
-        let description = `Page ${page} of ${totalPages}\n\n`;
+        let description = `Page ${page} of ${totalPages}\t\t${totalCards} cards total\n\n`;
         
         if (!Array.isArray(cards) || cards.length === 0) {
             description += 'No cards found.';
@@ -318,6 +318,7 @@ module.exports = {
                 
                 let currentCards = response.data.cards || [];
                 const totalPages = response.data.pageCount || 1;
+                const totalCards = response.data.totalCount || 0;
 
                 if (currentCards.length === 0) {
                     await interaction.editReply('No cards found matching your criteria.');
@@ -325,7 +326,7 @@ module.exports = {
                 }
 
                 let currentPage = 1;
-                const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser);
+                const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, totalCards);
                 const navigationButtons = createNavigationButtons(currentPage, totalPages);
                 const selectMenu = createCardSelectMenu(currentCards);
 
@@ -397,7 +398,7 @@ module.exports = {
                                     await i.editReply({ components: [actionRow] });
                                 }
                             } else if (i.customId === 'back') {
-                                const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser);
+                                const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, totalCards);
                                 const newComponents = [
                                     createNavigationButtons(currentPage, totalPages),
                                     createCardSelectMenu(currentCards)
@@ -426,7 +427,7 @@ module.exports = {
                                         });
 
                                         currentCards = newResponse.data.cards || []; // Update currentCards
-                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser);
+                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, totalCards);
                                         const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                         const newSelectMenu = createCardSelectMenu(currentCards);
 
@@ -478,7 +479,7 @@ module.exports = {
 
                 collector.on('end', async () => {
                     try {
-                        const finalEmbed = EmbedBuilder.from(await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser))
+                        const finalEmbed = EmbedBuilder.from(await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, totalCards))
                             .setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
                         await interaction.editReply({
