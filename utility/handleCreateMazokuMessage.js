@@ -210,7 +210,7 @@ async function processWinners(winners, message, database, participants) {
         );
 
         // Add to reward message
-        if(rewardMessage) rewardMessage += `<@${winnerID}> +\`${tokenReward}\` <:Slime_Token:1304929154285703179>\n`;
+        rewardMessage += `<@${winnerID}> +\`${tokenReward}\` <:Slime_Token:1304929154285703179>\n`;
       }
     }
   }
