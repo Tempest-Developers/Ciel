@@ -41,12 +41,16 @@ module.exports = {
                         .setRequired(true)
                         .addChoices(
                             { name: 'Level 0 (Single Card)', value: 0 },
-                            { name: 'Level 1 (Flexible Item)', value: 1 },
+                            { name: 'Level 1 (Custom Item)', value: 1 },
                             { name: 'Level 2 (Multiple Winners)', value: 2 }
                         ))
                 .addStringOption(option =>
-                    option.setName('input')
-                        .setDescription('Input based on giveaway level')
+                    option.setName('prize')
+                        .setDescription('Prize(s) for the giveaway')
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('message')
+                        .setDescription('Description/message for the giveaway')
                         .setRequired(true))
                 .addIntegerOption(option =>
                     option.setName('amount')
@@ -115,10 +119,19 @@ module.exports = {
             switch (subcommand) {
                 case 'set': {
                     const level = interaction.options.getInteger('level');
-                    const input = interaction.options.getString('input');
+                    const prize = interaction.options.getString('prize');
+                    const message = interaction.options.getString('message');
                     const imageUrl = interaction.options.getString('image-url');
                     const amount = interaction.options.getInteger('amount');
                     const duration = interaction.options.getString('duration');
+
+                    // Validate required fields
+                    if (!prize.trim() || !message.trim()) {
+                        return interaction.reply({
+                            content: '❌ Prize and Message cannot be empty.',
+                            ephemeral: true
+                        });
+                    }
 
                     // Validate amount
                     if (amount <= 0) {
@@ -148,10 +161,10 @@ module.exports = {
                         case 0: {
                             // Level 0: Item ID, retrieve from API
                             try {
-                                const { data: itemData } = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${input}`);
+                                const { data: itemData } = await axios.get(`https://api.mazoku.cc/api/get-inventory-item-by-id/${prize}`);
                                 
-                                // Format item description as specified
-                                const itemDescription = `${getTierEmoji(itemData.card.tier+"T")} ${itemData.card.name} #${itemData.version}\n${itemData.card.series}`;
+                                // Format item description
+                                const itemDescription = message || `${getTierEmoji(itemData.card.tier+"T")} ${itemData.card.name} #${itemData.version}\n${itemData.card.series}`;
                                 
                                 itemDetails = {
                                     name: itemData.card.name,
@@ -167,17 +180,17 @@ module.exports = {
                             break;
                         }
                         case 1: {
-                            // Level 1: Custom description, optional image
+                            // Level 1: Custom item with prize and message
                             itemDetails = {
-                                name: 'Custom Giveaway',
-                                description: input,
+                                name: prize,
+                                description: message,
                                 imageUrl: imageUrl || null
                             };
                             break;
                         }
                         case 2: {
-                            // Level 2: Multiple prizes separated by comma, no image
-                            const prizes = input.split(',').map(prize => prize.trim());
+                            // Level 2: Multiple prizes
+                            const prizes = prize.split(',').map(p => p.trim());
                             
                             if (prizes.length < amount) {
                                 return interaction.reply({
@@ -187,9 +200,9 @@ module.exports = {
                             }
 
                             itemDetails = {
-                                name: 'Multiple Prize Giveaway',
-                                description: prizes.join(' | '),
-                                imageUrl: imageUrl || null
+                                name: prizes.join(' | '),
+                                description: message,
+                                imageUrl: null
                             };
                             break;
                         }
@@ -207,7 +220,7 @@ module.exports = {
 
                         return interaction.reply({ 
                             content: `✅ Giveaway created successfully!\n` +
-                                     `Item: ${itemDetails.name}\n` +
+                                     `Prize: ${itemDetails.name}\n` +
                                      `Level: ${level}\n` +
                                      `Ends: <t:${endTimestamp}:R>`,
                             ephemeral: true 
@@ -240,7 +253,8 @@ module.exports = {
                     for (const giveaway of giveaways) {
                         embed.addFields({
                             name: `Giveaway #${giveaway.giveawayID}`,
-                            value: `Item: ${giveaway.item.name}\n` +
+                            value: `Prize: ${giveaway.item?.name || 'No Prize Set'}\n` +
+                                   `Message: ${giveaway.item?.description || 'No Message Set'}\n` +
                                    `Level: ${giveaway.level}\n` +
                                    `Tickets/Winners: ${giveaway.amount}\n` +
                                    `Status: ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\n` +
@@ -270,14 +284,14 @@ module.exports = {
                     const embed = new EmbedBuilder()
                         .setColor('#0099ff')
                         .setTitle(`Giveaway #${giveaway.giveawayID}`)
-                        .setDescription(`**Item:** ${giveaway.item.name}\n` +
-                                         `**Description:** ${giveaway.item.description || 'N/A'}\n` +
-                                         `**Status:** ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\n` +
-                                         `**Level:** ${giveaway.level}\n` +
-                                         `**Tickets/Winners:** ${giveaway.amount}\n` +
-                                         `**Created By:** <@${giveaway.userID}>\n` +
-                                         `**Ends At:** <t:${giveaway.endTimestamp}:R>`)
-                        .setImage(giveaway.item.imageUrl || null);
+                        .setDescription(`**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
+                                     `**Message:** ${giveaway.item?.description || 'No Message Set'}\n` +
+                                     `**Status:** ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\n` +
+                                     `**Level:** ${giveaway.level}\n` +
+                                     `**Tickets/Winners:** ${giveaway.amount}\n` +
+                                     `**Created By:** <@${giveaway.userID}>\n` +
+                                     `**Ends At:** <t:${giveaway.endTimestamp}:R>`)
+                        .setImage(giveaway.item?.imageUrl || null);
 
                     return interaction.reply({ embeds: [embed] });
                 }
@@ -294,11 +308,11 @@ module.exports = {
                         const embed = new EmbedBuilder()
                             .setColor('#0099ff')
                             .setTitle('🎉 New Giveaway!')
-                            .setDescription(`**Item:** ${announcementData.giveaway.item.name}\n` +
-                                             `**Description:** ${announcementData.giveaway.item.description || 'N/A'}\n` +
-                                             `**Winners:** ${announcementData.giveaway.amount}\n` +
-                                             `**Ends:** <t:${announcementData.giveaway.endTimestamp}:R>`)
-                            .setImage(announcementData.giveaway.item.imageUrl || null);
+                            .setDescription(`**Prize:** ${announcementData.giveaway.item?.name || 'No Prize Set'}\n` +
+                                         `**Message:** ${announcementData.giveaway.item?.description || 'No Message Set'}\n` +
+                                         `**Winners:** ${announcementData.giveaway.amount}\n` +
+                                         `**Ends:** <t:${announcementData.giveaway.endTimestamp}:R>`)
+                            .setImage(announcementData.giveaway.item?.imageUrl || null);
 
                         // Attempt to send to specified channel
                         const guild = await interaction.client.guilds.fetch(guildId);

@@ -44,14 +44,24 @@ module.exports = {
                 try {
                     // Handle case with no participants
                     if (!giveaway.entries || giveaway.entries.length === 0) {
+                        // Build description based on giveaway level
+                        let description = '';
+                        if (giveaway.level === 0) {
+                            description = giveaway.item?.description || 'No Description Set';
+                        } else if (giveaway.level === 1) {
+                            description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
+                                        `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+                        } else if (giveaway.level === 2) {
+                            const prizes = giveaway.item?.name?.split(' | ') || ['No Prizes Set'];
+                            description = `**Prizes:**\n${prizes.map((prize, i) => `${i + 1}. ${prize}`).join('\n')}\n\n` +
+                                        `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+                        }
+
                         const noWinnerEmbed = new EmbedBuilder()
                             .setColor('#ff0000')
                             .setTitle('🎉 Giveaway Ended - No Winners')
-                            .setDescription(`**Item:** ${giveaway.item.name}\n` +
-                                             `**Description:** ${giveaway.item.description || 'N/A'}\n` +
-                                             `**Level:** ${giveaway.level}\n` +
-                                             `**Result:** No participants joined this giveaway.`)
-                            .setImage(giveaway.item.imageUrl || null)
+                            .setDescription(description + '\n\n**Result:** No participants joined this giveaway.')
+                            .setImage(giveaway.item?.imageUrl || null)
                             .setTimestamp();
 
                         // Send no winner announcement to appropriate guild channels
@@ -112,22 +122,34 @@ module.exports = {
                         }
                     }
 
+                    // Build description based on giveaway level
+                    let description = '';
+                    if (giveaway.level === 0) {
+                        description = giveaway.item?.description || 'No Description Set';
+                    } else if (giveaway.level === 1) {
+                        description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
+                                    `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+                    } else if (giveaway.level === 2) {
+                        const prizes = giveaway.item?.name?.split(' | ') || ['No Prizes Set'];
+                        description = `**Prizes:**\n${prizes.map((prize, i) => `${i + 1}. ${prize}`).join('\n')}\n\n` +
+                                    `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+                    }
+
+                    description += `\n\n**Total Entries:** ${totalEntries}`;
+
                     // Create winner announcement embed
                     const embed = new EmbedBuilder()
                         .setColor('#00ff00')
                         .setTitle('🎉 Giveaway Winners')
-                        .setDescription(`**Item:** ${giveaway.item.name}\n` +
-                                         `**Description:** ${giveaway.item.description || 'N/A'}\n` +
-                                         `**Level:** ${giveaway.level}\n` +
-                                         `**Total Entries:** ${totalEntries}`)
-                        .setImage(giveaway.item.imageUrl || null)
+                        .setDescription(description)
+                        .setImage(giveaway.item?.imageUrl || null)
                         .setTimestamp();
 
                     // Prepare winner details
                     let winnerDetails = [];
                     if (giveaway.level === 2) {
                         // For level 2, split prizes
-                        const prizes = giveaway.item.description.split(' | ');
+                        const prizes = giveaway.item?.name?.split(' | ') || ['Prize'];
                         winners.forEach((winner, index) => {
                             winnerDetails.push(`🏆 <@${winner.userID}>: ${prizes[index] || 'Prize'}`);
                         });

@@ -47,17 +47,32 @@ module.exports = {
             let chanceOfImprovement = ((newChanceOfWinning - currentChanceOfWinning) / currentChanceOfWinning * 100).toFixed(2);
             if (isNaN(chanceOfImprovement)) chanceOfImprovement = newChanceOfWinning; // if current chance of winning is 0
 
+            // Build description based on giveaway level
+            let description = '';
+            if (giveaway.level === 0) {
+                // For Level 0 (Single Card), show card details
+                description = giveaway.item?.description || 'No Description Set';
+            } else if (giveaway.level === 1) {
+                // For Level 1 (Custom Item), show prize and message
+                description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
+                            `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+            } else if (giveaway.level === 2) {
+                // For Level 2 (Multiple Winners), show all prizes
+                const prizes = giveaway.item?.name?.split(' | ') || ['No Prizes Set'];
+                description = `**Prizes:**\n${prizes.map((prize, i) => `${i + 1}. ${prize}`).join('\n')}\n\n` +
+                            `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+            }
+
+            // Add statistics to description
+            description += `\n\n🎫 Your Tickets: **${userTickets}**\n` +
+                         `🎯 Your Entries: **${userEntries}**\n` +
+                         `👥 Total Entries: **${totalEntries}**`;
+
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
                 .setTitle('🎉 Current Giveaway')
-                .setDescription(`**Item:** ${giveaway.item.name}\n` +
-                                 `**Description:** ${giveaway.item.description || 'N/A'}\n` +
-                                 `🎫 Your Tickets: **${userTickets}**\n` +
-                                 `🎯 Your Entries: **${userEntries}**\n` +
-                                 `👥 Total Entries: **${totalEntries}**\n`
-                                )
-                .setThumbnail(giveaway.item.imageUrl || null)
-                // .setImage(giveaway.item.imageUrl || null)
+                .setDescription(description)
+                .setThumbnail(giveaway.item?.imageUrl || null)
                 .addFields({
                     name: 'Time Remaining',
                     value: `⏰ Ends <t:${giveaway.endTimestamp}:R>`

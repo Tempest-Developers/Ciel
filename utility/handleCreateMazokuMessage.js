@@ -237,7 +237,7 @@ function createRewardEmbed({ rewardMessage, bonusMessage, colorEmbed, hasSpecial
     .setTitle('🎉 Token Rewards')
     // .setDescription(bonusMessage ? `${bonusMessage}` : `<:Slime_Token:1304929154285703179> are rewarded for chatting and claiming`)
     .addFields({
-      name: `Winners ${bonusMessage}`,
+      name: rewardMessage?`Winners ${bonusMessage}`:`Hint`,
       // Add a fallback value if rewardMessage is empty
       value: rewardMessage || '`/gate balance` to see your current balance!',
     })
