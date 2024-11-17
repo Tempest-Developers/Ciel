@@ -56,7 +56,7 @@ module.exports = {
         );
 
         return interaction.reply({
-            content: `✅ Successfully gifted a Special Ticket to ${targetUser.username}! Your new balance is ${userData.currency[0] - cost} Slime Tokens.`,
+            content: `✅ Successfully gifted a Ticket to ${targetUser.username}! Your new balance is ${userData.currency[0] - cost} Slime Tokens.`,
             ephemeral: true
         });
     }

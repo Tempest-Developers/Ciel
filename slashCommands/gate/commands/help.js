@@ -46,9 +46,10 @@ module.exports = {
                 `• Earn bonus Slime Tokens when Booster role or Clan role is present\n` +
                 `• Maximum balance: ${constants.MAX_TOKENS} Slime Tokens\n` +
                 `• Regular ticket: ${constants.COSTS.TICKET} Slime Tokens\n` +
-                `• Special Gift Ticket: ${constants.COSTS.GIFT_TICKET} Slime Tokens\n` +
+                `• Gift Regular Ticket: ${constants.COSTS.GIFT_TICKET} Slime Tokens\n` +
                 `• Premium (1 week): ${constants.COSTS.PREMIUM} Slime Tokens\n` +
-                `• Premium benefits: High-Tier-Ping role`, inline: false }
+                `• Premium benefits: High-Tier-Ping role`, inline: false 
+            }
         );
 
         return interaction.reply({

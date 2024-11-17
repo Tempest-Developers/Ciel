@@ -189,7 +189,7 @@ module.exports = {
                             itemDetails = {
                                 name: 'Multiple Prize Giveaway',
                                 description: prizes.join(' | '),
-                                imageUrl: null
+                                imageUrl: imageUrl || null
                             };
                             break;
                         }

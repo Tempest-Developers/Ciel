@@ -43,11 +43,11 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             await handleSummonInfo(client, newMessage, newEmbed, messageId);
 
             // Process embed fields for automatic claims
-            for (const field of newEmbed.fields) {
-                if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
-                    await handleClaim(client, newMessage, newEmbed, field, guildId);
-                }
-            }
+            // for (const field of newEmbed.fields) {
+            //     if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
+            //         await handleClaim(client, newMessage, newEmbed, field, guildId);
+            //     }
+            // }
         } else if (oldEmbed.title.includes("Manual Summon") && ManualSummonGuild.includes(guildId)) {
             // Handle manual summon information if it's a pack image
             await handleManualSummonInfo(client, newMessage, newEmbed, messageId);
