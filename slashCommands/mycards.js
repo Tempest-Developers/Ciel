@@ -20,6 +20,13 @@ const handleMazokuAPICall = async (apiCall) => {
     }
 };
 
+// Calculate total cards based on pages and last page count
+const calculateTotalCards = (totalPages, lastPageCards) => {
+    if (totalPages <= 0) return 0;
+    if (totalPages === 1) return lastPageCards;
+    return ((totalPages - 1) * CARDS_PER_PAGE) + lastPageCards;
+};
+
 // Cooldown management
 const cooldowns = new Map();
 
@@ -56,13 +63,14 @@ const createBaseRequestBody = (userId) => ({
     owner: userId
 });
 
-const createCardListEmbed = async (cards, page, totalPages, userId, targetUser, totalCards) => {
+const createCardListEmbed = async (cards, page, totalPages, userId, targetUser, lastPageCards) => {
     try {
         const embed = new EmbedBuilder()
             .setTitle(targetUser ? `${targetUser.username}'s Card Collection` : 'Your Card Collection')
             .setColor('#0099ff');
 
-        let description = `Page ${page} of ${totalPages}\t\t${totalCards} cards total\n\n`;
+        const totalCards = calculateTotalCards(totalPages, lastPageCards);
+        let description = `Page ${page} of ${totalPages} ( \`${totalCards}\` cards total )\n\n`;
         
         if (!Array.isArray(cards) || cards.length === 0) {
             description += 'No cards found.';
@@ -318,15 +326,21 @@ module.exports = {
                 
                 let currentCards = response.data.cards || [];
                 const totalPages = response.data.pageCount || 1;
-                const totalCards = response.data.totalCount || 0;
 
                 if (currentCards.length === 0) {
                     await interaction.editReply('No cards found matching your criteria.');
                     return;
                 }
 
+                // Get the last page to count its cards
+                const lastPageResponse = await handleMazokuAPICall(async () => {
+                    const lastPageBody = { ...requestBody, page: totalPages };
+                    return await axios.post(API_URL, lastPageBody, createAxiosConfig(lastPageBody));
+                });
+                const lastPageCards = lastPageResponse.data.cards?.length || 0;
+
                 let currentPage = 1;
-                const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, totalCards);
+                const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, lastPageCards);
                 const navigationButtons = createNavigationButtons(currentPage, totalPages);
                 const selectMenu = createCardSelectMenu(currentCards);
 
@@ -398,7 +412,7 @@ module.exports = {
                                     await i.editReply({ components: [actionRow] });
                                 }
                             } else if (i.customId === 'back') {
-                                const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, totalCards);
+                                const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, lastPageCards);
                                 const newComponents = [
                                     createNavigationButtons(currentPage, totalPages),
                                     createCardSelectMenu(currentCards)
@@ -427,7 +441,7 @@ module.exports = {
                                         });
 
                                         currentCards = newResponse.data.cards || []; // Update currentCards
-                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, totalCards);
+                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, lastPageCards);
                                         const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                         const newSelectMenu = createCardSelectMenu(currentCards);
 
@@ -479,7 +493,7 @@ module.exports = {
 
                 collector.on('end', async () => {
                     try {
-                        const finalEmbed = EmbedBuilder.from(await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, totalCards))
+                        const finalEmbed = EmbedBuilder.from(await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, lastPageCards))
                             .setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
                         await interaction.editReply({
