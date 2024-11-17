@@ -10,7 +10,7 @@ module.exports = {
             .setDescription('Show giveaway details and rewards'),
 
     async execute(interaction, { database }) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ ephemeral: false });
 
         try {
             // Ensure user exists in the database
@@ -56,7 +56,8 @@ module.exports = {
                                  `🎯 Your Entries: **${userEntries}**\n` +
                                  `👥 Total Entries: **${totalEntries}**\n`
                                 )
-                .setImage(giveaway.item.imageUrl || null)
+                .setThumbnail(giveaway.item.imageUrl || null)
+                // .setImage(giveaway.item.imageUrl || null)
                 .addFields({
                     name: 'Time Remaining',
                     value: `⏰ Ends <t:${giveaway.endTimestamp}:R>`
