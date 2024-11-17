@@ -1,14 +1,23 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const getTierEmoji = require('../../utility/getTierEmoji');
 const db = require('../../database/mongo');
+const { CARDS_PER_PAGE } = require('./constants');
 
-const createCardListEmbed = async (cards, page, totalPages, userId, isListMode = false) => {
+// Calculate total cards based on pages and last page count
+const calculateTotalCards = (totalPages, lastPageCards) => {
+    if (totalPages <= 0) return 0;
+    if (totalPages === 1) return lastPageCards;
+    return ((totalPages - 1) * CARDS_PER_PAGE) + lastPageCards;
+};
+
+const createCardListEmbed = async (cards, page, totalPages, userId, isListMode = false, lastPageCards = null) => {
     try {
         const embed = new EmbedBuilder()
             .setTitle('Card Wishlist')
             .setColor('#0099ff');
 
-        let description = `Page ${page} of ${totalPages}\n\n`;
+        const totalCards = calculateTotalCards(totalPages, lastPageCards || cards.length);
+        let description = `Page ${page} of ${totalPages}\t\t${totalCards} cards total\n\n`;
         
         if (!Array.isArray(cards) || cards.length === 0) {
             description += 'No cards found.';

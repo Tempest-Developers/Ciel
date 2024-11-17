@@ -111,6 +111,7 @@ module.exports = {
             let currentPage = 1;
             let totalPages = 1;
             let allCards = [];
+            let lastPageCards = 0;
 
             // Store search parameters for pagination
             const searchParams = {
@@ -142,6 +143,10 @@ module.exports = {
                     currentCards = result.cards;
                     totalPages = result.totalPages;
 
+                    // Get last page cards count
+                    const lastPageResult = await searchCards(searchParams, totalPages);
+                    lastPageCards = lastPageResult.cards.length;
+
                     if (searchParams.sortBy === 'wishlist') {
                         currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
                     }
@@ -159,6 +164,7 @@ module.exports = {
             if (isGlobalMode || isMeMode) {
                 totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
                 currentCards = paginateCards(allCards, currentPage);
+                lastPageCards = allCards.length % CARDS_PER_PAGE || CARDS_PER_PAGE;
             }
 
             if (currentCards.length === 0) {
@@ -166,7 +172,7 @@ module.exports = {
                 return;
             }
 
-            const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode);
+            const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode, lastPageCards);
             const navigationButtons = createNavigationButtons(currentPage, totalPages);
             const selectMenu = createCardSelectMenu(currentCards);
 
@@ -224,7 +230,7 @@ module.exports = {
                                 });
                             }
                         } else if (i.customId === 'back') {
-                            const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode);
+                            const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode, lastPageCards);
                             const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                             const newSelectMenu = createCardSelectMenu(currentCards);
 
@@ -261,7 +267,7 @@ module.exports = {
                                         }
                                     }
                                     
-                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode);
+                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode, lastPageCards);
                                     const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                     const newSelectMenu = createCardSelectMenu(currentCards);
 
