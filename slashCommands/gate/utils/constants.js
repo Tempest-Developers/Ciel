@@ -6,9 +6,9 @@ module.exports = {
     COSTS: {
         TICKET: 50,
         PREMIUM: 250,
-        GIFT_TICKET: 30
+        GIFT_TICKET: 40
     },
-    MAX_TOKENS: 30000,
+    MAX_TOKENS: 10000,
     MAX_TOKENS_TICKET: 5,
-    GIVEAWAY_FIRST_TICKET_FREE: false // New toggle for first ticket being free
+    GIVEAWAY_FIRST_TICKET_FREE: true // New toggle for first ticket being free
 };
