@@ -296,8 +296,7 @@ module.exports = {
                             .setTitle('🎉 New Giveaway!')
                             .setDescription(`**Item:** ${announcementData.giveaway.item.name}\n` +
                                              `**Description:** ${announcementData.giveaway.item.description || 'N/A'}\n` +
-                                             `**Level:** ${announcementData.giveaway.level}\n` +
-                                             `**Tickets/Winners:** ${announcementData.giveaway.amount}\n` +
+                                             `**Winners:** ${announcementData.giveaway.amount}\n` +
                                              `**Ends:** <t:${announcementData.giveaway.endTimestamp}:R>`)
                             .setImage(announcementData.giveaway.item.imageUrl || null);
 
