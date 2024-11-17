@@ -46,7 +46,7 @@ module.exports = {
                         ))
                 .addStringOption(option =>
                     option.setName('prize')
-                        .setDescription('Prize(s) for the giveaway')
+                        .setDescription('Prize(s) for the giveaway. For Level 2, separate multiple prizes with commas.')
                         .setRequired(true))
                 .addStringOption(option =>
                     option.setName('message')
@@ -200,7 +200,7 @@ module.exports = {
                             }
 
                             itemDetails = {
-                                name: prizes.join(' | '),
+                                name: prizes.join(','),
                                 description: message,
                                 imageUrl: null
                             };
@@ -251,9 +251,15 @@ module.exports = {
                         .setDescription(`Showing ${activeFilter !== null ? (activeFilter ? 'active' : 'inactive') : 'all'} giveaways`);
 
                     for (const giveaway of giveaways) {
+                        let prizeDisplay = giveaway.item?.name || 'No Prize Set';
+                        if (giveaway.level === 2) {
+                            const prizes = prizeDisplay.split(',').map((p, i) => `${i + 1}. ${p.trim()}`).join('\n');
+                            prizeDisplay = `Prizes:\n${prizes}`;
+                        }
+
                         embed.addFields({
                             name: `Giveaway #${giveaway.giveawayID}`,
-                            value: `Prize: ${giveaway.item?.name || 'No Prize Set'}\n` +
+                            value: `${prizeDisplay}\n` +
                                    `Message: ${giveaway.item?.description || 'No Message Set'}\n` +
                                    `Level: ${giveaway.level}\n` +
                                    `Tickets/Winners: ${giveaway.amount}\n` +
@@ -281,16 +287,24 @@ module.exports = {
                         await database.updateGiveawayTimestamp(giveawayId, new Date(newTimestamp));
                     }
 
+                    let description = '';
+                    if (giveaway.level === 2) {
+                        const prizes = giveaway.item?.name?.split(',').map((p, i) => `${i + 1}. ${p.trim()}`).join('\n') || 'No Prizes Set';
+                        description = `**Prizes:**\n${prizes}\n\n`;
+                    } else {
+                        description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n`;
+                    }
+                    description += `**Message:** ${giveaway.item?.description || 'No Message Set'}\n` +
+                                 `**Status:** ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\n` +
+                                 `**Level:** ${giveaway.level}\n` +
+                                 `**Tickets/Winners:** ${giveaway.amount}\n` +
+                                 `**Created By:** <@${giveaway.userID}>\n` +
+                                 `**Ends At:** <t:${giveaway.endTimestamp}:R>`;
+
                     const embed = new EmbedBuilder()
                         .setColor('#0099ff')
                         .setTitle(`Giveaway #${giveaway.giveawayID}`)
-                        .setDescription(`**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
-                                     `**Message:** ${giveaway.item?.description || 'No Message Set'}\n` +
-                                     `**Status:** ${giveaway.active ? '🟢 Active' : '🔴 Inactive'}\n` +
-                                     `**Level:** ${giveaway.level}\n` +
-                                     `**Tickets/Winners:** ${giveaway.amount}\n` +
-                                     `**Created By:** <@${giveaway.userID}>\n` +
-                                     `**Ends At:** <t:${giveaway.endTimestamp}:R>`)
+                        .setDescription(description)
                         .setImage(giveaway.item?.imageUrl || null);
 
                     return interaction.reply({ embeds: [embed] });
@@ -304,14 +318,22 @@ module.exports = {
                     try {
                         const announcementData = await database.announceGiveaway(giveawayId, guildId, channelId);
                         
+                        let description = '';
+                        if (announcementData.giveaway.level === 2) {
+                            const prizes = announcementData.giveaway.item?.name?.split(',').map((p, i) => `${i + 1}. ${p.trim()}`).join('\n') || 'No Prizes Set';
+                            description = `**Prizes:**\n${prizes}\n\n`;
+                        } else {
+                            description = `**Prize:** ${announcementData.giveaway.item?.name || 'No Prize Set'}\n`;
+                        }
+                        description += `**Message:** ${announcementData.giveaway.item?.description || 'No Message Set'}\n` +
+                                     `**Winners:** ${announcementData.giveaway.amount}\n` +
+                                     `**Ends:** <t:${announcementData.giveaway.endTimestamp}:R>`;
+
                         // Create announcement embed
                         const embed = new EmbedBuilder()
                             .setColor('#0099ff')
                             .setTitle('🎉 New Giveaway!')
-                            .setDescription(`**Prize:** ${announcementData.giveaway.item?.name || 'No Prize Set'}\n` +
-                                         `**Message:** ${announcementData.giveaway.item?.description || 'No Message Set'}\n` +
-                                         `**Winners:** ${announcementData.giveaway.amount}\n` +
-                                         `**Ends:** <t:${announcementData.giveaway.endTimestamp}:R>`)
+                            .setDescription(description)
                             .setImage(announcementData.giveaway.item?.imageUrl || null);
 
                         // Attempt to send to specified channel
