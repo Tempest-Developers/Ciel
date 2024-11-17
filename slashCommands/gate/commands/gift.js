@@ -17,6 +17,14 @@ module.exports = {
         const targetUser = interaction.options.getUser('user');
         const cost = COSTS.GIFT_TICKET;
 
+        // Check if user is trying to gift themselves
+        if (targetUser.id === interaction.user.id) {
+            return interaction.reply({
+                content: `❌ You cannot gift a ticket to yourself!`,
+                ephemeral: true
+            });
+        }
+
         if (userData.currency[0] < cost) {
             return interaction.reply({
                 content: `❌ You need ${cost} Slime Tokens to gift a special ticket! You only have ${userData.currency[0]} Slime Tokens.`,
