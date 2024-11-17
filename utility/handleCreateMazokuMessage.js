@@ -72,7 +72,7 @@ module.exports = async (message, exemptBotId, database) => {
               participants
             );
 
-            if (rewardMessage && winners.length > 0) {
+            if (rewardMessage && winners.length > 0 && participants.length > 0) {
               const rewardEmbed = createRewardEmbed(rewardMessage, participants);
               await message.channel.send({ embeds: [rewardEmbed] });
             }
@@ -210,7 +210,7 @@ async function processWinners(winners, message, database, participants) {
         );
 
         // Add to reward message
-        rewardMessage += `<@${winnerID}> +\`${tokenReward}\` <:Slime_Token:1304929154285703179>\n`;
+        if(rewardMessage) rewardMessage += `<@${winnerID}> +\`${tokenReward}\` <:Slime_Token:1304929154285703179>\n`;
       }
     }
   }
@@ -218,9 +218,9 @@ async function processWinners(winners, message, database, participants) {
   // Add role bonus notation
   if ((hasBoosterRole && hasClanRole) || hasBoosterRole) {
     hasSpecialReward = true;
-    bonusMessage += `<a:Gate_Nitro:1307184792990781480> **Booster Role Present** \`+50%\` More <:Slime_Token:1304929154285703179>!\n`;
+    bonusMessage += `<a:Gate_Nitro:1307184792990781480> \`+50%\` <:Slime_Token:1304929154285703179>!\n`;
   } else if (hasClanRole) {
-    bonusMessage += `<:GoldenGate_Logo:1307187315566706812> **Clan Role Present** \`+25%\` More <:Slime_Token:1304929154285703179>!\n`;
+    bonusMessage += `<:GoldenGate_Logo:1307187315566706812> \`+25%\` <:Slime_Token:1304929154285703179>!\n`;
     hasSpecialReward = true;
   }
 
@@ -234,12 +234,12 @@ async function processWinners(winners, message, database, participants) {
 function createRewardEmbed({ rewardMessage, bonusMessage, colorEmbed, hasSpecialReward, participants }) {
   const rewardEmbed = new EmbedBuilder()
     .setColor(colorEmbed)
-    .setTitle(hasSpecialReward ? '🌟 Bonus Power Ups! 🌟' : '🎉 Token Rewards')
-    .setDescription(bonusMessage ? `${bonusMessage}` : `<:Slime_Token:1304929154285703179> are rewarded for chatting and claiming`)
+    .setTitle('🎉 Token Rewards')
+    // .setDescription(bonusMessage ? `${bonusMessage}` : `<:Slime_Token:1304929154285703179> are rewarded for chatting and claiming`)
     .addFields({
-      name: `Winners`,
+      name: `Winners ${bonusMessage}`,
       // Add a fallback value if rewardMessage is empty
-      value: rewardMessage || 'Sorry no winners this time!',
+      value: rewardMessage || '`/gate balance` to see your current balance!',
     })
     .setFooter({ 
       // Adjust footer calculation to handle empty rewardMessage

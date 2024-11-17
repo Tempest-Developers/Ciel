@@ -120,11 +120,11 @@ async function buildCardDescription(cardIds, client) {
                 const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
                 
                 const versionsText = cardInfo.versions.availableVersions.length > 0 
-                    ? `\`Versions Available:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
+                    ? `\`Ver:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
                     : "**No versions available**";
                 
                 const remainingText = cardInfo.versions.remainingVersions > 0 
-                    ? ` \`+${cardInfo.versions.remainingVersions}\`` 
+                    ? ` \`+${cardInfo.versions.remainingVersions} ver left\`` 
                     : '';
 
                 const wishlistCount = cardInfo.wishlistCount;
@@ -196,9 +196,9 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                     }
                 ],
                 color: 0x0099ff,
-                footer: {
-                    text: 'Wishlisted cards show up in summon information'
-                }
+                // footer: {
+                //     text: 'Wishlisted cards show up in summon information'
+                // }
             };
 
             let roleContent = '';
