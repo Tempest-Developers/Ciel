@@ -3,3 +3,5 @@ node_modules
 config.json
 database/oldmongo.js
 deploy-commands.js
+cardCalculation.js
+cardCalculation.json
