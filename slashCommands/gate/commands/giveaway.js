@@ -26,84 +26,134 @@ module.exports = {
                 return interaction.editReply({ content: '❌ No active giveaways.' });
             }
 
-            const giveaway = giveaways[0];
+            // Create embeds for all active giveaways
+            const embeds = [];
+            for (const giveaway of giveaways) {
+                // Get user's tickets
+                const userTickets = user?.currency?.[5] || 0;
 
-            // Get user's tickets
-            const userTickets = user?.currency?.[5] || 0;
+                // Get total entries
+                const totalEntries = giveaway.entries?.length || 0;
+                const userEntries = giveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
 
-            // Get total entries
-            const totalEntries = giveaway.entries?.length || 0;
-            const userEntries = giveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
+                // Build description based on giveaway level
+                let description = '';
+                if (giveaway.level === 0) {
+                    // For Level 0 (Single Card), show card details
+                    description = giveaway.item?.description || 'No Description Set';
+                } else if (giveaway.level === 1) {
+                    // For Level 1 (Custom Item), show prize and message
+                    description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
+                                `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+                } else if (giveaway.level === 2) {
+                    // For Level 2 (Multiple Winners), show all prizes
+                    const prizes = giveaway.item?.name?.split('|').map((p, i) => `${i + 1}. ${p.trim()}`).join('\n') || 'No Prizes Set';
+                    description = `**Prizes:**\n${prizes}\n\n` +
+                                `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+                }
 
-            // Calculate chance of winning before buying another ticket
-            const currentChanceOfWinning = ((userEntries / totalEntries) * 100).toFixed(2);
+                // Add statistics to description
+                description += `\n\n🎫 Your Tickets: **${userTickets}**\n` +
+                             `🎯 Your Entries: **${userEntries}**\n` +
+                             `👥 Total Entries: **${totalEntries}**`;
 
-            // Calculate chance of winning if user buys another ticket
-            const newTotalEntries = totalEntries + 1;
-            const newUserEntries = userEntries + 1;
-            const newChanceOfWinning = ((newUserEntries / newTotalEntries) * 100).toFixed(2);
+                const embed = new EmbedBuilder()
+                    .setColor('#0099ff')
+                    .setTitle(`🎉 Giveaway #${giveaway.giveawayID}`)
+                    .setDescription(description)
+                    .setThumbnail(giveaway.item?.imageUrl || null)
+                    .addFields({
+                        name: 'Time Remaining',
+                        value: `⏰ Ends <t:${giveaway.endTimestamp}:R>`
+                    });
 
-            // Calculate percentage chance of improvement
-            let chanceOfImprovement = ((newChanceOfWinning - currentChanceOfWinning) / currentChanceOfWinning * 100).toFixed(2);
-            if (isNaN(chanceOfImprovement)) chanceOfImprovement = newChanceOfWinning; // if current chance of winning is 0
-
-            // Build description based on giveaway level
-            let description = '';
-            if (giveaway.level === 0) {
-                // For Level 0 (Single Card), show card details
-                description = giveaway.item?.description || 'No Description Set';
-            } else if (giveaway.level === 1) {
-                // For Level 1 (Custom Item), show prize and message
-                description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
-                            `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
-            } else if (giveaway.level === 2) {
-                // For Level 2 (Multiple Winners), show all prizes
-                const prizes = giveaway.item?.name?.split(' | ') || ['No Prizes Set'];
-                description = `**Prizes:**\n${prizes.map((prize, i) => `${i + 1}. ${prize}`).join('\n')}\n\n` +
-                            `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+                embeds.push(embed);
             }
 
-            // Add statistics to description
-            description += `\n\n🎫 Your Tickets: **${userTickets}**\n` +
-                         `🎯 Your Entries: **${userEntries}**\n` +
-                         `👥 Total Entries: **${totalEntries}**`;
+            // Create navigation buttons if there are multiple giveaways
+            const components = [];
+            if (embeds.length > 1) {
+                const navRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('giveaway_prev')
+                        .setLabel('◀️ Previous')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId('giveaway_next')
+                        .setLabel('Next ▶️')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+                components.push(navRow);
+            }
 
-            const embed = new EmbedBuilder()
-                .setColor('#0099ff')
-                .setTitle('🎉 Current Giveaway')
-                .setDescription(description)
-                .setThumbnail(giveaway.item?.imageUrl || null)
-                .addFields({
-                    name: 'Time Remaining',
-                    value: `⏰ Ends <t:${giveaway.endTimestamp}:R>`
+            // Create join button
+            const joinRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`giveaway_join_${giveaways[0].giveawayID}`)
+                    .setLabel(
+                        GIVEAWAY_FIRST_TICKET_FREE ? 
+                        'Join Giveaway (1st Free)' : 
+                        'Join Giveaway (1 Ticket)'
+                    )
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(!GIVEAWAY_FIRST_TICKET_FREE && (user?.currency?.[5] || 0) < 1)
+            );
+            components.push(joinRow);
+
+            // Store the current page in the button collector
+            const message = await interaction.editReply({
+                embeds: [embeds[0]],
+                components
+            });
+
+            if (embeds.length > 1) {
+                const collector = message.createMessageComponentCollector({ time: 300000 }); // 5 minutes
+                let currentPage = 0;
+
+                collector.on('collect', async i => {
+                    if (i.user.id !== interaction.user.id) {
+                        return i.reply({ content: '❌ This is not your giveaway menu.', ephemeral: true });
+                    }
+
+                    if (i.customId === 'giveaway_prev') {
+                        currentPage--;
+                    } else if (i.customId === 'giveaway_next') {
+                        currentPage++;
+                    } else if (i.customId.startsWith('giveaway_join_')) {
+                        // Handle join button click
+                        const giveawayId = parseInt(i.customId.split('_')[2]);
+                        return this.handleButton(i, { database, giveawayId });
+                    }
+
+                    // Update navigation buttons
+                    const navRow = ActionRowBuilder.from(components[0]);
+                    navRow.components[0].setDisabled(currentPage === 0);
+                    navRow.components[1].setDisabled(currentPage === embeds.length - 1);
+
+                    // Update join button
+                    const joinRow = ActionRowBuilder.from(components[1]);
+                    joinRow.components[0].setCustomId(`giveaway_join_${giveaways[currentPage].giveawayID}`);
+
+                    await i.update({
+                        embeds: [embeds[currentPage]],
+                        components: [navRow, joinRow]
+                    });
                 });
 
-            // Adjust button based on giveaway level and user's tickets
-            const button = new ButtonBuilder()
-                .setCustomId('giveaway_join')
-                .setLabel(
-                    GIVEAWAY_FIRST_TICKET_FREE ? 
-                    'Join Giveaway (1st Free)' : 
-                    'Join Giveaway (1 Ticket)'
-                )
-                .setStyle(ButtonStyle.Primary)
-                // Only disable if first ticket is not free and user has no tickets
-                .setDisabled(!GIVEAWAY_FIRST_TICKET_FREE && userTickets < 1);
-
-            const row = new ActionRowBuilder().addComponents(button);
-
-            await interaction.editReply({
-                embeds: [embed],
-                components: [row]
-            });
+                collector.on('end', () => {
+                    components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
+                    message.edit({ components });
+                });
+            }
         } catch (error) {
             console.error('Error in giveaway command:', error);
             await interaction.editReply({ content: '❌ Error showing giveaway.' });
         }
     },
 
-    async handleButton(interaction, { database }) {
-        if (interaction.customId !== 'giveaway_join') {
+    async handleButton(interaction, { database, giveawayId }) {
+        if (!interaction.customId.startsWith('giveaway_join_')) {
             return;
         }
 
@@ -119,20 +169,18 @@ module.exports = {
                 user = await getGateUser(interaction.user.id);
             }
 
-            const giveaways = await database.getGiveaways(true);
+            const giveaway = await database.getGiveaway(giveawayId);
             
-            if (!giveaways || giveaways.length === 0) {
-                return interaction.editReply({ content: '❌ No active giveaways.' });
+            if (!giveaway || !giveaway.active) {
+                return interaction.editReply({ content: '❌ This giveaway is no longer active.' });
             }
 
-            const giveaway = giveaways[0];
             const { mGateDB, mGiveawayDB } = database;
             
             const tickets = user?.currency?.[5] || 0;
             
             // Check if this is the user's first entry in this giveaway
-            const updatedGiveaway = await mGiveawayDB.findOne({ giveawayID: giveaway.giveawayID });
-            const userEntries = updatedGiveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
+            const userEntries = giveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
             
             // Determine if entry is free based on the GIVEAWAY_FIRST_TICKET_FREE toggle
             const isFreeEntry = GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0;
