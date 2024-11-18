@@ -149,7 +149,7 @@ module.exports = {
                     let winnerDetails = [];
                     if (giveaway.level === 2) {
                         // For level 2, split prizes
-                        const prizes = giveaway.item?.name?.split(' | ') || ['Prize'];
+                        const prizes = giveaway.item?.name?.split(',') || ['Prize'];
                         winners.forEach((winner, index) => {
                             winnerDetails.push(`🏆 <@${winner.userID}>: ${prizes[index] || 'Prize'}`);
                         });
