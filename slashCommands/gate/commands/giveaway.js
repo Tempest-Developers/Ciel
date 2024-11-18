@@ -59,7 +59,7 @@ module.exports = {
 
                 const embed = new EmbedBuilder()
                     .setColor('#0099ff')
-                    .setTitle(`🎉 Giveaway #${giveaway.giveawayID}`)
+                    .setTitle(`🎉 Giveaway `)
                     .setDescription(description)
                     .setThumbnail(giveaway.item?.imageUrl || null)
                     .addFields({
