@@ -113,32 +113,43 @@ module.exports = {
 
                 collector.on('collect', async i => {
                     if (i.user.id !== interaction.user.id) {
-                        return i.reply({ content: '❌ This is not your giveaway menu.', ephemeral: true });
+                        await i.reply({ content: '❌ This is not your giveaway menu.', ephemeral: true });
+                        return;
                     }
 
-                    if (i.customId === 'giveaway_prev') {
-                        currentPage--;
-                    } else if (i.customId === 'giveaway_next') {
-                        currentPage++;
-                    } else if (i.customId.startsWith('giveaway_join_')) {
-                        // Handle join button click
-                        const giveawayId = parseInt(i.customId.split('_')[2]);
-                        return this.handleButton(i, { database, giveawayId });
+                    try {
+                        if (i.customId === 'giveaway_prev' || i.customId === 'giveaway_next') {
+                            // Handle navigation
+                            if (i.customId === 'giveaway_prev') {
+                                currentPage--;
+                            } else {
+                                currentPage++;
+                            }
+
+                            // Update navigation buttons
+                            const navRow = ActionRowBuilder.from(components[0]);
+                            navRow.components[0].setDisabled(currentPage === 0);
+                            navRow.components[1].setDisabled(currentPage === embeds.length - 1);
+
+                            // Update join button
+                            const joinRow = ActionRowBuilder.from(components[1]);
+                            joinRow.components[0].setCustomId(`giveaway_join_${giveaways[currentPage].giveawayID}`);
+
+                            await i.update({
+                                embeds: [embeds[currentPage]],
+                                components: [navRow, joinRow]
+                            });
+                        } else if (i.customId.startsWith('giveaway_join_')) {
+                            // Handle join button click
+                            const giveawayId = parseInt(i.customId.split('_')[2]);
+                            await this.handleJoinGiveaway(i, { database, giveawayId });
+                        }
+                    } catch (error) {
+                        console.error('Error handling button:', error);
+                        if (!i.replied && !i.deferred) {
+                            await i.reply({ content: '❌ An error occurred. Please try again.', ephemeral: true });
+                        }
                     }
-
-                    // Update navigation buttons
-                    const navRow = ActionRowBuilder.from(components[0]);
-                    navRow.components[0].setDisabled(currentPage === 0);
-                    navRow.components[1].setDisabled(currentPage === embeds.length - 1);
-
-                    // Update join button
-                    const joinRow = ActionRowBuilder.from(components[1]);
-                    joinRow.components[0].setCustomId(`giveaway_join_${giveaways[currentPage].giveawayID}`);
-
-                    await i.update({
-                        embeds: [embeds[currentPage]],
-                        components: [navRow, joinRow]
-                    });
                 });
 
                 collector.on('end', () => {
@@ -152,15 +163,7 @@ module.exports = {
         }
     },
 
-    async handleButton(interaction, { database, giveawayId }) {
-        if (!interaction.customId.startsWith('giveaway_join_')) {
-            return;
-        }
-
-        if (!interaction.deferred && !interaction.replied) {
-            await interaction.deferReply({ ephemeral: true });
-        }
-
+    async handleJoinGiveaway(interaction, { database, giveawayId }) {
         try {
             // Ensure user exists in the database
             let user = await getGateUser(interaction.user.id);
@@ -172,7 +175,8 @@ module.exports = {
             const giveaway = await database.getGiveaway(giveawayId);
             
             if (!giveaway || !giveaway.active) {
-                return interaction.editReply({ content: '❌ This giveaway is no longer active.' });
+                await interaction.reply({ content: '❌ This giveaway is no longer active.', ephemeral: true });
+                return;
             }
 
             const { mGateDB, mGiveawayDB } = database;
@@ -187,7 +191,8 @@ module.exports = {
 
             // Check ticket requirement for paid entries
             if (!isFreeEntry && tickets < 1) {
-                return interaction.editReply({ content: '❌ You need at least 1 ticket to join!' });
+                await interaction.reply({ content: '❌ You need at least 1 ticket to join!', ephemeral: true });
+                return;
             }
 
             try {
@@ -231,11 +236,12 @@ module.exports = {
                 // Ensure currency exists before accessing
                 const remainingTickets = !isFreeEntry ? (updatedUser?.currency?.[5] || 0) : tickets;
 
-                await interaction.editReply({ 
+                await interaction.reply({ 
                     content: `✅ ${isFreeEntry ? 'Free first entry!' : 'You joined the giveaway!'}\n` +
                         `🎫 Remaining Tickets: **${remainingTickets}**\n` +
                         `🎯 Your Entries: **${finalUserEntries}**\n` +
-                        `👥 Total Entries: **${totalEntries}**`
+                        `👥 Total Entries: **${totalEntries}**`,
+                    ephemeral: false
                 });
             } catch (error) {
                 console.error('Error in giveaway entry process:', error);
@@ -243,11 +249,7 @@ module.exports = {
             }
         } catch (error) {
             console.error('Error in giveaway button handler:', error);
-            if (interaction.deferred || interaction.replied) {
-                await interaction.editReply({ 
-                    content: '❌ Error joining giveaway. Please try again in a few moments.' 
-                });
-            } else {
+            if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ 
                     content: '❌ Error joining giveaway. Please try again in a few moments.',
                     ephemeral: true
