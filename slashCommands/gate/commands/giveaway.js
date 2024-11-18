@@ -47,7 +47,7 @@ module.exports = {
                                 `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
                 } else if (giveaway.level === 2) {
                     // For Level 2 (Multiple Winners), show all prizes
-                    const prizes = giveaway.item?.name?.split('|').map((p, i) => `${i + 1}. ${p.trim()}`).join('\n') || 'No Prizes Set';
+                    const prizes = giveaway.item?.name?.split('|').map((p, i) => `${p.trim()}`).join(' ') || 'No Prizes Set';
                     description = `**Prizes:**\n${prizes}\n\n` +
                                 `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
                 }
