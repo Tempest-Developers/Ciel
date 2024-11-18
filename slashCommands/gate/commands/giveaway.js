@@ -248,7 +248,7 @@ module.exports = {
                 const remainingTickets = !isFreeEntry ? (updatedUser?.currency?.[5] || 0) : tickets;
 
                 await interaction.reply({ 
-                    content: `✅ ${isFreeEntry ? 'Free first entry!' : 'You joined the giveaway!'}\n` +
+                    content: `<@${interaction.user.id}> ${isFreeEntry ? 'got a free entry!' : 'joined the giveaway!'}\n` +
                         `🎫 Remaining Tickets: **${remainingTickets}**\n` +
                         `🎯 Your Entries: **${finalUserEntries}**\n` +
                         `👥 Total Entries: **${totalEntries}**`,
