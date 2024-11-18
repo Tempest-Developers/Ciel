@@ -59,7 +59,7 @@ module.exports = {
 
                 const embed = new EmbedBuilder()
                     .setColor('#0099ff')
-                    .setTitle(`🎉 Giveaway `)
+                    .setTitle(`🎉 Giveaway #${giveaway.giveawayID}`)
                     .setDescription(description)
                     .setThumbnail(giveaway.item?.imageUrl || null)
                     .addFields({
@@ -160,6 +160,17 @@ module.exports = {
         } catch (error) {
             console.error('Error in giveaway command:', error);
             await interaction.editReply({ content: '❌ Error showing giveaway.' });
+        }
+    },
+
+    // Keep this for compatibility with gate.js
+    async handleButton(interaction, { database }) {
+        if (interaction.customId.startsWith('giveaway_join_')) {
+            const giveawayId = parseInt(interaction.customId.split('_')[2]);
+            await this.handleJoinGiveaway(interaction, { database, giveawayId });
+        } else if (interaction.customId === 'giveaway_prev' || interaction.customId === 'giveaway_next') {
+            // Navigation is handled by the collector in execute()
+            return;
         }
     },
 
