@@ -68,8 +68,8 @@ async function getCardInfo(cardId, client) {
 function getAvailableVersions(cardData, tier) {
     const totalVersions = {
         'C': 1000,
-        'R': 500,
-        'SR': 200,
+        'R': 750,
+        'SR': 250,
         'SSR': 100
     };
 

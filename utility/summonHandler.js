@@ -68,8 +68,8 @@ async function getCardInfo(cardId, client) {
 function getAvailableVersions(cardData, tier) {
     const totalVersions = {
         'C': 1000,
-        'R': 500,
-        'SR': 200,
+        'R': 750,
+        'SR': 250,
         'SSR': 100
     };
 
@@ -260,7 +260,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                 try {
                     countdownEmbed.fields[0] = {
                         name: `Next Summon <t:${nextSummonTime}:R> 📵`,
-                        value: `**New Batch** \`#3\` Soon! ⏳`
+                        value: `**New Batch out since <t:1731952800:R> ⏳`
                     };
                     await countdownMsg.edit({
                         content: roleContent,
