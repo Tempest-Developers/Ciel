@@ -218,7 +218,7 @@ async function processWinners(winners, message, database, participants) {
   // Add role bonus notation
   if ((hasBoosterRole && hasClanRole) || hasBoosterRole) {
     hasSpecialReward = true;
-    bonusMessage += `<a:Gate_Nitro:1307184792990781480> \`+50%\` <:Slime_Token:1304929154285703179>!\n`;
+    bonusMessage += `<a:Gate_Nitro_Boost:1307184792990781480> \`+50%\` <:Slime_Token:1304929154285703179>!\n`;
   } else if (hasClanRole) {
     bonusMessage += `<:GoldenGate_Logo:1307187315566706812> \`+25%\` <:Slime_Token:1304929154285703179>!\n`;
     hasSpecialReward = true;
