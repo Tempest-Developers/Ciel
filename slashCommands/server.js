@@ -97,7 +97,7 @@ module.exports = {
                 SP: [], // 1-10
                 LP: [], // 11-99
                 MP: [], // 100-499
-                HP: []  // 500-1000
+                HP: []  // 500-2000
             };
 
             // Function to get print quality
@@ -105,7 +105,7 @@ module.exports = {
                 if (print >= 1 && print <= 10) return 'SP';
                 if (print >= 11 && print <= 99) return 'LP';
                 if (print >= 100 && print <= 499) return 'MP';
-                if (print >= 500 && print <= 1000) return 'HP';
+                if (print >= 500 && print <= 2000) return 'HP';
                 return 'OTHER';
             };
 
@@ -166,7 +166,7 @@ module.exports = {
                     if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(timestamp);
                     else if (printNum >= 11 && printNum <= 99) claimTimesByPrintRange.LP.push(timestamp);
                     else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(timestamp);
-                    else if (printNum >= 500 && printNum <= 1000) claimTimesByPrintRange.HP.push(timestamp);
+                    else if (printNum >= 500 && printNum <= 2000) claimTimesByPrintRange.HP.push(timestamp);
                 }
             }
 
@@ -184,7 +184,7 @@ module.exports = {
                     if (printNum >= 1 && printNum <= 10) printRangeCounts.SP++;
                     else if (printNum >= 11 && printNum <= 99) printRangeCounts.LP++;
                     else if (printNum >= 100 && printNum <= 499) printRangeCounts.MP++;
-                    else if (printNum >= 500 && printNum <= 1000) printRangeCounts.HP++;
+                    else if (printNum >= 500 && printNum <= 2000) printRangeCounts.HP++;
                 }
             }
 
@@ -374,7 +374,7 @@ function getRangeDescription(range) {
         case 'SP': return '1-10';
         case 'LP': return '11-99';
         case 'MP': return '100-499';
-        case 'HP': return '500-1000';
+        case 'HP': return '500-2000';
         default: return '';
     }
 }

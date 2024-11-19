@@ -93,7 +93,7 @@ module.exports = {
                 SP: [], // 1-10
                 LP: [], // 11-99
                 MP: [], // 100-499
-                HP: []  // 500-1000
+                HP: []  // 500-2000
             };
 
             // Calculate tier counts
@@ -117,7 +117,7 @@ module.exports = {
                 if (print >= 1 && print <= 10) return 'SP';
                 if (print >= 11 && print <= 99) return 'LP';
                 if (print >= 100 && print <= 499) return 'MP';
-                if (print >= 500 && print <= 1000) return 'HP';
+                if (print >= 500 && print <= 2000) return 'HP';
                 return 'OTHER';
             };
 
@@ -181,7 +181,7 @@ module.exports = {
                             printRangeCounts.MP++;
                             claimTimesByPrintRange.MP.push(timestamp);
                         }
-                        else if (printNum >= 500 && printNum <= 1000) {
+                        else if (printNum >= 500 && printNum <= 2000) {
                             printRangeCounts.HP++;
                             claimTimesByPrintRange.HP.push(timestamp);
                         }
@@ -389,7 +389,7 @@ function getRangeDescription(range) {
         case 'SP': return '1-10';
         case 'LP': return '11-99';
         case 'MP': return '100-499';
-        case 'HP': return '500-1000';
+        case 'HP': return '500-2000';
         default: return '';
     }
 }
