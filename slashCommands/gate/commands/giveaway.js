@@ -157,10 +157,6 @@ module.exports = {
                                 embeds: [embeds[currentPage]],
                                 components: [navRow, joinRow]
                             });
-                        } else if (i.customId.startsWith('giveaway_join_')) {
-                            // Handle join button click
-                            const giveawayId = parseInt(i.customId.split('_')[2]);
-                            await this.handleJoinGiveaway(i, { database, giveawayId });
                         }
                     } catch (error) {
                         console.error('Error handling button:', error);
@@ -186,9 +182,6 @@ module.exports = {
         if (interaction.customId.startsWith('giveaway_join_')) {
             const giveawayId = parseInt(interaction.customId.split('_')[2]);
             await this.handleJoinGiveaway(interaction, { database, giveawayId });
-        } else if (interaction.customId === 'giveaway_prev' || interaction.customId === 'giveaway_next') {
-            // Navigation is handled by the collector in execute()
-            return;
         }
     },
 
