@@ -173,7 +173,7 @@ module.exports = {
                             if (guild) {
                                 const channel = await guild.channels.fetch(channelId);
                                 if (channel) {
-                                    const maxWinnersPerMessage = 12;
+                                    const maxWinnersPerMessage = 6;
                                     const winnerDetailsChunks = [];
 
                                     // Split the winner details into chunks
