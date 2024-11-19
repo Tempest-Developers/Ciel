@@ -196,9 +196,18 @@ module.exports = {
             
             // Check if this is the user's first entry in this giveaway
             const userEntries = giveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
+
+            // Get all active giveaways to check if user has already entered any
+            const activeGiveaways = await database.getGiveaways(true);
+            const hasEnteredAnyGiveaway = activeGiveaways.some(g => 
+                g.entries?.some(entry => 
+                    entry.userID === interaction.user.id && 
+                    entry.timestamp > Date.now() - 24 * 60 * 60 * 1000 // Within last 24 hours
+                )
+            );
             
-            // Determine if entry is free based on the GIVEAWAY_FIRST_TICKET_FREE toggle
-            const isFreeEntry = GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0;
+            // Determine if entry is free based on GIVEAWAY_FIRST_TICKET_FREE toggle and no previous entries in any active giveaway
+            const isFreeEntry = GIVEAWAY_FIRST_TICKET_FREE && !hasEnteredAnyGiveaway;
 
             // Check ticket requirement for paid entries
             if (!isFreeEntry && tickets < 1) {
@@ -207,8 +216,8 @@ module.exports = {
             }
 
             try {
-                // Only consume ticket if it's a paid entry
-                if (!isFreeEntry) {
+                // Only consume ticket if it's a paid entry and user hasn't entered any active giveaway
+                if (!isFreeEntry && !hasEnteredAnyGiveaway) {
                     const updateResult = await mGateDB.updateOne(
                         { 
                             userID: interaction.user.id,
@@ -227,12 +236,15 @@ module.exports = {
                     { giveawayID: giveaway.giveawayID },
                     { 
                         $push: { 
-                            entries: { userID: interaction.user.id },
+                            entries: { 
+                                userID: interaction.user.id,
+                                timestamp: Date.now()
+                            },
                             logs: { 
                                 userID: interaction.user.id, 
                                 timestamp: new Date(), 
-                                tickets: isFreeEntry ? 0 : 1,
-                                freeEntry: isFreeEntry
+                                tickets: (!isFreeEntry && !hasEnteredAnyGiveaway) ? 1 : 0,
+                                freeEntry: isFreeEntry || hasEnteredAnyGiveaway
                             }
                         }
                     }
@@ -245,10 +257,10 @@ module.exports = {
                 const totalEntries = finalGiveaway.entries?.length || 0;
 
                 // Ensure currency exists before accessing
-                const remainingTickets = !isFreeEntry ? (updatedUser?.currency?.[5] || 0) : tickets;
+                const remainingTickets = (!isFreeEntry && !hasEnteredAnyGiveaway) ? (updatedUser?.currency?.[5] || 0) : tickets;
 
                 await interaction.reply({ 
-                    content: `<@${interaction.user.id}> ${isFreeEntry ? 'got a free entry!' : 'joined the giveaway!'}\n` +
+                    content: `<@${interaction.user.id}> ${isFreeEntry ? 'got a free entry!' : (hasEnteredAnyGiveaway ? 'joined another giveaway!' : 'joined the giveaway!')}\n` +
                         `🎫 Remaining Tickets: **${remainingTickets}**\n` +
                         `🎯 Your Entries: **${finalUserEntries}**\n` +
                         `👥 Total Entries: **${totalEntries}**`,
