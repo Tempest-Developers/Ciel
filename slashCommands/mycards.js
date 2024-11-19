@@ -32,9 +32,9 @@ const cooldowns = new Map();
 
 const versionRanges = {
     'SP': { min: 0, max: 10 },
-    'LP': { min: 0, max: 100 },
-    'MP': { min: 0, max: 499 },
-    'HP': { min: 0, max: 1000 }
+    'LP': { min: 11, max: 100 },
+    'MP': { min: 101, max: 500 },
+    'HP': { min: 501, max: 2000 }
 };
 
 // Convert tier to format expected by getTierEmoji
@@ -57,7 +57,7 @@ const createBaseRequestBody = (userId) => ({
     type: "Card",
     seriesName: "",
     minVersion: 0,
-    maxVersion: 1000,
+    maxVersion: 2000,
     sortBy: "dateAdded",
     sortOrder: "desc",
     owner: userId
