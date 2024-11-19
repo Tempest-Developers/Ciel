@@ -174,8 +174,9 @@ module.exports = {
                                 const channel = await guild.channels.fetch(channelId);
                                 if (channel) {
                                     await channel.send({ 
-                                        embeds: [embed],
-                                        content: `Congratulations `+ winners.map(winner => `<@${winner.userID}>!`).join(' ')
+                                        // embeds: [embed],
+                                        // content: `Congratulations `+ winners.map(winner => `<@${winner.userID}>!`).join(' ')
+                                        content: `🎉 Giveaway Winners - \n\n` + winnerDetails.join('\n') + `\nhttps://discord.com/channels/1240866080985976844/1307335913462038639/1307863927627055135`
                                     });
                                 }
                             }
