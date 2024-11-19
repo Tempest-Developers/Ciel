@@ -175,7 +175,7 @@ module.exports = {
                                 if (channel) {
                                     await channel.send({ 
                                         embeds: [embed],
-                                        content: winners.map(winner => `Congratulations <@${winner.userID}>!`).join(' ')
+                                        content: `Congratulations `+ winners.map(winner => `<@${winner.userID}>!`).join(' ')
                                     });
                                 }
                             }
