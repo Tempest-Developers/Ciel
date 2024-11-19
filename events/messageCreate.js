@@ -161,10 +161,10 @@ module.exports = {
                     }
 
                     // Add winners to embed
-                    // embed.addFields({ 
-                    //     name: 'Winners', 
-                    //     value: winnerDetails.join('\n')
-                    // });
+                    embed.addFields({ 
+                        name: 'Winners', 
+                        value: winnerDetails.join('\n')
+                    });
 
                     // Send winner announcement to appropriate guild channels
                     for (const [guildId, channelId] of Object.entries(GUILD_CHANNELS)) {
@@ -173,20 +173,10 @@ module.exports = {
                             if (guild) {
                                 const channel = await guild.channels.fetch(channelId);
                                 if (channel) {
-                                    const maxWinnersPerMessage = 12;
-                                    const winnerDetailsChunks = [];
-
-                                    // Split the winner details into chunks
-                                    for (let i = 0; i < winnerDetails.length; i += maxWinnersPerMessage) {
-                                        winnerDetailsChunks.push(winnerDetails.slice(i, i + maxWinnersPerMessage));
-                                    }
-
-                                    // Send each chunk as a separate message
-                                    for (const chunk of winnerDetailsChunks) {
-                                        await channel.send({
-                                            content: `🎉 Giveaway Winners - \n\n` + chunk.join('\n') + `\nhttps://discord.com/channels/1240866080985976844/1307335913462038639/1307863927627055135`
-                                        });
-                                    }
+                                    await channel.send({ 
+                                        embeds: [embed],
+                                        content: `Congratulations `+ winners.map(winner => `<@${winner.userID}>!`).join(' ')
+                                    });
                                 }
                             }
                         } catch (err) {
