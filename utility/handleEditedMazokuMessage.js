@@ -5,7 +5,7 @@ const { handleSummonInfo } = require('./summonHandler');
 const { handleManualSummonInfo } = require('./manualSummonHandler');
 const GATE_GUILD = '1240866080985976844';
 
-ManualSummonGuild = [process.env.GATE_GUILD, process.env.ORCA_GUILD, process.env.HTTAG_GUILD ]
+ManualSummonGuild = [process.env.GATE_GUILD, process.env.ORCA_GUILD, process.env.HTTAG_GUILD, process.env.MEOW_GUILD, process.env.CHAD_GUILD  ]
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
