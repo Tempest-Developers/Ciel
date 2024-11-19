@@ -161,10 +161,10 @@ module.exports = {
                     }
 
                     // Add winners to embed
-                    embed.addFields({ 
-                        name: 'Winners', 
-                        value: winnerDetails.join('\n')
-                    });
+                    // embed.addFields({ 
+                    //     name: 'Winners', 
+                    //     value: winnerDetails.join('\n')
+                    // });
 
                     // Send winner announcement to appropriate guild channels
                     for (const [guildId, channelId] of Object.entries(GUILD_CHANNELS)) {
