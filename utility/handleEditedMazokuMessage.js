@@ -86,7 +86,7 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                     // Process embed fields for manual claims
                     for (const field of newEmbed.fields) {
                         if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
-                            await handleManualClaim(client, newMessage, newEmbed, field, guildId);
+                            // await handleManualClaim(client, newMessage, newEmbed, field, guildId);
                         }
                     }
                 }
