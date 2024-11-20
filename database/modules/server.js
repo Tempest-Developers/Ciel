@@ -157,10 +157,20 @@ async function toggleHandler(serverID, handlerType, userId) {
             }
 
             const { mServerSettingsDB } = await connectDB();
-            const serverSettings = await mServerSettingsDB.findOne({ serverID });
+            let serverSettings = await mServerSettingsDB.findOne({ serverID });
 
+            // If server settings don't exist, create them first
             if (!serverSettings) {
-                throw new Error('Server settings not found');
+                await createServerSettings(serverID);
+                serverSettings = await mServerSettingsDB.findOne({ serverID });
+                if (!serverSettings) {
+                    throw new Error('Failed to create server settings');
+                }
+            }
+
+            // Verify the handler type exists
+            if (!serverSettings.settings?.handlers?.hasOwnProperty(handlerType)) {
+                throw new Error(`Invalid handler type: ${handlerType}`);
             }
 
             const currentValue = serverSettings.settings.handlers[handlerType];
