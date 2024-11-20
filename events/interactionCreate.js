@@ -12,7 +12,10 @@ module.exports = {
 
         if (!checkPermissions(interaction.channel, client.user)) return;
 
-        if((await checkIfGuildAllowed(client, interaction.guild?.id)==false) && interaction.commandName!="registerguild") return;
+        // Modified to allow both register and registerguild commands
+        if((await checkIfGuildAllowed(client, interaction.guild?.id)==false) && 
+           interaction.commandName!="registerguild" && 
+           interaction.commandName!="register") return;
 
         if (interaction.isButton()) {
             try {
