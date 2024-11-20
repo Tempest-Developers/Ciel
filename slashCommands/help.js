@@ -107,16 +107,6 @@ const COMMAND_DETAILS = {
         ],
         adminOnly: false
     },
-    'allowtierdisplay': {
-        description: 'Toggle high tier role ping feature',
-        usage: [
-            '`/allowtierdisplay` - Toggle tier display for server'
-        ],
-        examples: [
-            'Enable tier display: `/allowtierdisplay`'
-        ],
-        adminOnly: true
-    },
     'register': {
         description: 'Register your server for bot usage',
         usage: [
@@ -142,10 +132,12 @@ const COMMAND_DETAILS = {
     'sconfig': {
         description: 'Configure server settings',
         usage: [
-            '`/sconfig` - View/modify server configuration'
+            '`/sconfig tier` - Toggle tier display in summon messages',
+            '`/sconfig ping` - Toggle manual summon cooldown ping notifications'
         ],
         examples: [
-            'Update server config: `/sconfig`'
+            'Toggle tier display: `/sconfig tier`',
+            'Toggle cooldown pings: `/sconfig ping`'
         ],
         adminOnly: true,
         guildRestricted: MiMs_GUILD

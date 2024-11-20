@@ -222,7 +222,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                 fields: [
                     {
                         name: `Claim Time <t:${countdownTime}:R> 📵`,
-                        value: `⭐ \`/help\` \`\/wishlist\``
+                        value: `⭐ Renamed commands \n🌟 /mycards --> /inventory\n🌟 /search -->/find`
                     }
                 ],
                 color: 0x0099ff,
@@ -255,7 +255,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                 try {
                     countdownEmbed.fields[0] = {
                         name: `Next Manual Summon <t:${nextSummonTime}:R> 📵`,
-                        value: `⭐ \`/help\` \`/wishlist\``
+                        value: `⭐ Renamed commands \n🌟 /mycards --> /inventory\n🌟 /search -->/find`
                     };
                     await countdownMsg.edit({
                         content: roleContent,
