@@ -3,9 +3,6 @@ const handleClaim = require('./claimHandler');
 const handleManualClaim = require('./manualClaimHandler');
 const { handleSummonInfo } = require('./summonHandler');
 const { handleManualSummonInfo } = require('./manualSummonHandler');
-const GATE_GUILD = '1240866080985976844';
-
-ManualSummonGuild = [process.env.GATE_GUILD, process.env.ORCA_GUILD, process.env.HTTAG_GUILD, process.env.MEOW_GUILD, process.env.CHAD_GUILD  ]
 
 module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
     try {
@@ -37,27 +34,46 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             serverData = await client.database.getServerData(guildId);
         }
 
+        // Get server settings
+        let serverSettings = await client.database.getServerSettings(guildId);
+        if (!serverSettings) {
+            await client.database.createServerSettings(guildId);
+            serverSettings = await client.database.getServerSettings(guildId);
+        }
+
         // Handle based on summon type
         if (oldEmbed.title.includes("Automatic Summon!")) {
-            // Handle automatic summon information if it's a pack image
-            await handleSummonInfo(client, newMessage, newEmbed, messageId);
+            // Check if summon handler is enabled
+            if (serverSettings?.settings?.handlers?.summon) {
+                // Handle automatic summon information if it's a pack image
+                await handleSummonInfo(client, newMessage, newEmbed, messageId);
+            }
 
-            // Process embed fields for automatic claims
-            for (const field of newEmbed.fields) {
-                if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
-                    await handleClaim(client, newMessage, newEmbed, field, guildId);
+            // Check if claim handler is enabled
+            if (serverSettings?.settings?.handlers?.claim) {
+                // Process embed fields for automatic claims
+                for (const field of newEmbed.fields) {
+                    if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
+                        await handleClaim(client, newMessage, newEmbed, field, guildId);
+                    }
                 }
             }
-        } else if (oldEmbed.title.includes("Manual Summon") && ManualSummonGuild.includes(guildId)) {
-            // Handle manual summon information if it's a pack image
-            await handleManualSummonInfo(client, newMessage, newEmbed, messageId);
+        } else if (oldEmbed.title.includes("Manual Summon")) {
+            // Check if manual summon handler is enabled
+            if (serverSettings?.settings?.handlers?.manualSummon) {
+                // Handle manual summon information if it's a pack image
+                await handleManualSummonInfo(client, newMessage, newEmbed, messageId);
+            }
 
-            // // Process embed fields for manual claims
-            // for (const field of newEmbed.fields) {
-            //     if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
-            //         await handleManualClaim(client, newMessage, newEmbed, field, guildId);
-            //     }
-            // }
+            // Check if manual claim handler is enabled
+            if (serverSettings?.settings?.handlers?.manualClaim) {
+                // Process embed fields for manual claims
+                for (const field of newEmbed.fields) {
+                    if (field.value.includes('made by') && newMessage.content === "Claimed and added to inventory!") {
+                        await handleManualClaim(client, newMessage, newEmbed, field, guildId);
+                    }
+                }
+            }
         }
     } catch (error) {
         console.error('Error handling summon embed edit:', error);

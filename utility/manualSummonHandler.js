@@ -4,6 +4,9 @@ const getTierEmoji = require('./getTierEmoji');
 // Use a Map to track processed manual edits with a TTL
 const processedManualEdits = new Map();
 
+// Use a Map to track manual summon cooldowns
+const manualSummonCooldowns = new Map();
+
 // Clean up old entries every hour
 setInterval(() => {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
@@ -145,6 +148,33 @@ async function buildCardDescription(cardIds, client) {
     return { description, hasHighTierCard, tier: lastTier };
 }
 
+async function startManualSummonCooldown(userId, channelId, guildId, client) {
+    const cooldownKey = `${userId}-${channelId}`;
+    manualSummonCooldowns.set(cooldownKey, Date.now());
+
+    // Set 30-minute cooldown
+    setTimeout(async () => {
+        try {
+            // Check if cooldown pings are enabled for this server
+            const serverSettings = await client.database.getServerSettings(guildId);
+            if (!serverSettings?.settings?.allowCooldownPing) {
+                manualSummonCooldowns.delete(cooldownKey);
+                return;
+            }
+
+            const channel = await client.channels.fetch(channelId);
+            if (channel) {
+                const user = await client.users.fetch(userId);
+                await channel.send(`${user}, your manual summon is ready! 🎉`);
+            }
+            manualSummonCooldowns.delete(cooldownKey);
+        } catch (error) {
+            console.error('Error sending manual summon ready notification:', error);
+            manualSummonCooldowns.delete(cooldownKey);
+        }
+    }, 30 * 60 * 1000); // 30 minutes
+}
+
 async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
     const GATE_GUILD = '1240866080985976844';
     const guildId = newMessage.guild.id;
@@ -196,9 +226,6 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                     }
                 ],
                 color: 0x0099ff,
-                // footer: {
-                //     text: 'Wishlisted cards show up in summon information'
-                // }
             };
 
             let roleContent = '';
@@ -215,6 +242,13 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                 embeds: [countdownEmbed],
                 allowedMentions: { roles: roleId ? [roleId] : [] }
             });
+
+            // Start cooldown when claim time is reached
+            setTimeout(async () => {
+                const userId = newMessage.author.id;
+                const channelId = newMessage.channel.id;
+                await startManualSummonCooldown(userId, channelId, guildId, client);
+            }, (18 - elapsedTime) * 1000);
 
             // Update to next summon time
             setTimeout(async () => {
@@ -253,5 +287,6 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
 
 module.exports = {
     handleManualSummonInfo,
-    processedManualEdits
+    processedManualEdits,
+    manualSummonCooldowns
 };

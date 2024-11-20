@@ -177,7 +177,7 @@ const createNavigationButtons = (currentPage, totalPages) => {
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('search')
+        .setName('find')
         .setDescription('Search through all cards')
         .addStringOption(option =>
             option.setName('card')

@@ -220,7 +220,7 @@ const createCardSelectMenu = (cards) => {
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('mycards')
+        .setName('inventory')
         .setDescription('View and manage your card collection')
         .addUserOption(option =>
             option.setName('user')

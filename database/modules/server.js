@@ -34,7 +34,14 @@ async function createServerSettings(serverID) {
                             premier: false,
                             settings: {
                                 allowShowStats: true,
-                                allowRolePing: false
+                                allowRolePing: false,
+                                allowCooldownPing: false,
+                                handlers: {
+                                    claim: true,
+                                    summon: true,
+                                    manualClaim: false,
+                                    manualSummon: false
+                                }
                             },
                             userPing: []
                         }
@@ -47,7 +54,14 @@ async function createServerSettings(serverID) {
                     premier: false,
                     settings: {
                         allowShowStats: true,
-                        allowRolePing: false
+                        allowRolePing: false,
+                        allowCooldownPing: false,
+                        handlers: {
+                            claim: true,
+                            summon: true,
+                            manualClaim: false,
+                            manualSummon: false
+                        }
                     },
                     userPing: []
                 });
@@ -104,6 +118,62 @@ async function toggleAllowRolePing(serverID) {
             return { serverID, allowRolePing: newAllowRolePingValue };
         } catch (error) {
             console.error('Error toggling allowRolePing:', error);
+            throw error;
+        }
+    });
+}
+
+async function toggleAllowCooldownPing(serverID) {
+    return wrapDbOperation(async () => {
+        try {
+            const { mServerSettingsDB } = await connectDB();
+            const serverSettings = await mServerSettingsDB.findOne({ serverID });
+
+            if (!serverSettings) {
+                throw new Error('Server settings not found');
+            }
+
+            const newAllowCooldownPingValue = !serverSettings.settings.allowCooldownPing;
+
+            await mServerSettingsDB.updateOne(
+                { serverID },
+                { $set: { 'settings.allowCooldownPing': newAllowCooldownPingValue } }
+            );
+
+            return { serverID, allowCooldownPing: newAllowCooldownPingValue };
+        } catch (error) {
+            console.error('Error toggling allowCooldownPing:', error);
+            throw error;
+        }
+    });
+}
+
+async function toggleHandler(serverID, handlerType, userId) {
+    return wrapDbOperation(async () => {
+        try {
+            // Only allow specific user to toggle handlers
+            if (userId !== '292675388180791297') {
+                throw new Error('Unauthorized to toggle handlers');
+            }
+
+            const { mServerSettingsDB } = await connectDB();
+            const serverSettings = await mServerSettingsDB.findOne({ serverID });
+
+            if (!serverSettings) {
+                throw new Error('Server settings not found');
+            }
+
+            const currentValue = serverSettings.settings.handlers[handlerType];
+            const newValue = !currentValue;
+
+            await mServerSettingsDB.updateOne(
+                { serverID },
+                { $set: { [`settings.handlers.${handlerType}`]: newValue } }
+            );
+
+            return { serverID, handler: handlerType, enabled: newValue };
+        } catch (error) {
+            console.error('Error toggling handler:', error);
             throw error;
         }
     });
@@ -180,6 +250,8 @@ module.exports = {
     createServerSettings,
     toggleRegister,
     toggleAllowRolePing,
+    toggleAllowCooldownPing,
+    toggleHandler,
     getServerData,
     getServerSettings,
     addServerClaim

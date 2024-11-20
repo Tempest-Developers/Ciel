@@ -3,7 +3,7 @@ const mongo = require('../database/mongo');
 
 // Define the command
 const command = new SlashCommandBuilder()
-  .setName('registerguild')
+  .setName('register')
   .setDescription('Register server');
 
 // Export the command

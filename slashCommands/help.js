@@ -1,8 +1,16 @@
+require('dotenv').config();
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require('discord.js');
 
 // Add cooldown system
 const cooldowns = new Map();
 const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
+
+// Guild IDs
+const GATE_GUILD = process.env.GATE_GUILD
+const MiMs_GUILD = process.env.MIMS_GUILD
+
+// Admin command emoji
+const ADMIN_EMOJI = '⚡';
 
 const COMMAND_DETAILS = {
     'leaderboard': {
@@ -14,21 +22,23 @@ const COMMAND_DETAILS = {
         examples: [
             'View Common Tier leaderboard: `/leaderboard tier tier:CT`',
             'View total claims: `/leaderboard total`'
-        ]
+        ],
+        adminOnly: false
     },
-    'mycards': {
+    'inventory': {
         description: 'View and manage your card collection with advanced filtering',
         usage: [
-            '`/mycards` - View your entire card collection',
-            '`/mycards name:` - Filter cards by character name',
-            '`/mycards anime:` - Filter cards by anime series',
-            '`/mycards tier:` - Filter cards by tier',
-            '`/mycards version:` - Filter cards by print range'
+            '`/inventory` - View your entire card collection',
+            '`/inventory name:` - Filter cards by character name',
+            '`/inventory anime:` - Filter cards by anime series',
+            '`/inventory tier:` - Filter cards by tier',
+            '`/inventory version:` - Filter cards by print range'
         ],
         examples: [
-            'View all your SR cards: `/mycards tier:SR`',
-            'Find cards from Naruto: `/mycards anime:Naruto`'
-        ]
+            'View all your SR cards: `/inventory tier:SR`',
+            'Find cards from Naruto: `/inventory anime:Naruto`'
+        ],
+        adminOnly: false
     },
     'mystats': {
         description: 'Detailed personal card collection statistics',
@@ -43,7 +53,8 @@ const COMMAND_DETAILS = {
         examples: [
             'View your tier distribution: `/mystats tiers`',
             'Check your best recent card: `/mystats best`'
-        ]
+        ],
+        adminOnly: false
     },
     'recent': {
         description: 'View recent card claims with tier filtering',
@@ -53,17 +64,19 @@ const COMMAND_DETAILS = {
         ],
         examples: [
             'View recent SR claims: Select SR in dropdown'
-        ]
+        ],
+        adminOnly: false
     },
-    'search': {
+    'find': {
         description: 'Search cards by character name with autocomplete',
         usage: [
-            '`/search card:` - Search for a specific card',
+            '`/find card:` - Search for a specific card',
             'Use autocomplete to find exact card takes time after typing wait for `1` sec'
         ],
         examples: [
-            'Find Naruto card: `/search card:Naruto`'
-        ]
+            'Find Naruto card: `/find card:Naruto`'
+        ],
+        adminOnly: false
     },
     'server': {
         description: 'View server-wide card statistics',
@@ -78,7 +91,8 @@ const COMMAND_DETAILS = {
         examples: [
             'View server tier distribution: `/server tiers`',
             'Check server best drop: `/server best`'
-        ]
+        ],
+        adminOnly: false
     },
     'wishlist': {
         description: 'View and manage your card wishlist',
@@ -90,25 +104,77 @@ const COMMAND_DETAILS = {
         examples: [
             'Add card to wishlist: `/wishlist add card_id`',
             'View your wishlist: `/wishlist list`'
-        ]
+        ],
+        adminOnly: false
     },
     'allowtierdisplay': {
-        description: 'Toggle high tier role ping feature (Admin Only)',
+        description: 'Toggle high tier role ping feature',
         usage: [
             '`/allowtierdisplay` - Toggle tier display for server'
         ],
         examples: [
             'Enable tier display: `/allowtierdisplay`'
-        ]
+        ],
+        adminOnly: true
     },
-    'registerguild': {
-        description: 'Register your server for bot usage (Admin Only)',
+    'register': {
+        description: 'Register your server for bot usage',
         usage: [
-            '`/registerguild` - Register current server'
+            '`/register` - Register current server'
         ],
         examples: [
-            'Register server: `/registerguild`'
-        ]
+            'Register server: `/register`'
+        ],
+        adminOnly: true
+    },
+    'hstate': {
+        description: 'View and manage hunt state',
+        usage: [
+            '`/hstate` - View current hunt state',
+            '`/hstate toggle` - Toggle hunt state'
+        ],
+        examples: [
+            'Toggle hunt state: `/hstate toggle`'
+        ],
+        adminOnly: true,
+        guildRestricted: MiMs_GUILD
+    },
+    'sconfig': {
+        description: 'Configure server settings',
+        usage: [
+            '`/sconfig` - View/modify server configuration'
+        ],
+        examples: [
+            'Update server config: `/sconfig`'
+        ],
+        adminOnly: true,
+        guildRestricted: MiMs_GUILD
+    },
+    'giveaway': {
+        description: 'Manage card giveaways',
+        usage: [
+            '`/giveaway create` - Create a new giveaway',
+            '`/giveaway end` - End an active giveaway'
+        ],
+        examples: [
+            'Create giveaway: `/giveaway create`'
+        ],
+        adminOnly: true,
+        guildRestricted: MiMs_GUILD
+    },
+    'gate': {
+        description: 'Gate currency system commands',
+        usage: [
+            '`/gate help` - View Gate commands',
+            '`/gate balance` - Check your balance',
+            '`/gate buy` - Purchase items'
+        ],
+        examples: [
+            'Check balance: `/gate balance`',
+            'Buy item: `/gate buy item:name`'
+        ],
+        adminOnly: false,
+        guildRestricted: GATE_GUILD
     }
 };
 
@@ -118,7 +184,6 @@ module.exports = {
         .setDescription('Shows information about available commands'),
     
     async execute(interaction) {
-        // Add cooldown check
         const guildId = interaction.guild.id;
         const userId = interaction.user.id;
         const cooldownKey = `${guildId}-${userId}`;
@@ -134,35 +199,46 @@ module.exports = {
             }
         }
 
-        // Set cooldown
         cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
         setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
 
         try {
-            // Create a more comprehensive initial embed with a detailed list of commands
+            // Filter commands based on guild restrictions
+            const availableCommands = Object.entries(COMMAND_DETAILS)
+                .filter(([_, details]) => {
+                    if (details.guildRestricted) {
+                        return details.guildRestricted === guildId;
+                    }
+                    return true;
+                })
+                .reduce((acc, [cmd, details]) => {
+                    acc[cmd] = details;
+                    return acc;
+                }, {});
+
+            // Create initial embed with command names only
             const helpEmbed = new EmbedBuilder()
                 .setTitle('Mazoku Card Bot - Command List')
                 .setColor('#FFC0CB')
-                .setDescription('**All Available Commands:**')
-                .addFields(
-                    Object.entries(COMMAND_DETAILS).map(([cmd, details]) => ({
-                        name: `\`/${cmd}\``,
-                        value: `*${details.description}*`,
-                        inline: false
-                    }))
-                )
+                .setDescription(Object.entries(availableCommands)
+                    .map(([cmd, details]) => {
+                        const adminMark = details.adminOnly ? ADMIN_EMOJI : '';
+                        return `\`/${cmd}\` ${adminMark}`;
+                    })
+                    .join('\n'))
                 .setFooter({ text: 'Select a command from the dropdown for more details' });
 
+            // Create dropdown with available commands
             const commandSelectMenu = new StringSelectMenuBuilder()
                 .setCustomId('help_command_select')
                 .setPlaceholder('Select a command to view detailed information')
                 .addOptions(
-                    Object.keys(COMMAND_DETAILS)
-                        .filter(cmd => !['ping', 'giveaway'].includes(cmd))
-                        .map(cmd => ({
+                    Object.entries(availableCommands)
+                        .map(([cmd, details]) => ({
                             label: `/${cmd}`,
                             value: cmd,
-                            description: COMMAND_DETAILS[cmd].description.substring(0, 100)
+                            description: details.description.substring(0, 100),
+                            emoji: details.adminOnly ? ADMIN_EMOJI : undefined
                         }))
                 );
 
@@ -189,10 +265,10 @@ module.exports = {
                 }
 
                 const selectedCommand = i.values[0];
-                const commandInfo = COMMAND_DETAILS[selectedCommand];
+                const commandInfo = availableCommands[selectedCommand];
 
                 const detailEmbed = new EmbedBuilder()
-                    .setTitle(`/${selectedCommand} Command Details`)
+                    .setTitle(`${commandInfo.adminOnly ? ADMIN_EMOJI : ''}/${selectedCommand} Command Details`)
                     .setColor('#FFC0CB')
                     .addFields(
                         { name: 'Description', value: commandInfo.description },
