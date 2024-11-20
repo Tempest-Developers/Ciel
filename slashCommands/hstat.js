@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { getServerSettings, createServerSettings } = require('../database/modules/server');
 
 module.exports = {
@@ -28,6 +28,9 @@ module.exports = {
                 });
             }
 
+            // Defer the reply immediately to prevent timeout
+            await interaction.deferReply({ ephemeral: true });
+
             const subcommand = interaction.options.getSubcommand();
 
             if (subcommand === 'server') {
@@ -37,9 +40,8 @@ module.exports = {
                 try {
                     const guild = await interaction.client.guilds.fetch(serverId);
                     if (!guild) {
-                        return await interaction.reply({
+                        return await interaction.editReply({
                             content: 'Unable to find the specified server. Please check the server ID.',
-                            ephemeral: true
                         });
                     }
 
@@ -50,47 +52,39 @@ module.exports = {
                         await createServerSettings(serverId);
                         serverSettings = await getServerSettings(serverId);
                         if (!serverSettings) {
-                            return await interaction.reply({
+                            return await interaction.editReply({
                                 content: 'Failed to create server settings.',
-                                ephemeral: true
                             });
                         }
                     }
 
                     // Ensure settings structure exists
                     if (!serverSettings.settings?.handlers) {
-                        return await interaction.reply({
+                        return await interaction.editReply({
                             content: 'Server settings are corrupted. Please contact the developer.',
-                            ephemeral: true
                         });
                     }
 
-                    const embed = new EmbedBuilder()
-                        .setTitle(`🔧 Server Settings: ${guild.name}`)
-                        .setDescription(`Server ID: ${serverId}`)
-                        .addFields(
-                            {
-                                name: '👑 Developer Controls',
-                                value: `claim: ${serverSettings.settings.handlers.claim ? '🟢' : '🔴'}
-summ: ${serverSettings.settings.handlers.summon ? '🟢' : '🔴'}
-mclaim: ${serverSettings.settings.handlers.manualClaim ? '🟢' : '🔴'}
-msumm: ${serverSettings.settings.handlers.manualSummon ? '🟢' : '🔴'}`
-                            },
-                            {
-                                name: '⚙️ Admin Settings',
-                                value: `Tier Display: ${serverSettings.settings.allowRolePing ? '🟢' : '🔴'}
-Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
-                            }
-                        )
-                        .setColor(0x0099ff)
-                        .setTimestamp();
+                    const message = [
+                        `🔧 Server Settings: ${guild.name}`,
+                        `Server ID: ${serverId}`,
+                        '',
+                        '👑 Developer Controls',
+                        `claim: ${serverSettings.settings.handlers.claim ? '🟢' : '🔴'}`,
+                        `summ: ${serverSettings.settings.handlers.summon ? '🟢' : '🔴'}`,
+                        `mclaim: ${serverSettings.settings.handlers.manualClaim ? '🟢' : '🔴'}`,
+                        `msumm: ${serverSettings.settings.handlers.manualSummon ? '🟢' : '🔴'}`,
+                        '',
+                        '⚙️ Admin Settings',
+                        `Tier Display: ${serverSettings.settings.allowRolePing ? '🟢' : '🔴'}`,
+                        `Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
+                    ].join('\n');
 
-                    await interaction.reply({ embeds: [embed], ephemeral: true });
+                    await interaction.editReply({ content: message });
                 } catch (error) {
                     if (error.code === 10004) { // Discord API error for unknown guild
-                        return await interaction.reply({
+                        return await interaction.editReply({
                             content: 'Unable to access the specified server. Please verify the server ID and ensure the bot has access to it.',
-                            ephemeral: true
                         });
                     }
                     throw error;
@@ -115,13 +109,11 @@ Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
                         allSettings.push({ guild, settings });
                     }
                 }
-                
-                const embed = new EmbedBuilder()
-                    .setTitle('🌐 Server Settings Overview')
-                    .setColor(0x0099ff)
-                    .setTimestamp();
 
-                let description = '';
+                // Create messages array to handle Discord's character limit
+                const messages = ['🌐 Server Settings Overview\n'];
+                let currentMessage = messages[0];
+
                 for (const { guild, settings } of allSettings) {
                     const handlers = [
                         settings.settings.handlers.claim ? '🟢' : '🔴',
@@ -135,18 +127,34 @@ Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
                         settings.settings.allowCooldownPing ? '🟢' : '🔴'
                     ].join('');
 
-                    description += `\n**${guild.name}** (${guild.id})\n`;
-                    description += `${handlers} | ${adminSettings}\n`;
+                    const serverInfo = `\n${guild.name} (${guild.id})\n${handlers} | ${adminSettings}\n`;
+
+                    // Check if adding this server would exceed Discord's limit
+                    if (currentMessage.length + serverInfo.length > 1900) { // Using 1900 to be safe
+                        messages.push(serverInfo);
+                        currentMessage = serverInfo;
+                    } else {
+                        currentMessage += serverInfo;
+                        messages[messages.length - 1] = currentMessage;
+                    }
                 }
 
-                embed.setDescription(description || 'No server settings found')
-                    .setFooter({ text: '🟢 Enabled | 🔴 Disabled\nOrder: claim,summ,mclaim,msumm | tier,ping' });
+                // Add legend to the last message
+                messages[messages.length - 1] += '\n🟢 Enabled | 🔴 Disabled\nOrder: claim,summ,mclaim,msumm | tier,ping';
 
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                // Send all messages
+                await interaction.editReply({ content: messages[0] });
+                for (let i = 1; i < messages.length; i++) {
+                    await interaction.followUp({ content: messages[i], ephemeral: true });
+                }
             }
         } catch (error) {
             console.error('Error in hstat command:', error);
-            await interaction.reply({
+            const reply = interaction.replied || interaction.deferred ? 
+                interaction.editReply.bind(interaction) : 
+                interaction.reply.bind(interaction);
+            
+            await reply({
                 content: 'There was an error while executing this command.',
                 ephemeral: true
             });
