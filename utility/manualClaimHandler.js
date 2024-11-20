@@ -33,7 +33,7 @@ async function startManualClaimCooldown(userId, channelId, guildId, client) {
             const channel = await client.channels.fetch(channelId);
             if (channel) {
                 const user = await client.users.fetch(userId);
-                await channel.send(`${user}, your manual summon is ready! 🎉`);
+                await channel.send(`${user}, your Manual Summon is ready! 🎉`);
             }
             manualClaimCooldowns.delete(cooldownKey);
         } catch (error) {
