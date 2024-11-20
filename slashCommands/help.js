@@ -117,18 +117,6 @@ const COMMAND_DETAILS = {
         ],
         adminOnly: true
     },
-    'hstate': {
-        description: 'View and manage hunt state',
-        usage: [
-            '`/hstate` - View current hunt state',
-            '`/hstate toggle` - Toggle hunt state'
-        ],
-        examples: [
-            'Toggle hunt state: `/hstate toggle`'
-        ],
-        adminOnly: true,
-        guildRestricted: MiMs_GUILD
-    },
     'sconfig': {
         description: 'Configure server settings',
         usage: [
@@ -138,6 +126,17 @@ const COMMAND_DETAILS = {
         examples: [
             'Toggle tier display: `/sconfig tier`',
             'Toggle cooldown pings: `/sconfig ping`'
+        ],
+        adminOnly: true
+    },
+    'hstate': {
+        description: 'View and manage hunt state',
+        usage: [
+            '`/hstate` - View current hunt state',
+            '`/hstate toggle` - Toggle hunt state'
+        ],
+        examples: [
+            'Toggle hunt state: `/hstate toggle`'
         ],
         adminOnly: true,
         guildRestricted: MiMs_GUILD
