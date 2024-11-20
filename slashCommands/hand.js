@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { toggleHandler } = require('../database/modules/server');
+const { toggleHandler, createServerSettings, getServerSettings } = require('../database/modules/server');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -50,31 +50,46 @@ module.exports = {
                         ephemeral: true
                     });
                 }
-            } catch (error) {
-                return await interaction.reply({
-                    content: 'Unable to access the specified server. Please verify the server ID and ensure the bot has access to it.',
-                    ephemeral: true
-                });
-            }
 
-            // Toggle the handler for the specified server
-            try {
+                // Check if server settings exist, create if they don't
+                let serverSettings = await getServerSettings(targetServerId);
+                if (!serverSettings) {
+                    await createServerSettings(targetServerId);
+                    serverSettings = await getServerSettings(targetServerId);
+                    if (!serverSettings) {
+                        return await interaction.reply({
+                            content: 'Failed to create server settings.',
+                            ephemeral: true
+                        });
+                    }
+                }
+
+                // Verify settings structure
+                if (!serverSettings.settings?.handlers) {
+                    return await interaction.reply({
+                        content: 'Server settings are corrupted. Please contact the developer.',
+                        ephemeral: true
+                    });
+                }
+
+                // Toggle the handler for the specified server
                 const toggleResult = await toggleHandler(targetServerId, handlerType, interaction.user.id);
-                const responseMessage = `Handler '${handlerType}' ${toggleResult.enabled ? 'enabled' : 'disabled'} for server ${targetServerId}.`;
+                const responseMessage = `Handler '${handlerType}' ${toggleResult.enabled ? 'enabled' : 'disabled'} for server ${guild.name} (${targetServerId}).`;
                 console.log(`Developer command - hand: ${JSON.stringify(toggleResult)}`);
 
                 await interaction.reply({
                     content: responseMessage,
                     ephemeral: true
                 });
+
             } catch (error) {
-                if (error.message === 'Server settings not found') {
+                if (error.code === 10004) { // Discord API error for unknown guild
                     return await interaction.reply({
-                        content: 'Server settings not found. Please ensure the server is properly configured first.',
+                        content: 'Unable to access the specified server. Please verify the server ID and ensure the bot has access to it.',
                         ephemeral: true
                     });
                 }
-                throw error; // Re-throw other errors to be caught by outer catch block
+                throw error;
             }
 
         } catch (error) {

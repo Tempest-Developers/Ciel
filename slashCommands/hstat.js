@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { getServerSettings } = require('../database/modules/server');
+const { getServerSettings, createServerSettings } = require('../database/modules/server');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -43,10 +43,24 @@ module.exports = {
                         });
                     }
 
-                    const serverSettings = await getServerSettings(serverId);
+                    let serverSettings = await getServerSettings(serverId);
+                    
+                    // If settings don't exist, create them
                     if (!serverSettings) {
+                        await createServerSettings(serverId);
+                        serverSettings = await getServerSettings(serverId);
+                        if (!serverSettings) {
+                            return await interaction.reply({
+                                content: 'Failed to create server settings.',
+                                ephemeral: true
+                            });
+                        }
+                    }
+
+                    // Ensure settings structure exists
+                    if (!serverSettings.settings?.handlers) {
                         return await interaction.reply({
-                            content: 'No settings found for this server. Please ensure the server is properly configured.',
+                            content: 'Server settings are corrupted. Please contact the developer.',
                             ephemeral: true
                         });
                     }
@@ -88,8 +102,16 @@ Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
 
                 // Fetch settings for each guild the bot is in
                 for (const [id, guild] of guilds) {
-                    const settings = await getServerSettings(id);
-                    if (settings) {
+                    let settings = await getServerSettings(id);
+                    
+                    // If settings don't exist, create them
+                    if (!settings) {
+                        await createServerSettings(id);
+                        settings = await getServerSettings(id);
+                    }
+
+                    // Only add if settings exist and have proper structure
+                    if (settings?.settings?.handlers) {
                         allSettings.push({ guild, settings });
                     }
                 }

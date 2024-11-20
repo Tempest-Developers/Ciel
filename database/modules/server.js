@@ -24,47 +24,55 @@ async function createServerSettings(serverID) {
         try {
             const { mServerSettingsDB } = await connectDB();
             const existingSettings = await mServerSettingsDB.findOne({ serverID });
-            if (existingSettings) {
-                return await mServerSettingsDB.updateOne(
-                    { serverID },
-                    {
-                        $set: {
-                            serverID,
-                            register: false,
-                            premier: false,
-                            settings: {
-                                allowShowStats: true,
-                                allowRolePing: false,
-                                allowCooldownPing: false,
-                                handlers: {
-                                    claim: true,
-                                    summon: true,
-                                    manualClaim: false,
-                                    manualSummon: false
-                                }
-                            },
-                            userPing: []
-                        }
+
+            const defaultSettings = {
+                serverID,
+                register: false,
+                premier: false,
+                settings: {
+                    allowShowStats: true,
+                    allowRolePing: false,
+                    allowCooldownPing: false,
+                    handlers: {
+                        claim: true,
+                        summon: true,
+                        manualClaim: false,
+                        manualSummon: false
                     }
-                );
-            } else {
-                return await mServerSettingsDB.insertOne({
-                    serverID,
-                    register: false,
-                    premier: false,
+                },
+                userPing: []
+            };
+
+            if (existingSettings) {
+                // Preserve existing values while ensuring new properties exist
+                const updatedSettings = {
+                    ...defaultSettings,
+                    register: existingSettings.register ?? defaultSettings.register,
+                    premier: existingSettings.premier ?? defaultSettings.premier,
                     settings: {
-                        allowShowStats: true,
-                        allowRolePing: false,
-                        allowCooldownPing: false,
+                        ...defaultSettings.settings,
+                        allowShowStats: existingSettings.settings?.allowShowStats ?? defaultSettings.settings.allowShowStats,
+                        allowRolePing: existingSettings.settings?.allowRolePing ?? defaultSettings.settings.allowRolePing,
+                        allowCooldownPing: existingSettings.settings?.allowCooldownPing ?? defaultSettings.settings.allowCooldownPing,
                         handlers: {
-                            claim: true,
-                            summon: true,
-                            manualClaim: false,
-                            manualSummon: false
+                            ...defaultSettings.settings.handlers,
+                            // If old settings exist without handlers, use default values
+                            ...(existingSettings.settings?.handlers || {})
                         }
                     },
-                    userPing: []
-                });
+                    userPing: existingSettings.userPing || defaultSettings.userPing
+                };
+
+                await mServerSettingsDB.updateOne(
+                    { serverID },
+                    { $set: updatedSettings }
+                );
+
+                return updatedSettings;
+            } else {
+                // Create new settings with defaults
+                await mServerSettingsDB.insertOne(defaultSettings);
+                return defaultSettings;
             }
         } catch (error) {
             console.error('Error creating server settings:', error);
@@ -108,7 +116,7 @@ async function toggleAllowRolePing(serverID) {
                 throw new Error('Server settings not found');
             }
 
-            const newAllowRolePingValue = !serverSettings.settings.allowRolePing;
+            const newAllowRolePingValue = !serverSettings.settings?.allowRolePing;
 
             await mServerSettingsDB.updateOne(
                 { serverID },
@@ -133,7 +141,7 @@ async function toggleAllowCooldownPing(serverID) {
                 throw new Error('Server settings not found');
             }
 
-            const newAllowCooldownPingValue = !serverSettings.settings.allowCooldownPing;
+            const newAllowCooldownPingValue = !serverSettings.settings?.allowCooldownPing;
 
             await mServerSettingsDB.updateOne(
                 { serverID },
@@ -159,13 +167,9 @@ async function toggleHandler(serverID, handlerType, userId) {
             const { mServerSettingsDB } = await connectDB();
             let serverSettings = await mServerSettingsDB.findOne({ serverID });
 
-            // If server settings don't exist, create them first
-            if (!serverSettings) {
-                await createServerSettings(serverID);
-                serverSettings = await mServerSettingsDB.findOne({ serverID });
-                if (!serverSettings) {
-                    throw new Error('Failed to create server settings');
-                }
+            // If server settings don't exist or need updating, create/update them
+            if (!serverSettings || !serverSettings.settings?.handlers) {
+                serverSettings = await createServerSettings(serverID);
             }
 
             // Verify the handler type exists
@@ -199,7 +203,14 @@ async function getServerData(serverID) {
 async function getServerSettings(serverID) {
     return wrapDbOperation(async () => {
         const { mServerSettingsDB } = await connectDB();
-        return await mServerSettingsDB.findOne({ serverID });
+        let settings = await mServerSettingsDB.findOne({ serverID });
+        
+        // If settings exist but need updating to new structure
+        if (settings && !settings.settings?.handlers) {
+            settings = await createServerSettings(serverID);
+        }
+        
+        return settings;
     });
 }
 
