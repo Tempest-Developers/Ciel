@@ -30,7 +30,7 @@ module.exports = {
             }
 
             // Only allow command in developer's server
-            if (interaction.guild.id !== process.env.GATE_GUILD) {
+            if (interaction.guild.id !== process.env.MIMS_GUILD) {
                 return await interaction.reply({
                     content: 'This command can only be used in the development server.',
                     ephemeral: true
