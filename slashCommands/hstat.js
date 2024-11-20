@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { getServerSettings } = require('../database/modules/server');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -11,7 +12,11 @@ module.exports = {
                 .addStringOption(option =>
                     option.setName('id')
                         .setDescription('Server ID to check')
-                        .setRequired(true))),
+                        .setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('default')
+                .setDescription('View overview of all server settings')),
 
     async execute(interaction) {
         try {
@@ -23,48 +28,71 @@ module.exports = {
                 });
             }
 
-            const { mServerSettingsDB } = await interaction.client.database.connectDB();
-            const subcommand = interaction.options.getSubcommand(false);
+            const subcommand = interaction.options.getSubcommand();
 
             if (subcommand === 'server') {
                 const serverId = interaction.options.getString('id');
-                const serverSettings = await mServerSettingsDB.findOne({ serverID: serverId });
-                
-                if (!serverSettings) {
-                    return await interaction.reply({
-                        content: `No settings found for server ${serverId}`,
-                        ephemeral: true
-                    });
-                }
 
-                const guild = await interaction.client.guilds.fetch(serverId).catch(() => null);
-                const guildName = guild ? guild.name : 'Unknown Server';
+                // Verify the server exists and bot has access to it
+                try {
+                    const guild = await interaction.client.guilds.fetch(serverId);
+                    if (!guild) {
+                        return await interaction.reply({
+                            content: 'Unable to find the specified server. Please check the server ID.',
+                            ephemeral: true
+                        });
+                    }
 
-                const embed = new EmbedBuilder()
-                    .setTitle(`🔧 Server Settings: ${guildName}`)
-                    .setDescription(`Server ID: ${serverId}`)
-                    .addFields(
-                        {
-                            name: '👑 Developer Controls',
-                            value: `claim: ${serverSettings.settings.handlers.claim ? '🟢' : '🔴'}
+                    const serverSettings = await getServerSettings(serverId);
+                    if (!serverSettings) {
+                        return await interaction.reply({
+                            content: 'No settings found for this server. Please ensure the server is properly configured.',
+                            ephemeral: true
+                        });
+                    }
+
+                    const embed = new EmbedBuilder()
+                        .setTitle(`🔧 Server Settings: ${guild.name}`)
+                        .setDescription(`Server ID: ${serverId}`)
+                        .addFields(
+                            {
+                                name: '👑 Developer Controls',
+                                value: `claim: ${serverSettings.settings.handlers.claim ? '🟢' : '🔴'}
 summ: ${serverSettings.settings.handlers.summon ? '🟢' : '🔴'}
 mclaim: ${serverSettings.settings.handlers.manualClaim ? '🟢' : '🔴'}
 msumm: ${serverSettings.settings.handlers.manualSummon ? '🟢' : '🔴'}`
-                        },
-                        {
-                            name: '⚙️ Admin Settings',
-                            value: `Tier Display: ${serverSettings.settings.allowRolePing ? '🟢' : '🔴'}
+                            },
+                            {
+                                name: '⚙️ Admin Settings',
+                                value: `Tier Display: ${serverSettings.settings.allowRolePing ? '🟢' : '🔴'}
 Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
-                        }
-                    )
-                    .setColor(0x0099ff)
-                    .setTimestamp();
+                            }
+                        )
+                        .setColor(0x0099ff)
+                        .setTimestamp();
 
-                await interaction.reply({ embeds: [embed], ephemeral: true });
-            } else {
-                // Default behavior - list all servers
-                const allSettings = await mServerSettingsDB.find({}).toArray();
+                    await interaction.reply({ embeds: [embed], ephemeral: true });
+                } catch (error) {
+                    if (error.code === 10004) { // Discord API error for unknown guild
+                        return await interaction.reply({
+                            content: 'Unable to access the specified server. Please verify the server ID and ensure the bot has access to it.',
+                            ephemeral: true
+                        });
+                    }
+                    throw error;
+                }
+            } else if (subcommand === 'default') {
+                // Get all server settings
                 const guilds = await interaction.client.guilds.fetch();
+                const allSettings = [];
+
+                // Fetch settings for each guild the bot is in
+                for (const [id, guild] of guilds) {
+                    const settings = await getServerSettings(id);
+                    if (settings) {
+                        allSettings.push({ guild, settings });
+                    }
+                }
                 
                 const embed = new EmbedBuilder()
                     .setTitle('🌐 Server Settings Overview')
@@ -72,10 +100,7 @@ Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
                     .setTimestamp();
 
                 let description = '';
-                for (const settings of allSettings) {
-                    const guild = guilds.get(settings.serverID);
-                    if (!guild) continue; // Skip if bot is no longer in server
-                    
+                for (const { guild, settings } of allSettings) {
                     const handlers = [
                         settings.settings.handlers.claim ? '🟢' : '🔴',
                         settings.settings.handlers.summon ? '🟢' : '🔴',
@@ -88,7 +113,7 @@ Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
                         settings.settings.allowCooldownPing ? '🟢' : '🔴'
                     ].join('');
 
-                    description += `\n**${guild.name}** (${settings.serverID})\n`;
+                    description += `\n**${guild.name}** (${guild.id})\n`;
                     description += `${handlers} | ${adminSettings}\n`;
                 }
 
