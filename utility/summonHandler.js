@@ -117,11 +117,13 @@ async function getOrCreateHighTierRole(guild) {
     }
 }
 
-async function buildCardDescription(cardIds, client) {
+async function buildCardDescription(cardIds, client, message, guildId, allowRolePing) {
     let hasHighTierCard = false;
     let description = '';
     let lastTier = null;
+    let hasPinged = false;
     const letters = [':regional_indicator_a:', ':regional_indicator_b:', ':regional_indicator_c:'];
+    const GATE_GUILD = '1240866080985976844';
     
     try {
         // Get card info for all cards at once
@@ -132,19 +134,31 @@ async function buildCardDescription(cardIds, client) {
             const cardInfo = cardInfoResults[i];
             const tierList = ['SR', 'SSR'];
             if (cardInfo) {
-                if (tierList.includes(cardInfo.tier)) {
-                    hasHighTierCard = true;
+                // Check for high tier card and handle role ping
+                if (tierList.includes(cardInfo.tier) && !hasPinged && guildId === GATE_GUILD && allowRolePing) {
+                    // Instantly send role ping for the first high tier card
+                    const highTierRole = await getOrCreateHighTierRole(message.guild);
+                    if (highTierRole) {
+                        await message.reply({
+                            content: `<@&${highTierRole.id}>`,
+                            allowedMentions: { roles: [highTierRole.id] }
+                        });
+                        hasPinged = true;
+                    }
                 }
+                hasHighTierCard = hasHighTierCard || tierList.includes(cardInfo.tier);
                 lastTier = cardInfo.tier;
                 const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
-                
-                const versionsText = cardInfo.versions.availableVersions.length > 0 
-                    ? `\`Ver:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
-                    : "**No versions available**";
-                
-                const remainingText = cardInfo.versions.remainingVersions > 0 
-                    ? ` \`+${cardInfo.versions.remainingVersions} ver left\`` 
-                    : '';
+
+                const versionsText = ""
+                // const versionsText = cardInfo.versions.availableVersions.length > 0 
+                //     ? `\`Ver:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
+                //     : "**No versions available**";
+
+                const remainingText = ""
+                // const remainingText = cardInfo.versions.remainingVersions > 0 
+                //     ? ` \`+${cardInfo.versions.remainingVersions} ver left\`` 
+                //     : '';
 
                 const wishlistCount = cardInfo.wishlistCount;
                 const seriesName = cardInfo.series.length > 25 ? cardInfo.series.substring(0, 25)+"..." : cardInfo.series;
@@ -165,7 +179,6 @@ async function buildCardDescription(cardIds, client) {
 }
 
 async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
-    const GATE_GUILD = '1240866080985976844';
     const guildId = newMessage.guild.id;
 
     // Capture the timestamp when the message is detected
@@ -208,51 +221,27 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                 fields: [
                     {
                         name: `Claim Time <t:${countdownTime}:R> 📵`,
-                        value: `🌟 \`/help\` to see all commands`
+                        value: `🌟 Versions info will be availalbe shortly`,
+                        // value: `🌟 \`/help\` to see all commands`
                     }
                 ],
-                color: 0x0099ff,
-                // footer: {
-                //     text: 'Wishlisted cards show up in summon information'
-                // }
+                color: 0x0099ff
             };
 
-            let roleContent = '';
-            let roleId = null;
             let description = null;
-            let hasHighTierCard = false;
 
-            // Only execute buildCardDescription if allowRolePing is true
-            if (allowRolePing) {
-                // Wait for all card info and build description
-                const result = await buildCardDescription(cardIds, client);
-                description = result.description;
-                hasHighTierCard = result.hasHighTierCard;
-            }
+            // Pass allowRolePing to buildCardDescription
+            const result = await buildCardDescription(cardIds, client, newMessage, guildId, allowRolePing);
+            description = result.description;
 
-            // Add description to embed if role pinging is allowed
-            if (description && allowRolePing) {
+            // Add description to embed if it exists
+            if (description) {
                 countdownEmbed.description = description;
-            }
-
-            // Only add role ping if allowRolePing is true AND there's a high tier card
-            if (guildId === GATE_GUILD && hasHighTierCard && allowRolePing) {
-                console.log("Attempting to get High Tier Role");
-                const highTierRole = await getOrCreateHighTierRole(newMessage.guild);
-                if (highTierRole) {
-                    roleContent = `<@&${highTierRole.id}>`;
-                    roleId = highTierRole.id;
-                    console.log(`High Tier Role Found: ${highTierRole.name} (${highTierRole.id})`);
-                } else {
-                    console.log("Failed to get or create High Tier Role");
-                }
             }
 
             // Send countdown message
             const countdownMsg = await newMessage.reply({
-                content: roleContent,
-                embeds: [countdownEmbed],
-                allowedMentions: { roles: roleId ? [roleId] : [] }
+                embeds: [countdownEmbed]
             });
 
             // Update to next summon time
@@ -263,9 +252,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                         value: `🌟 \`/help\` to see all commands`
                     };
                     await countdownMsg.edit({
-                        content: roleContent,
-                        embeds: [countdownEmbed],
-                        allowedMentions: { roles: roleId ? [roleId] : [] }
+                        embeds: [countdownEmbed]
                     });
                 } catch (error) {
                     console.error('Error editing countdown message:', error);

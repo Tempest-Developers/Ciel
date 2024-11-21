@@ -119,13 +119,15 @@ async function buildCardDescription(cardIds, client) {
                 lastTier = cardInfo.tier;
                 const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
                 
-                const versionsText = cardInfo.versions.availableVersions.length > 0 
-                    ? `\`Ver:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
-                    : "**No versions available**";
-                
-                const remainingText = cardInfo.versions.remainingVersions > 0 
-                    ? ` \`+${cardInfo.versions.remainingVersions} ver left\`` 
-                    : '';
+                const versionsText = ""
+                // const versionsText = cardInfo.versions.availableVersions.length > 0 
+                //     ? `\`Ver:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
+                //     : "**No versions available**";
+
+                const remainingText = ""
+                // const remainingText = cardInfo.versions.remainingVersions > 0 
+                //     ? ` \`+${cardInfo.versions.remainingVersions} ver left\`` 
+                //     : '';
 
                 const wishlistCount = cardInfo.wishlistCount;
                 const seriesName = cardInfo.series.length > 25 ? cardInfo.series.substring(0, 25)+"..." : cardInfo.series;
@@ -192,7 +194,8 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
                 fields: [
                     {
                         name: `Claim Time <t:${countdownTime}:R> 📵`,
-                        value: `🌟 \`/help\` to see all commands`
+                        value: `🌟 Versions info will be availalbe shortly`,
+                        // value: `🌟 \`/help\` to see all commands`
                     }
                 ],
                 color: 0x0099ff,
