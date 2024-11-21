@@ -68,7 +68,7 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
         // Mark this claim as processed with current timestamp
         processedClaims.set(claimKey, Date.now());
         console.warn(`GUILD: ${newMessage.guild.name} | ${newMessage.guild.id}`);
-        console.log('Card Claimed:', cardClaimed);
+        // console.log('Card Claimed:', cardClaimed);
 
         // Create server and player data if they don't exist
         let serverPlayerData = await client.database.getPlayerData(userId, guildId);
