@@ -2,10 +2,10 @@
   "name": "ciel",
   "version": "2.0.0",
   "description": "",
-  "main": "bot.js",
+  "main": "shard.js",
   "scripts": {
-    "start": "node bot.js",
-    "dev": "nodemon bot.js",
+    "start": "node shard.js",
+    "dev": "nodemon shard.js",
     "deploy": "node deploy-commands.js",
     "dev-db": "node database/dev-mongo.js",
     "git-start": "cls && git pull && npm start"

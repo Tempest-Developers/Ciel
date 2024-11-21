@@ -16,6 +16,7 @@ const commandLogsModule = require('./database/modules/commandLogs');
 const wishlistModule = require('./database/modules/wishlist');
 
 const client = new Client({
+    shards: 'auto', // Enable sharding mode
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
@@ -28,8 +29,9 @@ client.commands = new Collection();
 client.slashCommands = new Collection();
 client.config = require('./config.json');
 
-// Initialize database connection with retry logic
+// Initialize database connection with retry logic and shard awareness
 async function initializeDatabase(retries = 5, delay = 5000) {
+    const shardId = client.shard?.ids[0] ?? 'Unsharded';
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             const { 
@@ -87,12 +89,12 @@ async function initializeDatabase(retries = 5, delay = 5000) {
                 mUserWishlistDB
             };
             
-            console.log('Database initialization successful');
+            console.log(`[Shard ${shardId}] Database initialization successful`);
             return true;
         } catch (err) {
-            console.error(`Database initialization attempt ${attempt} failed:`, err);
+            console.error(`[Shard ${shardId}] Database initialization attempt ${attempt} failed:`, err);
             if (attempt === retries) {
-                console.error('All database connection attempts failed');
+                console.error(`[Shard ${shardId}] All database connection attempts failed`);
                 return false;
             }
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -118,7 +120,7 @@ for (const file of slashCommandFiles) {
     client.slashCommands.set(command.data.name, command);
 }
 
-// Event Handler with improved error handling
+// Event Handler with improved error handling and shard awareness
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 
@@ -130,44 +132,56 @@ for (const file of eventFiles) {
                 if (!args[0].guild) return;
                 const serverExist = await client.database.getServerSettings(args[0].guild.id);
                 if(!serverExist) await client.database.createServerSettings(args[0].guild.id);
-                await event.execute(...args, { database: client.database, config: client.config });
+                await event.execute(...args, { 
+                    database: client.database, 
+                    config: client.config,
+                    shardId: client.shard?.ids[0] 
+                });
             } catch (error) {
-                console.error(`Error in event ${event.name}:`, error);
+                console.error(`[Shard ${client.shard?.ids[0]}] Error in event ${event.name}:`, error);
             }
         });
     } else {
         client.on(event.name, async (...args) => {
             try {
                 if (event.name === 'messageCreate') {
-                    await event.execute(...args, { database: client.database, config: client.config  });
+                    await event.execute(...args, { 
+                        database: client.database, 
+                        config: client.config,
+                        shardId: client.shard?.ids[0]
+                    });
                 } else {
                     if (!args[0].guild) return;
                     const serverExist = await client.database.getServerSettings(args[0].guild.id);
                     if(!serverExist) await client.database.createServerSettings(args[0].guild.id);
-                    await event.execute(...args, { database: client.database, config: client.config });
+                    await event.execute(...args, { 
+                        database: client.database, 
+                        config: client.config,
+                        shardId: client.shard?.ids[0]
+                    });
                 }
             } catch (error) {
-                console.error(`Error in event ${event.name}:`, error);
+                console.error(`[Shard ${client.shard?.ids[0]}] Error in event ${event.name}:`, error);
             }
         });
     }
 }
 
-// Discord client error handling
+// Discord client error handling with shard awareness
 client.on('error', error => {
-    console.error('Discord client error:', error);
+    console.error(`[Shard ${client.shard?.ids[0]}] Discord client error:`, error);
 });
 
 client.on('disconnect', () => {
-    console.log('Bot disconnected from Discord');
+    console.log(`[Shard ${client.shard?.ids[0]}] Bot disconnected from Discord`);
 });
 
 client.on('reconnecting', () => {
-    console.log('Bot reconnecting to Discord');
+    console.log(`[Shard ${client.shard?.ids[0]}] Bot reconnecting to Discord`);
 });
 
 client.on('warn', info => {
-    console.log('Warning:', info);
+    console.log(`[Shard ${client.shard?.ids[0]}] Warning:`, info);
 });
 
 // Initialize database and start bot
@@ -175,32 +189,32 @@ async function startBot() {
     try {
         const dbInitialized = await initializeDatabase();
         if (!dbInitialized) {
-            console.error('Failed to initialize database. Exiting...');
+            console.error(`[Shard ${client.shard?.ids[0]}] Failed to initialize database. Exiting...`);
             process.exit(1);
         }
 
         await client.login(BOT_TOKEN);
-        console.log('Bot successfully logged in to Discord');
+        console.log(`[Shard ${client.shard?.ids[0]}] Bot successfully logged in to Discord`);
     } catch (error) {
-        console.error('Error starting bot:', error);
+        console.error(`[Shard ${client.shard?.ids[0]}] Error starting bot:`, error);
         process.exit(1);
     }
 }
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
-    console.log('Received SIGINT. Cleaning up...');
+    console.log(`[Shard ${client.shard?.ids[0]}] Received SIGINT. Cleaning up...`);
     try {
         await client.destroy();
         process.exit(0);
     } catch (error) {
-        console.error('Error during cleanup:', error);
+        console.error(`[Shard ${client.shard?.ids[0]}] Error during cleanup:`, error);
         process.exit(1);
     }
 });
 
 process.on('unhandledRejection', error => {
-    console.error('Unhandled promise rejection:', error);
+    console.error(`[Shard ${client.shard?.ids[0]}] Unhandled promise rejection:`, error);
 });
 
 startBot();
