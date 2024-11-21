@@ -228,8 +228,8 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
             let description = null;
 
             // Pass allowRolePing to buildCardDescription
-            // const result = await buildCardDescription(cardIds, client, newMessage, guildId, allowRolePing);
-            description = ""//result.description;
+            const result = await buildCardDescription(cardIds, client, newMessage, guildId, allowRolePing);
+            description = result.description;
 
             // Add description to embed if it exists
             if (description) {
