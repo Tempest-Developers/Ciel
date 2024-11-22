@@ -1,5 +1,6 @@
 const { MAX_TOKENS } = require('../utils/constants');
 const { ensureUser } = require('../utils/database');
+const { handleInteraction, handleCommandError, safeDefer } = require('../../../utility/interactionHandler');
 
 module.exports = {
     give: {
@@ -25,56 +26,62 @@ module.exports = {
                         .setRequired(true)),
 
         async execute(interaction, { database, config }) {
-            if (!config.leads.includes(interaction.user.id)) {
-                return interaction.reply({
-                    content: '❌ You do not have permission to use this command.',
-                    ephemeral: true
-                });
-            }
+            try {
+                await safeDefer(interaction, { ephemeral: true });
 
-            const targetUser = interaction.options.getUser('user');
-            const type = interaction.options.getString('type');
-            const amount = interaction.options.getInteger('amount');
-
-            if (amount <= 0) {
-                return interaction.reply({
-                    content: '❌ Amount must be greater than 0.',
-                    ephemeral: true
-                });
-            }
-
-            // Use ensureUser utility function
-            const userData = await ensureUser(targetUser.id, database.mGateDB);
-
-            if (type === 'tokens') {
-                const newBalance = userData.currency[0] + amount;
-                if (newBalance > MAX_TOKENS) {
-                    return interaction.reply({
-                        content: `❌ This would exceed the maximum balance of ${MAX_TOKENS} Slime Tokens! Current balance: ${userData.currency[0]}`,
+                if (!config.leads.includes(interaction.user.id)) {
+                    return await handleInteraction(interaction, {
+                        content: '❌ You do not have permission to use this command.',
                         ephemeral: true
-                    });
+                    }, 'editReply');
                 }
 
-                await database.mGateDB.updateOne(
-                    { userID: targetUser.id },
-                    { $inc: { 'currency.0': amount } }
-                );
+                const targetUser = interaction.options.getUser('user');
+                const type = interaction.options.getString('type');
+                const amount = interaction.options.getInteger('amount');
 
-                return interaction.reply({
-                    content: `✅ Successfully gave ${amount} Slime Tokens to ${targetUser.username}. Their new balance is ${newBalance} Slime Tokens.`,
-                    ephemeral: true
-                });
-            } else if (type === 'tickets') {
-                await database.mGateDB.updateOne(
-                    { userID: targetUser.id },
-                    { $inc: { 'currency.5': amount } }
-                );
+                if (amount <= 0) {
+                    return await handleInteraction(interaction, {
+                        content: '❌ Amount must be greater than 0.',
+                        ephemeral: true
+                    }, 'editReply');
+                }
 
-                const newTickets = (userData.currency[5] || 0) + amount;
-                return interaction.reply({
-                    content: `✅ Successfully gave ${amount} Tickets to ${targetUser.username}. They now have ${newTickets} Tickets.`,
-                    ephemeral: true
-                });
+                // Use ensureUser utility function
+                const userData = await ensureUser(targetUser.id, database.mGateDB);
+
+                if (type === 'tokens') {
+                    const newBalance = userData.currency[0] + amount;
+                    if (newBalance > MAX_TOKENS) {
+                        return await handleInteraction(interaction, {
+                            content: `❌ This would exceed the maximum balance of ${MAX_TOKENS} Slime Tokens! Current balance: ${userData.currency[0]}`,
+                            ephemeral: true
+                        }, 'editReply');
+                    }
+
+                    await database.mGateDB.updateOne(
+                        { userID: targetUser.id },
+                        { $inc: { 'currency.0': amount } }
+                    );
+
+                    return await handleInteraction(interaction, {
+                        content: `✅ Successfully gave ${amount} Slime Tokens to ${targetUser.username}. Their new balance is ${newBalance} Slime Tokens.`,
+                        ephemeral: true
+                    }, 'editReply');
+                } else if (type === 'tickets') {
+                    await database.mGateDB.updateOne(
+                        { userID: targetUser.id },
+                        { $inc: { 'currency.5': amount } }
+                    );
+
+                    const newTickets = (userData.currency[5] || 0) + amount;
+                    return await handleInteraction(interaction, {
+                        content: `✅ Successfully gave ${amount} Tickets to ${targetUser.username}. They now have ${newTickets} Tickets.`,
+                        ephemeral: true
+                    }, 'editReply');
+                }
+            } catch (error) {
+                await handleCommandError(interaction, error, '❌ An error occurred while giving currency.');
             }
         }
     },
@@ -102,63 +109,69 @@ module.exports = {
                         .setRequired(true)),
 
         async execute(interaction, { database, config }) {
-            if (!config.leads.includes(interaction.user.id)) {
-                return interaction.reply({
-                    content: '❌ You do not have permission to use this command.',
-                    ephemeral: true
-                });
-            }
+            try {
+                await safeDefer(interaction, { ephemeral: true });
 
-            const targetUser = interaction.options.getUser('user');
-            const type = interaction.options.getString('type');
-            const amount = interaction.options.getInteger('amount');
-
-            if (amount <= 0) {
-                return interaction.reply({
-                    content: '❌ Amount must be greater than 0.',
-                    ephemeral: true
-                });
-            }
-
-            // Use ensureUser utility function
-            const userData = await ensureUser(targetUser.id, database.mGateDB);
-
-            if (type === 'tokens') {
-                const newBalance = userData.currency[0] - amount;
-                if (newBalance < 0) {
-                    return interaction.reply({
-                        content: `❌ This would put the user's balance below 0! Current balance: ${userData.currency[0]}`,
+                if (!config.leads.includes(interaction.user.id)) {
+                    return await handleInteraction(interaction, {
+                        content: '❌ You do not have permission to use this command.',
                         ephemeral: true
-                    });
+                    }, 'editReply');
                 }
 
-                await database.mGateDB.updateOne(
-                    { userID: targetUser.id },
-                    { $inc: { 'currency.0': -amount } }
-                );
+                const targetUser = interaction.options.getUser('user');
+                const type = interaction.options.getString('type');
+                const amount = interaction.options.getInteger('amount');
 
-                return interaction.reply({
-                    content: `✅ Successfully took ${amount} Slime Tokens from ${targetUser.username}. Their new balance is ${newBalance} Slime Tokens.`,
-                    ephemeral: false
-                });
-            } else if (type === 'tickets') {
-                const currentTickets = userData.currency[5] || 0;
-                if (currentTickets < amount) {
-                    return interaction.reply({
-                        content: `❌ User doesn't have enough tickets! They only have ${currentTickets} Tickets.`,
+                if (amount <= 0) {
+                    return await handleInteraction(interaction, {
+                        content: '❌ Amount must be greater than 0.',
                         ephemeral: true
-                    });
+                    }, 'editReply');
                 }
 
-                await database.mGateDB.updateOne(
-                    { userID: targetUser.id },
-                    { $inc: { 'currency.5': -amount } }
-                );
+                // Use ensureUser utility function
+                const userData = await ensureUser(targetUser.id, database.mGateDB);
 
-                return interaction.reply({
-                    content: `✅ Successfully took ${amount} Tickets from ${targetUser.username}. They now have ${currentTickets - amount} Tickets.`,
-                    ephemeral: false
-                });
+                if (type === 'tokens') {
+                    const newBalance = userData.currency[0] - amount;
+                    if (newBalance < 0) {
+                        return await handleInteraction(interaction, {
+                            content: `❌ This would put the user's balance below 0! Current balance: ${userData.currency[0]}`,
+                            ephemeral: true
+                        }, 'editReply');
+                    }
+
+                    await database.mGateDB.updateOne(
+                        { userID: targetUser.id },
+                        { $inc: { 'currency.0': -amount } }
+                    );
+
+                    return await handleInteraction(interaction, {
+                        content: `✅ Successfully took ${amount} Slime Tokens from ${targetUser.username}. Their new balance is ${newBalance} Slime Tokens.`,
+                        ephemeral: false
+                    }, 'editReply');
+                } else if (type === 'tickets') {
+                    const currentTickets = userData.currency[5] || 0;
+                    if (currentTickets < amount) {
+                        return await handleInteraction(interaction, {
+                            content: `❌ User doesn't have enough tickets! They only have ${currentTickets} Tickets.`,
+                            ephemeral: true
+                        }, 'editReply');
+                    }
+
+                    await database.mGateDB.updateOne(
+                        { userID: targetUser.id },
+                        { $inc: { 'currency.5': -amount } }
+                    );
+
+                    return await handleInteraction(interaction, {
+                        content: `✅ Successfully took ${amount} Tickets from ${targetUser.username}. They now have ${currentTickets - amount} Tickets.`,
+                        ephemeral: false
+                    }, 'editReply');
+                }
+            } catch (error) {
+                await handleCommandError(interaction, error, '❌ An error occurred while taking currency.');
             }
         }
     }

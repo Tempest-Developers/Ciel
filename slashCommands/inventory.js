@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const axios = require('axios');
 const db = require('../database/mongo');
 const getTierEmoji = require('../utility/getTierEmoji');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 // Constants
 const COOLDOWN_DURATION = 10000;
@@ -99,10 +100,7 @@ const createCardListEmbed = async (cards, page, totalPages, userId, targetUser, 
         return embed;
     } catch (error) {
         console.log('Error creating card list embed:', error.message);
-        return new EmbedBuilder()
-            .setTitle('Error')
-            .setDescription('An error occurred while creating the card list.')
-            .setColor('#ff0000');
+        throw new Error('Failed to create card list');
     }
 };
 
@@ -160,10 +158,7 @@ const createCardDetailEmbed = async (item, userId) => {
         return embed;
     } catch (error) {
         console.log('Error creating card detail embed:', error.message);
-        return new EmbedBuilder()
-            .setTitle('Error')
-            .setDescription('An error occurred while fetching card details.')
-            .setColor('#ff0000');
+        throw new Error('Failed to create card details');
     }
 };
 
@@ -270,28 +265,26 @@ module.exports = {
 
         try {
             if (!interaction.guild) {
-                await interaction.reply({
+                return await handleInteraction(interaction, {
                     content: 'This command can only be used in a server.',
                     ephemeral: true
-                });
-                return;
+                }, 'reply');
             }
 
             if (cooldowns.has(interaction.user.id)) {
                 const timeLeft = (cooldowns.get(interaction.user.id) - Date.now()) / 1000;
                 if (timeLeft > 0) {
-                    await interaction.reply({
+                    return await handleInteraction(interaction, {
                         content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
                         ephemeral: true
-                    });
-                    return;
+                    }, 'reply');
                 }
             }
 
             cooldowns.set(interaction.user.id, Date.now() + COOLDOWN_DURATION);
             setTimeout(() => cooldowns.delete(interaction.user.id), COOLDOWN_DURATION);
 
-            await interaction.deferReply();
+            await safeDefer(interaction);
 
             const targetUser = interaction.options.getUser('user') || interaction.user;
             let requestBody = createBaseRequestBody(targetUser.id);
@@ -328,8 +321,9 @@ module.exports = {
                 const totalPages = response.data.pageCount || 1;
 
                 if (currentCards.length === 0) {
-                    await interaction.editReply('No cards found matching your criteria.');
-                    return;
+                    return await handleInteraction(interaction, {
+                        content: 'No cards found matching your criteria.'
+                    }, 'editReply');
                 }
 
                 // Get the last page to count its cards
@@ -347,10 +341,10 @@ module.exports = {
                 const components = [navigationButtons];
                 if (selectMenu) components.push(selectMenu);
 
-                const reply = await interaction.editReply({
+                const reply = await handleInteraction(interaction, {
                     embeds: [embed],
                     components
-                });
+                }, 'editReply');
 
                 const collector = reply.createMessageComponentCollector({
                     time: INTERACTION_TIMEOUT
@@ -359,14 +353,14 @@ module.exports = {
                 collector.on('collect', async i => {
                     try {
                         if (i.user.id !== interaction.user.id) {
-                            await i.reply({
+                            await handleInteraction(i, {
                                 content: 'You cannot use these controls.',
                                 ephemeral: true
-                            });
+                            }, 'reply');
                             return;
                         }
 
-                        await i.deferUpdate();
+                        await safeDefer(i);
 
                         if (i.isButton()) {
                             if (i.customId === 'wishlist') {
@@ -381,10 +375,10 @@ module.exports = {
                                 }
 
                                 if (!success) {
-                                    await i.followUp({
+                                    await handleInteraction(i, {
                                         content: 'Failed to update wishlist. Please try again.',
                                         ephemeral: true
-                                    });
+                                    }, 'followUp');
                                     return;
                                 }
 
@@ -404,12 +398,14 @@ module.exports = {
                                 const selectedCard = currentCards.find(c => c.card.id === cardId);
                                 if (selectedCard) {
                                     const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
-                                    await i.editReply({
+                                    await handleInteraction(i, {
                                         embeds: [updatedEmbed],
                                         components: [actionRow]
-                                    });
+                                    }, 'editReply');
                                 } else {
-                                    await i.editReply({ components: [actionRow] });
+                                    await handleInteraction(i, { 
+                                        components: [actionRow] 
+                                    }, 'editReply');
                                 }
                             } else if (i.customId === 'back') {
                                 const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, lastPageCards);
@@ -418,10 +414,10 @@ module.exports = {
                                     createCardSelectMenu(currentCards)
                                 ].filter(Boolean);
 
-                                await i.editReply({
+                                await handleInteraction(i, {
                                     embeds: [newEmbed],
                                     components: newComponents
-                                });
+                                }, 'editReply');
                             } else {
                                 let newPage = currentPage;
                                 switch (i.customId) {
@@ -432,15 +428,15 @@ module.exports = {
                                 }
 
                                 if (newPage !== currentPage) {
-                                    currentPage = newPage;
-                                    requestBody.page = currentPage;
-
                                     try {
                                         const newResponse = await handleMazokuAPICall(async () => {
+                                            requestBody.page = newPage;
                                             return await axios.post(API_URL, requestBody, createAxiosConfig(requestBody));
                                         });
 
-                                        currentCards = newResponse.data.cards || []; // Update currentCards
+                                        currentCards = newResponse.data.cards || [];
+                                        currentPage = newPage;
+
                                         const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, lastPageCards);
                                         const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                         const newSelectMenu = createCardSelectMenu(currentCards);
@@ -448,12 +444,12 @@ module.exports = {
                                         const newComponents = [newNavigationButtons];
                                         if (newSelectMenu) newComponents.push(newSelectMenu);
 
-                                        await i.editReply({
+                                        await handleInteraction(i, {
                                             embeds: [newEmbed],
                                             components: newComponents
-                                        });
+                                        }, 'editReply');
                                     } catch (error) {
-                                        await i.editReply("Mazoku Servers unavailable");
+                                        throw new Error("Mazoku Servers unavailable");
                                     }
                                 }
                             }
@@ -476,18 +472,16 @@ module.exports = {
                                 const actionRow = new ActionRowBuilder()
                                     .addComponents(wishlistButton, backButton);
 
-                                await i.editReply({
+                                await handleInteraction(i, {
                                     embeds: [detailEmbed],
                                     components: [actionRow]
-                                });
+                                }, 'editReply');
                             }
                         }
                     } catch (error) {
-                        console.log('Error handling interaction:', error.message);
-                        await i.followUp({
-                            content: "Mazoku Servers unavailable",
-                            ephemeral: true
-                        });
+                        await handleCommandError(i, error, error.message === "Mazoku Servers unavailable" 
+                            ? "Mazoku Servers unavailable"
+                            : "An error occurred while processing your request.");
                     }
                 });
 
@@ -496,28 +490,23 @@ module.exports = {
                         const finalEmbed = EmbedBuilder.from(await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, lastPageCards))
                             .setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
-                        await interaction.editReply({
+                        await handleInteraction(interaction, {
                             embeds: [finalEmbed],
                             components: []
-                        });
+                        }, 'editReply');
                     } catch (error) {
                         console.log('Error handling collector end:', error.message);
                     }
                 });
 
             } catch (error) {
-                return await interaction.editReply("Mazoku Servers unavailable");
+                throw error;
             }
 
         } catch (error) {
-            console.log('Error in execute:', error.message);
-            const errorMessage = "Mazoku Servers unavailable";
-            
-            if (interaction.deferred) {
-                await interaction.editReply({ content: errorMessage });
-            } else {
-                await interaction.reply({ content: errorMessage, ephemeral: true });
-            }
+            await handleCommandError(interaction, error, error.message === "Mazoku Servers unavailable" 
+                ? "Mazoku Servers unavailable"
+                : "An error occurred while processing your request.");
         }
     }
 };

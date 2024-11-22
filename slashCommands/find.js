@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const fs = require('fs').promises;
 const path = require('path');
 const { getCardWishlistCount, isInWishlist } = require('../database/modules/wishlist');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 // Utility constants
 const COOLDOWN_DURATION = 10000;
@@ -226,21 +227,23 @@ module.exports = {
                 const expirationTime = cooldowns.get(user.id);
                 if (Date.now() < expirationTime) {
                     const timeLeft = (expirationTime - Date.now()) / 1000;
-                    return await interaction.reply({ 
+                    return await handleInteraction(interaction, { 
                         content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
                         ephemeral: true 
-                    });
+                    }, 'reply');
                 }
             }
 
             cooldowns.set(user.id, Date.now() + COOLDOWN_DURATION);
             setTimeout(() => cooldowns.delete(user.id), COOLDOWN_DURATION);
 
-            await interaction.deferReply();
+            await safeDefer(interaction);
             
             const cardId = interaction.options.getString('card');
             if (!cardId) {
-                return await interaction.editReply('Please provide a search term.');
+                return await handleInteraction(interaction, {
+                    content: 'Please provide a search term.'
+                }, 'editReply');
             }
 
             try {
@@ -248,7 +251,9 @@ module.exports = {
                 const cardDetails = cards.find(card => card.id === cardId);
 
                 if (!cardDetails) {
-                    return await interaction.editReply('No card found with the specified ID.');
+                    return await handleInteraction(interaction, {
+                        content: 'No card found with the specified ID.'
+                    }, 'editReply');
                 }
 
                 try {
@@ -305,10 +310,10 @@ module.exports = {
                     const initialEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, interaction.user.id);
                     const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages)] : [];
                     
-                    const response = await interaction.editReply({
+                    const response = await handleInteraction(interaction, {
                         embeds: [initialEmbed],
                         components
-                    });
+                    }, 'editReply');
 
                     if (totalPages > 1) {
                         const collector = response.createMessageComponentCollector({
@@ -319,12 +324,14 @@ module.exports = {
                         collector.on('collect', async i => {
                             try {
                                 if (i.user.id !== interaction.user.id) {
-                                    await i.reply({ 
+                                    await handleInteraction(i, { 
                                         content: 'You cannot use these buttons.', 
                                         ephemeral: true 
-                                    });
+                                    }, 'reply');
                                     return;
                                 }
+
+                                await safeDefer(i);
 
                                 switch (i.customId) {
                                     case 'first':
@@ -342,38 +349,27 @@ module.exports = {
                                 }
 
                                 const newEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, i.user.id);
-                                await i.update({
+                                await handleInteraction(i, {
                                     embeds: [newEmbed],
                                     components: [createNavigationButtons(currentPage, totalPages)]
-                                }).catch(error => {
-                                    console.error('Failed to update interaction:', error);
-                                    collector.stop('updateFailed');
-                                });
+                                }, 'update');
                             } catch (error) {
-                                console.error('Error handling button interaction:', error);
-                                try {
-                                    await i.reply({
-                                        content: 'An error occurred while processing your request.',
-                                        ephemeral: true
-                                    });
-                                } catch (replyError) {
-                                    console.error('Failed to send error message:', replyError);
-                                }
+                                await handleCommandError(i, error, '❌ An error occurred while processing your request.');
                             }
                         });
 
                         collector.on('end', async (collected, reason) => {
                             try {
                                 if (reason === 'updateFailed') {
-                                    await interaction.editReply({
+                                    await handleInteraction(interaction, {
                                         content: 'This search result has expired. Please run the command again.',
                                         embeds: [],
                                         components: []
-                                    }).catch(console.error);
+                                    }, 'editReply');
                                 } else {
-                                    await response.edit({
+                                    await handleInteraction(interaction, {
                                         components: []
-                                    }).catch(console.error);
+                                    }, 'editReply');
                                 }
                             } catch (error) {
                                 console.error('Failed to cleanup after collector end:', error);
@@ -381,22 +377,16 @@ module.exports = {
                         });
                     }
                 } catch (error) {
-                    return await interaction.editReply("Mazoku Servers unavailable");
+                    throw new Error("Mazoku Servers unavailable");
                 }
 
             } catch (error) {
-                console.log('Error in execute:', error.message);
-                return await interaction.editReply("Mazoku Servers unavailable");
+                throw error;
             }
         } catch (error) {
-            console.log('Error in execute:', error.message);
-            const errorMessage = "Mazoku Servers unavailable";
-            
-            if (interaction.deferred) {
-                await interaction.editReply({ content: errorMessage });
-            } else {
-                await interaction.reply({ content: errorMessage, ephemeral: true });
-            }
+            await handleCommandError(interaction, error, error.message === "Mazoku Servers unavailable" 
+                ? "Mazoku Servers unavailable"
+                : "An error occurred while processing your request.");
         }
     }
 };

@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { GATE_GUILD } = require('./gate/utils/constants');
 const { handleCooldown } = require('./gate/utils/cooldown');
 const { getServerData } = require('./gate/utils/database');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 // Import commands
 const nukeCommand = require('./gate/commands/nuke');
@@ -29,89 +30,82 @@ module.exports = {
         .addSubcommand(take.subcommand),
 
     async execute(interaction, { database, config }) {
-        if (interaction.guild.id !== GATE_GUILD) {
-            return;
-        }
-
-        const subcommand = interaction.options.getSubcommand();
-        const { mGateServerDB } = database;
-
-        const serverData = await getServerData(GATE_GUILD, mGateServerDB);
-
-        if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take', 'top'].includes(subcommand)) {
-            return interaction.reply({
-                content: '❌ The gate system is currently disabled.',
-                ephemeral: true
-            });
-        }
-
-        const isLead = config.leads.includes(interaction.user.id);
-        const cooldownResult = handleCooldown(interaction.user.id, isLead);
-        
-        if (cooldownResult.onCooldown) {
-            return interaction.reply({
-                content: `Please wait ${cooldownResult.timeLeft} seconds before using this command again.`,
-                ephemeral: true
-            });
-        }
-
         try {
-            switch (subcommand) {
-                case 'nuke':
-                    return await nukeCommand.execute(interaction, { database, config });
-                case 'help':
-                    return await helpCommand.execute(interaction, { database, config });
-                case 'toggle':
-                    return await toggle.execute(interaction, { database, config });
-                case 'togglecards':
-                    return await togglecards.execute(interaction, { database, config });
-                case 'balance':
-                    return await balanceCommand.execute(interaction, { database, config });
-                case 'buy':
-                    return await buyCommand.execute(interaction, { database });
-                case 'gift':
-                    return await giftCommand.execute(interaction, { database });
-                case 'giveaway':
-                    return await giveawayCommand.execute(interaction, { database });
-                case 'give':
-                    return await give.execute(interaction, { database, config });
-                case 'take':
-                    return await take.execute(interaction, { database, config });
+            if (interaction.guild.id !== GATE_GUILD) {
+                return;
+            }
+
+            const subcommand = interaction.options.getSubcommand();
+            const { mGateServerDB } = database;
+
+            const serverData = await getServerData(GATE_GUILD, mGateServerDB);
+
+            if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take', 'top'].includes(subcommand)) {
+                return await handleInteraction(interaction, {
+                    content: '❌ The gate system is currently disabled.',
+                    ephemeral: true
+                }, 'reply');
+            }
+
+            const isLead = config.leads.includes(interaction.user.id);
+            const cooldownResult = handleCooldown(interaction.user.id, isLead);
+            
+            if (cooldownResult.onCooldown) {
+                return await handleInteraction(interaction, {
+                    content: `Please wait ${cooldownResult.timeLeft} seconds before using this command again.`,
+                    ephemeral: true
+                }, 'reply');
+            }
+
+            // Defer the response early to prevent timeouts
+            await safeDefer(interaction);
+
+            try {
+                switch (subcommand) {
+                    case 'nuke':
+                        return await nukeCommand.execute(interaction, { database, config });
+                    case 'help':
+                        return await helpCommand.execute(interaction, { database, config });
+                    case 'toggle':
+                        return await toggle.execute(interaction, { database, config });
+                    case 'togglecards':
+                        return await togglecards.execute(interaction, { database, config });
+                    case 'balance':
+                        return await balanceCommand.execute(interaction, { database, config });
+                    case 'buy':
+                        return await buyCommand.execute(interaction, { database });
+                    case 'gift':
+                        return await giftCommand.execute(interaction, { database });
+                    case 'giveaway':
+                        return await giveawayCommand.execute(interaction, { database });
+                    case 'give':
+                        return await give.execute(interaction, { database, config });
+                    case 'take':
+                        return await take.execute(interaction, { database, config });
+                }
+            } catch (error) {
+                await handleCommandError(interaction, error, '❌ An error occurred while processing your command.');
             }
         } catch (error) {
-            console.error('Error in gate command:', error);
-            if (!interaction.replied) {
-                return interaction.reply({
-                    content: '❌ An error occurred while processing your command.',
-                    ephemeral: true
-                });
-            }
+            await handleCommandError(interaction, error, '❌ An error occurred while processing your command.');
         }
     },
 
     async handleButton(interaction, { database }) {
-        if (interaction.guild.id !== GATE_GUILD) {
-            return;
-        }
-
         try {
+            if (interaction.guild.id !== GATE_GUILD) {
+                return;
+            }
+
+            // Defer button response early
+            await safeDefer(interaction, { ephemeral: true });
+
             if (interaction.customId.startsWith('giveaway_')) {
                 await giveawayCommand.handleButton(interaction, { database });
                 return;
             }
         } catch (error) {
-            console.error('Error handling button:', error);
-            if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({
-                    content: '❌ An error occurred while processing your interaction.',
-                    ephemeral: true
-                });
-            } else if (interaction.deferred) {
-                await interaction.editReply({
-                    content: '❌ An error occurred while processing your interaction.',
-                    ephemeral: true
-                });
-            }
+            await handleCommandError(interaction, error, '❌ An error occurred while processing your interaction.');
         }
     }
 };
