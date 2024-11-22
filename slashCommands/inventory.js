@@ -341,22 +341,22 @@ module.exports = {
                 const components = [navigationButtons];
                 if (selectMenu) components.push(selectMenu);
 
-                const reply = await handleInteraction(interaction, {
+                const message = await interaction.editReply({
                     embeds: [embed],
                     components
-                }, 'editReply');
+                });
 
-                const collector = reply.createMessageComponentCollector({
+                const collector = message.createMessageComponentCollector({
                     time: INTERACTION_TIMEOUT
                 });
 
                 collector.on('collect', async i => {
                     try {
                         if (i.user.id !== interaction.user.id) {
-                            await handleInteraction(i, {
+                            await i.reply({
                                 content: 'You cannot use these controls.',
                                 ephemeral: true
-                            }, 'reply');
+                            });
                             return;
                         }
 
@@ -375,10 +375,10 @@ module.exports = {
                                 }
 
                                 if (!success) {
-                                    await handleInteraction(i, {
+                                    await i.followUp({
                                         content: 'Failed to update wishlist. Please try again.',
                                         ephemeral: true
-                                    }, 'followUp');
+                                    });
                                     return;
                                 }
 
@@ -490,10 +490,10 @@ module.exports = {
                         const finalEmbed = EmbedBuilder.from(await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, lastPageCards))
                             .setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
-                        await handleInteraction(interaction, {
+                        await interaction.editReply({
                             embeds: [finalEmbed],
                             components: []
-                        }, 'editReply');
+                        });
                     } catch (error) {
                         console.log('Error handling collector end:', error.message);
                     }

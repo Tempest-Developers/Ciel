@@ -227,23 +227,23 @@ module.exports = {
                 const expirationTime = cooldowns.get(user.id);
                 if (Date.now() < expirationTime) {
                     const timeLeft = (expirationTime - Date.now()) / 1000;
-                    return await handleInteraction(interaction, { 
+                    return await interaction.reply({ 
                         content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
                         ephemeral: true 
-                    }, 'reply');
+                    });
                 }
             }
 
             cooldowns.set(user.id, Date.now() + COOLDOWN_DURATION);
             setTimeout(() => cooldowns.delete(user.id), COOLDOWN_DURATION);
 
-            await safeDefer(interaction);
+            await interaction.deferReply();
             
             const cardId = interaction.options.getString('card');
             if (!cardId) {
-                return await handleInteraction(interaction, {
+                return await interaction.editReply({
                     content: 'Please provide a search term.'
-                }, 'editReply');
+                });
             }
 
             try {
@@ -251,9 +251,9 @@ module.exports = {
                 const cardDetails = cards.find(card => card.id === cardId);
 
                 if (!cardDetails) {
-                    return await handleInteraction(interaction, {
+                    return await interaction.editReply({
                         content: 'No card found with the specified ID.'
-                    }, 'editReply');
+                    });
                 }
 
                 try {
@@ -310,13 +310,13 @@ module.exports = {
                     const initialEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, interaction.user.id);
                     const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages)] : [];
                     
-                    const response = await handleInteraction(interaction, {
+                    const message = await interaction.editReply({
                         embeds: [initialEmbed],
                         components
-                    }, 'editReply');
+                    });
 
                     if (totalPages > 1) {
-                        const collector = response.createMessageComponentCollector({
+                        const collector = message.createMessageComponentCollector({
                             componentType: ComponentType.Button,
                             time: INTERACTION_TIMEOUT
                         });
@@ -324,10 +324,10 @@ module.exports = {
                         collector.on('collect', async i => {
                             try {
                                 if (i.user.id !== interaction.user.id) {
-                                    await handleInteraction(i, { 
+                                    await i.reply({ 
                                         content: 'You cannot use these buttons.', 
                                         ephemeral: true 
-                                    }, 'reply');
+                                    });
                                     return;
                                 }
 
@@ -354,23 +354,23 @@ module.exports = {
                                     components: [createNavigationButtons(currentPage, totalPages)]
                                 });
                             } catch (error) {
-                                await handleCommandError(i, error, '❌ An error occurred while processing your request.');
+                                console.error('Error handling button interaction:', error);
+                                await i.followUp({
+                                    content: '❌ An error occurred while processing your request.',
+                                    ephemeral: true
+                                });
                             }
                         });
 
-                        collector.on('end', async (collected, reason) => {
+                        collector.on('end', async () => {
                             try {
-                                if (reason === 'updateFailed') {
-                                    await handleInteraction(interaction, {
-                                        content: 'This search result has expired. Please run the command again.',
-                                        embeds: [],
-                                        components: []
-                                    }, 'editReply');
-                                } else {
-                                    await handleInteraction(interaction, {
-                                        components: []
-                                    }, 'editReply');
-                                }
+                                const finalEmbed = EmbedBuilder.from(initialEmbed)
+                                    .setFooter({ text: 'This interaction has expired. Please run the command again.' });
+                                
+                                await interaction.editReply({
+                                    embeds: [finalEmbed],
+                                    components: []
+                                });
                             } catch (error) {
                                 console.error('Failed to cleanup after collector end:', error);
                             }
@@ -384,9 +384,15 @@ module.exports = {
                 throw error;
             }
         } catch (error) {
-            await handleCommandError(interaction, error, error.message === "Mazoku Servers unavailable" 
+            const errorMessage = error.message === "Mazoku Servers unavailable" 
                 ? "Mazoku Servers unavailable"
-                : "An error occurred while processing your request.");
+                : "An error occurred while processing your request.";
+            
+            if (interaction.deferred) {
+                await interaction.editReply({ content: errorMessage });
+            } else {
+                await interaction.reply({ content: errorMessage, ephemeral: true });
+            }
         }
     }
 };
