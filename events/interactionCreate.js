@@ -25,7 +25,6 @@ module.exports = {
                     if (commandName === 'gate') {
                         const command = client.slashCommands.get(commandName);
                         if (command?.handleButton) {
-                            // Defer the button interaction to prevent timeouts
                             await safeDefer(interaction, { ephemeral: true });
                             await command.handleButton(interaction, { database });
                         }
@@ -51,7 +50,10 @@ module.exports = {
             if (!interaction.isChatInputCommand()) return;
 
             const command = client.slashCommands.get(interaction.commandName);
-            if (!command) return;
+            if (!command) {
+                console.warn(`Command not found: ${interaction.commandName}`);
+                return;
+            }
 
             const { developers } = client.config;
             const config = client.config;
@@ -65,37 +67,41 @@ module.exports = {
                 return;
             }
 
-            // Defer the command response to prevent timeouts
-            await safeDefer(interaction);
+            try {
+                // Defer the command response to prevent timeouts
+                await safeDefer(interaction);
 
-            const options = {};
-            interaction.options.data.forEach(option => {
-                if (option.type === 1) {
-                    options.subcommand = option.name;
-                    if (option.options) {
-                        option.options.forEach(subOption => {
-                            options[subOption.name] = subOption.value;
-                        });
+                const options = {};
+                interaction.options.data.forEach(option => {
+                    if (option.type === 1) {
+                        options.subcommand = option.name;
+                        if (option.options) {
+                            option.options.forEach(subOption => {
+                                options[subOption.name] = subOption.value;
+                            });
+                        }
+                    } else {
+                        options[option.name] = option.value;
                     }
-                } else {
-                    options[option.name] = option.value;
-                }
-            });
+                });
 
-            // Log command usage
-            await database.logCommand(
-                interaction.user.id,
-                interaction.user.tag,
-                interaction.guild.id,
-                interaction.guild.name,
-                interaction.commandName,
-                options
-            );
+                // Log command usage
+                await database.logCommand(
+                    interaction.user.id,
+                    interaction.user.tag,
+                    interaction.guild.id,
+                    interaction.guild.name,
+                    interaction.commandName,
+                    options
+                );
 
-            // Execute the command
-            await command.execute(interaction, { database, config });
-
+                // Execute the command
+                await command.execute(interaction, { database, config });
+            } catch (error) {
+                await handleCommandError(interaction, error);
+            }
         } catch (error) {
+            console.error('Error in interaction create event:', error);
             await handleCommandError(interaction, error);
         }
     },

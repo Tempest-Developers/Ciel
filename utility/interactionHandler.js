@@ -22,6 +22,8 @@ async function handleInteraction(interaction, options, type = 'reply') {
             case 'reply':
                 if (!interaction.replied && !interaction.deferred) {
                     return await interaction.reply(options);
+                } else if (interaction.deferred) {
+                    return await interaction.editReply(options);
                 }
                 break;
             case 'editReply':
@@ -30,10 +32,7 @@ async function handleInteraction(interaction, options, type = 'reply') {
                 }
                 break;
             case 'followUp':
-                if (interaction.replied) {
-                    return await interaction.followUp(options);
-                }
-                break;
+                return await interaction.followUp(options);
             default:
                 throw new Error(`Invalid interaction response type: ${type}`);
         }
@@ -64,7 +63,7 @@ async function handleInteraction(interaction, options, type = 'reply') {
  * @param {Error} error The error that occurred
  * @param {String} customMessage Optional custom error message
  */
-async function handleCommandError(interaction, error, customMessage = 'An error occurred while processing your request.') {
+async function handleCommandError(interaction, error, customMessage) {
     console.error('Command execution error:', {
         error,
         commandName: interaction.commandName,
@@ -73,7 +72,9 @@ async function handleCommandError(interaction, error, customMessage = 'An error 
     });
 
     const errorMessage = {
-        content: customMessage,
+        content: error.message === "Mazoku Servers unavailable" 
+            ? "Mazoku Servers unavailable"
+            : customMessage || 'An error occurred while processing your request.',
         ephemeral: true
     };
 
@@ -109,6 +110,7 @@ async function safeDefer(interaction, options = {}) {
             console.warn('Interaction expired while trying to defer');
         } else {
             console.error('Error deferring interaction:', error);
+            throw error; // Propagate the error for proper handling
         }
     }
 }
