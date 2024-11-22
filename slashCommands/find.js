@@ -349,7 +349,7 @@ module.exports = {
                                 }
 
                                 const newEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, i.user.id);
-                                await i.editReply({
+                                await interaction.editReply({
                                     embeds: [newEmbed],
                                     components: [createNavigationButtons(currentPage, totalPages)]
                                 });

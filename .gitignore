@@ -5,3 +5,4 @@ database/oldmongo.js
 deploy-commands.js
 cardCalculation.js
 cardCalculation.json
+leaveGuild.js
