@@ -6,7 +6,7 @@ module.exports = {
     subcommand: subcommand =>
         subcommand
             .setName('gift')
-            .setDescription(`Gift a special ticket to another user (costs ${COSTS} tokens)`)
+            .setDescription(`Gift a special ticket to another user (costs ${COSTS.GIFT_TICKET} tokens)`)
             .addUserOption(option =>
                 option.setName('user')
                     .setDescription('User to gift the ticket to')
