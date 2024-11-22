@@ -121,6 +121,7 @@ module.exports = {
 
                     try {
                         if (i.customId === 'giveaway_prev' || i.customId === 'giveaway_next') {
+                            await i.deferUpdate();
                             currentPage = i.customId === 'giveaway_prev' ? currentPage - 1 : currentPage + 1;
 
                             const currentGiveaway = giveaways[currentPage];
@@ -146,10 +147,10 @@ module.exports = {
                                     userTickets < 1
                                 );
 
-                            await handleInteraction(i, {
+                            await i.editReply({
                                 embeds: [embeds[currentPage]],
                                 components: [navRow, joinRow]
-                            }, 'update');
+                            });
                         }
                     } catch (error) {
                         await handleCommandError(i, error, '❌ An error occurred. Please try again.');
@@ -157,8 +158,12 @@ module.exports = {
                 });
 
                 collector.on('end', () => {
-                    components.forEach(row => row.components.forEach(button => button.setDisabled(true)));
-                    message.edit({ components });
+                    const disabledComponents = components.map(row => {
+                        const newRow = ActionRowBuilder.from(row);
+                        newRow.components.forEach(component => component.setDisabled(true));
+                        return newRow;
+                    });
+                    message.edit({ components: disabledComponents }).catch(console.error);
                 });
             }
         } catch (error) {

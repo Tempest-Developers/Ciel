@@ -360,7 +360,7 @@ module.exports = {
                             return;
                         }
 
-                        await safeDefer(i);
+                        await i.deferUpdate();
 
                         if (i.isButton()) {
                             if (i.customId === 'wishlist') {
@@ -398,14 +398,14 @@ module.exports = {
                                 const selectedCard = currentCards.find(c => c.card.id === cardId);
                                 if (selectedCard) {
                                     const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
-                                    await handleInteraction(i, {
+                                    await i.editReply({
                                         embeds: [updatedEmbed],
                                         components: [actionRow]
-                                    }, 'editReply');
+                                    });
                                 } else {
-                                    await handleInteraction(i, { 
+                                    await i.editReply({ 
                                         components: [actionRow] 
-                                    }, 'editReply');
+                                    });
                                 }
                             } else if (i.customId === 'back') {
                                 const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, targetUser, lastPageCards);
@@ -414,10 +414,10 @@ module.exports = {
                                     createCardSelectMenu(currentCards)
                                 ].filter(Boolean);
 
-                                await handleInteraction(i, {
+                                await i.editReply({
                                     embeds: [newEmbed],
                                     components: newComponents
-                                }, 'editReply');
+                                });
                             } else {
                                 let newPage = currentPage;
                                 switch (i.customId) {
@@ -444,10 +444,10 @@ module.exports = {
                                         const newComponents = [newNavigationButtons];
                                         if (newSelectMenu) newComponents.push(newSelectMenu);
 
-                                        await handleInteraction(i, {
+                                        await i.editReply({
                                             embeds: [newEmbed],
                                             components: newComponents
-                                        }, 'editReply');
+                                        });
                                     } catch (error) {
                                         throw new Error("Mazoku Servers unavailable");
                                     }
@@ -472,10 +472,10 @@ module.exports = {
                                 const actionRow = new ActionRowBuilder()
                                     .addComponents(wishlistButton, backButton);
 
-                                await handleInteraction(i, {
+                                await i.editReply({
                                     embeds: [detailEmbed],
                                     components: [actionRow]
-                                }, 'editReply');
+                                });
                             }
                         }
                     } catch (error) {

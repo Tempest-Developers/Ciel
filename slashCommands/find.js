@@ -331,7 +331,7 @@ module.exports = {
                                     return;
                                 }
 
-                                await safeDefer(i);
+                                await i.deferUpdate();
 
                                 switch (i.customId) {
                                     case 'first':
@@ -349,10 +349,10 @@ module.exports = {
                                 }
 
                                 const newEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, i.user.id);
-                                await handleInteraction(i, {
+                                await i.editReply({
                                     embeds: [newEmbed],
                                     components: [createNavigationButtons(currentPage, totalPages)]
-                                }, 'update');
+                                });
                             } catch (error) {
                                 await handleCommandError(i, error, '❌ An error occurred while processing your request.');
                             }
