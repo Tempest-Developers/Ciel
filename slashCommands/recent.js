@@ -1,10 +1,10 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
+const getTierEmoji = require('../utility/getTierEmoji');
 require('dotenv').config();
 
-const getTierEmoji = require('../utility/getTierEmoji');
-
 const cooldowns = new Map();
-const COOLDOWN_DURATION = 5000; // Changed from 60000 to 5000 (5 seconds)
+const COOLDOWN_DURATION = 5000; // 5 seconds
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,8 +14,6 @@ module.exports = {
   adminOnly: false,
   async execute(interaction, { database }) {
     try {
-      await interaction.deferReply();
-
       // Cooldown check
       const { user } = interaction;
       const guildId = interaction.guild.id;
@@ -30,22 +28,24 @@ module.exports = {
         const expirationTime = guildCooldowns.get(user.id) + COOLDOWN_DURATION;
         if (Date.now() < expirationTime) {
           const timeLeft = (expirationTime - Date.now()) / 1000;
-          return await interaction.editReply({ 
+          return await handleInteraction(interaction, { 
             content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
             ephemeral: true 
-          });
+          }, 'reply');
         }
       }
       
       guildCooldowns.set(user.id, Date.now());
       
+      await safeDefer(interaction);
+      
       const serverData = await database.getServerData(interaction.guild.id);
 
       if (!serverData?.claims) {
-        return await interaction.editReply({ 
+        return await handleInteraction(interaction, { 
           content: 'No claims found for this server.', 
           ephemeral: true 
-        });
+        }, 'editReply');
       }
 
       function getAllClaims(claims) {
@@ -111,39 +111,37 @@ module.exports = {
 
       const initialClaims = getAllClaims(serverData.claims);
       const initialEmbed = createEmbed(initialClaims, 'ALL');
-      const response = await interaction.editReply({ 
+      const response = await handleInteraction(interaction, { 
         embeds: [initialEmbed], 
         components: [row],
         fetchReply: true 
-      });
+      }, 'editReply');
 
       const collector = response.createMessageComponentCollector({ 
-        time: 600000 // Collector active for 10 minute
+        time: 600000 // Collector active for 10 minutes
       });
 
       collector.on('collect', async i => {
         try {
           if (i.user.id === interaction.user.id) {
+            await i.deferUpdate();
+            
             const selectedTier = i.values[0];
             const filteredClaims = getClaimsForTier(serverData.claims, selectedTier);
             const newEmbed = createEmbed(filteredClaims, selectedTier);
-            await i.update({ embeds: [newEmbed], components: [row] });
+            
+            await i.editReply({ 
+              embeds: [newEmbed], 
+              components: [row] 
+            });
           } else {
-            await i.reply({ 
+            await handleInteraction(i, { 
               content: 'Only the command user can use this menu.', 
               ephemeral: true 
-            });
+            }, 'reply');
           }
         } catch (error) {
-          console.error('Error in collector:', error);
-          try {
-            await i.reply({ 
-              content: 'An error occurred while updating the display.',
-              ephemeral: true 
-            });
-          } catch (replyError) {
-            console.error('Error sending error message:', replyError);
-          }
+          await handleCommandError(i, error, 'An error occurred while updating the display.');
         }
       });
 
@@ -164,16 +162,7 @@ module.exports = {
       });
 
     } catch (error) {
-      console.error('Command execution error:', error);
-      try {
-        const reply = interaction.deferred ? interaction.editReply : interaction.reply;
-        await reply.call(interaction, { 
-          content: 'An error occurred while executing this command.',
-          ephemeral: true 
-        });
-      } catch (replyError) {
-        console.error('Error sending error message:', replyError);
-      }
+      await handleCommandError(interaction, error, 'An error occurred while executing this command.');
     }
   }
 };

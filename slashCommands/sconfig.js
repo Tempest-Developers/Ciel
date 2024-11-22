@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,6 +17,8 @@ module.exports = {
 
     async execute(interaction) {
         try {
+            await safeDefer(interaction, { ephemeral: true });
+
             const guildId = interaction.guild.id;
             const subcommand = interaction.options.getSubcommand();
             
@@ -43,17 +46,13 @@ module.exports = {
 
             console.log(`${interaction.guild.name} - ${subcommand}: ${JSON.stringify(toggleResult)}`);
 
-            await interaction.reply({
+            await handleInteraction(interaction, {
                 content: responseMessage,
                 ephemeral: true
-            });
+            }, 'editReply');
 
         } catch (error) {
-            console.error('Error in sconfig command:', error);
-            await interaction.reply({
-                content: 'There was an error while executing this command.',
-                ephemeral: true
-            });
+            await handleCommandError(interaction, error, 'There was an error while executing this command.');
         }
     },
 };

@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const getTierEmoji = require('../utility/getTierEmoji');
 const getLoadBar = require('../utility/getLoadBar');
 const { enrichClaimWithCardData } = require('../utility/cardAPI');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 // Add cooldown system
 const cooldowns = new Map();
@@ -46,6 +47,7 @@ module.exports = {
                     { name: 'Tier Claim Times', value: 'tiertimes' },
                     { name: 'Print Claim Times', value: 'printtimes' }
                 )),
+
     async execute(interaction, { database }) {
         // Add cooldown check
         const guildId = interaction.guild.id;
@@ -56,7 +58,7 @@ module.exports = {
             const expirationTime = cooldowns.get(cooldownKey);
             if (Date.now() < expirationTime) {
                 const timeLeft = (expirationTime - Date.now()) / 1000;
-                return await interaction.reply({ 
+                return await handleInteraction(interaction, { 
                     content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
                     ephemeral: true 
                 });
@@ -69,7 +71,7 @@ module.exports = {
 
         let hasDeferred = false;
         try {
-            await interaction.deferReply();
+            await safeDefer(interaction);
             hasDeferred = true;
             
             const statType = interaction.options.getString('type');
@@ -77,7 +79,7 @@ module.exports = {
             // Get all server claims
             const mServerDB = await database.getServerData(guildId);
             if (!mServerDB || !mServerDB.claims) {
-                return await interaction.editReply({
+                return await handleInteraction(interaction, {
                     content: 'No claims data found for this server.',
                     ephemeral: true
                 });
@@ -129,8 +131,8 @@ module.exports = {
                 
                 if (tier1Rank !== tier2Rank) {
                     return tier1Rank > tier2Rank;
-                }
-                
+            }
+
                 // If both print rank and tier rank are equal, prefer lower print number
                 return card1.print < card2.print;
             };
@@ -355,20 +357,21 @@ module.exports = {
                 : 'An error occurred while fetching server stats.';
             
             if (!hasDeferred) {
-                await interaction.reply({
+                await handleInteraction(interaction, {
                     content: errorMessage,
                     ephemeral: true
                 });
             } else {
-                await interaction.editReply({
+                await handleInteraction(interaction, {
                     content: errorMessage,
                     ephemeral: true
-                });
+                }, 'editReply');
             }
         }
     },
 };
 
+// Rest of the helper functions remain unchanged
 function getRangeDescription(range) {
     switch (range) {
         case 'SP': return '1-10';

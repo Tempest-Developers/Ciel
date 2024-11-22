@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const axios = require('axios');
 const getTierEmoji = require('../utility/getTierEmoji');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 require('dotenv').config();
 
 const MIMS_GUILD = process.env.MIMS_GUILD;
@@ -104,18 +105,20 @@ module.exports = {
         ),
 
     async execute(interaction, { database }) {
-        // Only work in MIMS_GUILD
-        if (interaction.guild.id !== MIMS_GUILD) {
-            return interaction.reply({
-                content: '❌ This command can only be used in MIMS Guild.',
-                ephemeral: true
-            });
-        }
-
-        const { mGiveawayDB } = database;
-        const subcommand = interaction.options.getSubcommand();
-
         try {
+            // Only work in MIMS_GUILD
+            if (interaction.guild.id !== MIMS_GUILD) {
+                return await handleInteraction(interaction, {
+                    content: '❌ This command can only be used in MIMS Guild.',
+                    ephemeral: true
+                }, 'reply');
+            }
+
+            await safeDefer(interaction);
+
+            const { mGiveawayDB } = database;
+            const subcommand = interaction.options.getSubcommand();
+
             switch (subcommand) {
                 case 'set': {
                     const level = interaction.options.getInteger('level');
@@ -127,18 +130,18 @@ module.exports = {
 
                     // Validate required fields
                     if (!prize.trim() || !message.trim()) {
-                        return interaction.reply({
+                        return await handleInteraction(interaction, {
                             content: '❌ Prize and Message cannot be empty.',
                             ephemeral: true
-                        });
+                        }, 'editReply');
                     }
 
                     // Validate amount
                     if (amount <= 0) {
-                        return interaction.reply({
+                        return await handleInteraction(interaction, {
                             content: '❌ Amount must be greater than 0.',
                             ephemeral: true
-                        });
+                        }, 'editReply');
                     }
 
                     // Parse duration
@@ -146,10 +149,10 @@ module.exports = {
                     try {
                         durationMs = parseDuration(duration);
                     } catch (error) {
-                        return interaction.reply({
+                        return await handleInteraction(interaction, {
                             content: `❌ ${error.message}`,
                             ephemeral: true
-                        });
+                        }, 'editReply');
                     }
 
                     // Calculate end timestamp
@@ -172,10 +175,10 @@ module.exports = {
                                     imageUrl: itemData.card.cardImageLink.replace('.png', '')
                                 };
                             } catch (error) {
-                                return interaction.reply({
+                                return await handleInteraction(interaction, {
                                     content: '❌ Invalid item ID.',
                                     ephemeral: true
-                                });
+                                }, 'editReply');
                             }
                             break;
                         }
@@ -193,10 +196,10 @@ module.exports = {
                             const prizes = prize.split(',').map(p => p.trim());
                             
                             if (prizes.length < amount) {
-                                return interaction.reply({
+                                return await handleInteraction(interaction, {
                                     content: `❌ Not enough prizes. You specified ${amount} winners but only ${prizes.length} prizes.`,
                                     ephemeral: true
-                                });
+                                }, 'editReply');
                             }
 
                             itemDetails = {
@@ -218,19 +221,15 @@ module.exports = {
                             endTimestamp
                         );
 
-                        return interaction.reply({ 
+                        return await handleInteraction(interaction, { 
                             content: `✅ Giveaway created successfully!\n` +
                                      `Prize: ${itemDetails.name}\n` +
                                      `Level: ${level}\n` +
                                      `Ends: <t:${endTimestamp}:R>`,
                             ephemeral: true 
-                        });
+                        }, 'editReply');
                     } catch (error) {
-                        console.error('Giveaway creation error:', error);
-                        return interaction.reply({
-                            content: '❌ Error creating giveaway.',
-                            ephemeral: true
-                        });
+                        throw new Error('Error creating giveaway.');
                     }
                 }
 
@@ -239,10 +238,10 @@ module.exports = {
                     const giveaways = await database.getGiveaways(activeFilter);
 
                     if (giveaways.length === 0) {
-                        return interaction.reply({
+                        return await handleInteraction(interaction, {
                             content: '❌ No giveaways found.',
                             ephemeral: true
-                        });
+                        }, 'editReply');
                     }
 
                     const embed = new EmbedBuilder()
@@ -268,7 +267,7 @@ module.exports = {
                         });
                     }
 
-                    return interaction.reply({ embeds: [embed] });
+                    return await handleInteraction(interaction, { embeds: [embed] }, 'editReply');
                 }
 
                 case 'check': {
@@ -277,10 +276,10 @@ module.exports = {
 
                     const giveaway = await database.getGiveaway(giveawayId);
                     if (!giveaway) {
-                        return interaction.reply({
+                        return await handleInteraction(interaction, {
                             content: '❌ Giveaway not found.',
                             ephemeral: true
-                        });
+                        }, 'editReply');
                     }
 
                     if (newTimestamp) {
@@ -307,7 +306,7 @@ module.exports = {
                         .setDescription(description)
                         .setImage(giveaway.item?.imageUrl || null);
 
-                    return interaction.reply({ embeds: [embed] });
+                    return await handleInteraction(interaction, { embeds: [embed] }, 'editReply');
                 }
 
                 case 'announce': {
@@ -321,7 +320,6 @@ module.exports = {
                         let description = '';
                         if (announcementData.giveaway.level === 2) {
                             const prizes = announcementData.giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join(' ') || 'No Prizes Set';
-                            // const prizes = announcementData.giveaway.item?.name?.split(',').map((p, i) => `${i + 1}. ${p.trim()}`).join('\n') || 'No Prizes Set';
                             description = `**Prizes:**\n${prizes}\n\n`;
                         } else {
                             description = `**Prize:** ${announcementData.giveaway.item?.name || 'No Prize Set'}\n`;
@@ -342,25 +340,17 @@ module.exports = {
                         const channel = await guild.channels.fetch(channelId);
                         await channel.send({ embeds: [embed] });
 
-                        return interaction.reply({
+                        return await handleInteraction(interaction, {
                             content: `✅ Giveaway #${giveawayId} announced in <#${channelId}>`,
                             ephemeral: true
-                        });
+                        }, 'editReply');
                     } catch (error) {
-                        console.error('Giveaway announcement error:', error);
-                        return interaction.reply({
-                            content: '❌ Error announcing giveaway. Check guild and channel IDs.',
-                            ephemeral: true
-                        });
+                        throw new Error('Error announcing giveaway. Check guild and channel IDs.');
                     }
                 }
             }
         } catch (error) {
-            console.error('Error in giveaway command:', error);
-            return interaction.reply({
-                content: '❌ An error occurred while processing your request.',
-                ephemeral: true
-            });
+            await handleCommandError(interaction, error, error.message || 'An error occurred while processing your request.');
         }
     }
 };

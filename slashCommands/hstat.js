@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { getServerSettings, createServerSettings } = require('../database/modules/server');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -22,14 +23,14 @@ module.exports = {
         try {
             // Only allow specific user to use this command
             if (interaction.user.id !== '292675388180791297') {
-                return await interaction.reply({
+                return await handleInteraction(interaction, {
                     content: 'You are not authorized to use this command.',
                     ephemeral: true
                 });
             }
 
             // Defer the reply immediately to prevent timeout
-            await interaction.deferReply({ ephemeral: true });
+            await safeDefer(interaction, { ephemeral: true });
 
             const subcommand = interaction.options.getSubcommand();
 
@@ -40,9 +41,9 @@ module.exports = {
                 try {
                     const guild = await interaction.client.guilds.fetch(serverId);
                     if (!guild) {
-                        return await interaction.editReply({
+                        return await handleInteraction(interaction, {
                             content: 'Unable to find the specified server. Please check the server ID.',
-                        });
+                        }, 'editReply');
                     }
 
                     let serverSettings = await getServerSettings(serverId);
@@ -52,17 +53,17 @@ module.exports = {
                         await createServerSettings(serverId);
                         serverSettings = await getServerSettings(serverId);
                         if (!serverSettings) {
-                            return await interaction.editReply({
+                            return await handleInteraction(interaction, {
                                 content: 'Failed to create server settings.',
-                            });
+                            }, 'editReply');
                         }
                     }
 
                     // Ensure settings structure exists
                     if (!serverSettings.settings?.handlers) {
-                        return await interaction.editReply({
+                        return await handleInteraction(interaction, {
                             content: 'Server settings are corrupted. Please contact the developer.',
-                        });
+                        }, 'editReply');
                     }
 
                     const message = [
@@ -80,12 +81,12 @@ module.exports = {
                         `Cooldown Pings: ${serverSettings.settings.allowCooldownPing ? '🟢' : '🔴'}`
                     ].join('\n');
 
-                    await interaction.editReply({ content: message });
+                    await handleInteraction(interaction, { content: message }, 'editReply');
                 } catch (error) {
                     if (error.code === 10004) { // Discord API error for unknown guild
-                        return await interaction.editReply({
+                        return await handleInteraction(interaction, {
                             content: 'Unable to access the specified server. Please verify the server ID and ensure the bot has access to it.',
-                        });
+                        }, 'editReply');
                     }
                     throw error;
                 }
@@ -143,21 +144,13 @@ module.exports = {
                 messages[messages.length - 1] += '\n🟢 Enabled | 🔴 Disabled\nOrder: claim,summ,mclaim,msumm | tier,ping';
 
                 // Send all messages
-                await interaction.editReply({ content: messages[0] });
+                await handleInteraction(interaction, { content: messages[0] }, 'editReply');
                 for (let i = 1; i < messages.length; i++) {
-                    await interaction.followUp({ content: messages[i], ephemeral: true });
+                    await handleInteraction(interaction, { content: messages[i], ephemeral: true }, 'followUp');
                 }
             }
         } catch (error) {
-            console.error('Error in hstat command:', error);
-            const reply = interaction.replied || interaction.deferred ? 
-                interaction.editReply.bind(interaction) : 
-                interaction.reply.bind(interaction);
-            
-            await reply({
-                content: 'There was an error while executing this command.',
-                ephemeral: true
-            });
+            await handleCommandError(interaction, error, 'An error occurred while executing this command.');
         }
     },
 };

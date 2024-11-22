@@ -1,13 +1,14 @@
 require('dotenv').config();
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require('discord.js');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 // Add cooldown system
 const cooldowns = new Map();
 const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
 
 // Guild IDs
-const GATE_GUILD = process.env.GATE_GUILD
-const MiMs_GUILD = process.env.MIMS_GUILD
+const GATE_GUILD = process.env.GATE_GUILD;
+const MiMs_GUILD = process.env.MIMS_GUILD;
 
 // Admin command emoji
 const ADMIN_EMOJI = '⚡';
@@ -175,25 +176,27 @@ module.exports = {
         .setDescription('Shows information about available commands'),
     
     async execute(interaction) {
-        const guildId = interaction.guild.id;
-        const userId = interaction.user.id;
-        const cooldownKey = `${guildId}-${userId}`;
-        
-        if (cooldowns.has(cooldownKey)) {
-            const expirationTime = cooldowns.get(cooldownKey);
-            if (Date.now() < expirationTime) {
-                const timeLeft = (expirationTime - Date.now()) / 1000;
-                return await interaction.reply({ 
-                    content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
-                    ephemeral: true 
-                });
-            }
-        }
-
-        cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
-        setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
-
         try {
+            const guildId = interaction.guild.id;
+            const userId = interaction.user.id;
+            const cooldownKey = `${guildId}-${userId}`;
+            
+            if (cooldowns.has(cooldownKey)) {
+                const expirationTime = cooldowns.get(cooldownKey);
+                if (Date.now() < expirationTime) {
+                    const timeLeft = (expirationTime - Date.now()) / 1000;
+                    return await handleInteraction(interaction, { 
+                        content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
+                        ephemeral: true 
+                    }, 'reply');
+                }
+            }
+
+            cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
+            setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
+
+            await safeDefer(interaction);
+
             // Filter commands based on guild restrictions
             const availableCommands = Object.entries(COMMAND_DETAILS)
                 .filter(([_, details]) => {
@@ -235,11 +238,11 @@ module.exports = {
 
             const actionRow = new ActionRowBuilder().addComponents(commandSelectMenu);
 
-            const response = await interaction.reply({ 
+            const response = await handleInteraction(interaction, { 
                 embeds: [helpEmbed], 
                 components: [actionRow],
                 ephemeral: false 
-            });
+            }, 'editReply');
 
             const collector = response.createMessageComponentCollector({
                 componentType: ComponentType.StringSelect,
@@ -247,28 +250,34 @@ module.exports = {
             });
 
             collector.on('collect', async i => {
-                if (i.user.id !== interaction.user.id) {
-                    await i.reply({ 
-                        content: 'You cannot use these controls.', 
-                        ephemeral: true 
-                    });
-                    return;
+                try {
+                    if (i.user.id !== interaction.user.id) {
+                        await handleInteraction(i, { 
+                            content: 'You cannot use these controls.', 
+                            ephemeral: true 
+                        }, 'reply');
+                        return;
+                    }
+
+                    await i.deferUpdate();
+
+                    const selectedCommand = i.values[0];
+                    const commandInfo = availableCommands[selectedCommand];
+
+                    const detailEmbed = new EmbedBuilder()
+                        .setTitle(`${commandInfo.adminOnly ? ADMIN_EMOJI : ''}/${selectedCommand} Command Details`)
+                        .setColor('#FFC0CB')
+                        .addFields(
+                            { name: 'Description', value: commandInfo.description },
+                            { name: 'Usage', value: commandInfo.usage.join('\n') },
+                            { name: 'Examples', value: commandInfo.examples.join('\n') }
+                        )
+                        .setFooter({ text: 'Select another command or close the help menu' });
+
+                    await i.editReply({ embeds: [detailEmbed], components: [actionRow] });
+                } catch (error) {
+                    await handleCommandError(i, error, 'An error occurred while showing command details.');
                 }
-
-                const selectedCommand = i.values[0];
-                const commandInfo = availableCommands[selectedCommand];
-
-                const detailEmbed = new EmbedBuilder()
-                    .setTitle(`${commandInfo.adminOnly ? ADMIN_EMOJI : ''}/${selectedCommand} Command Details`)
-                    .setColor('#FFC0CB')
-                    .addFields(
-                        { name: 'Description', value: commandInfo.description },
-                        { name: 'Usage', value: commandInfo.usage.join('\n') },
-                        { name: 'Examples', value: commandInfo.examples.join('\n') }
-                    )
-                    .setFooter({ text: 'Select another command or close the help menu' });
-
-                await i.update({ embeds: [detailEmbed], components: [actionRow] });
             });
 
             collector.on('end', async () => {
@@ -280,11 +289,7 @@ module.exports = {
             });
 
         } catch (error) {
-            console.error('Error executing help command:', error);
-            await interaction.reply({ 
-                content: 'An error occurred while showing the help information.',
-                ephemeral: true 
-            });
+            await handleCommandError(interaction, error, 'An error occurred while showing the help information.');
         }
     },
 };

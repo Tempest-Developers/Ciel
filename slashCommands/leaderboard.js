@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const getTierEmoji = require('../utility/getTierEmoji');
+const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 // Add cooldown system
 const cooldowns = new Map();
@@ -28,24 +29,6 @@ module.exports = {
                         )
                 )
         )
-        // .addSubcommand(subcommand =>
-        //     subcommand
-        //         .setName('print')
-        //         .setDescription('Show leaderboard for a specific print range')
-        //         .addStringOption(option =>
-        //             option
-        //                 .setName('range')
-        //                 .setDescription('Print range to show')
-        //                 .setRequired(true)
-        //                 .addChoices(
-        //                     { name: 'Super Print (1-10)', value: 'SP' },
-        //                     { name: 'Low Print (11-99)', value: 'LP' },
-        //                     { name: 'Mid Print (100-499)', value: 'MP' },
-        //                     { name: 'High Print (500-1000)', value: 'HP' },
-        //                     { name: 'All Prints', value: 'ALL' }
-        //                 )
-        //         )
-        // )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('total')
@@ -61,7 +44,7 @@ module.exports = {
             const expirationTime = cooldowns.get(cooldownKey);
             if (Date.now() < expirationTime) {
                 const timeLeft = (expirationTime - Date.now()) / 1000;
-                return await interaction.reply({ 
+                return await handleInteraction(interaction, { 
                     content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
                     ephemeral: true 
                 });
@@ -71,7 +54,7 @@ module.exports = {
         cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
         setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
 
-        await interaction.deferReply();
+        await safeDefer(interaction);
 
         try {
             const subcommand = interaction.options.getSubcommand();
@@ -79,10 +62,10 @@ module.exports = {
             // Get server settings to check if stats are allowed
             const serverSettings = await database.getServerSettings(guildId);
             if (!serverSettings?.settings?.allowShowStats) {
-                return await interaction.editReply({
+                return await handleInteraction(interaction, {
                     content: 'Stats are currently disabled in this server.',
                     ephemeral: true
-                });
+                }, 'editReply');
             }
 
             const { mUserDB } = await database.connectDB();
@@ -333,53 +316,25 @@ module.exports = {
 
             // Add top 10 fields
             const top10 = leaderboardData.slice(0, 10);
-            let leaderboardText = '';
-
-            if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
-                leaderboardText = top10.map((data, index) => {
-                    return `${index + 1}. <@${data.userId}> ` +
-                           `⭐${data.SP}|🌟${data.LP}|💫${data.MP}|✨${data.HP} ` +
-                           `Total: ${data.total}`;
-                }).join('\n');
-            } else {
-                leaderboardText = top10.map((data, index) => 
-                    `${index + 1}. <@${data.userId}> - ${data.count} claims`
-                ).join('\n');
-            }
+            const leaderboardText = top10.map((data, index) => 
+                `${index + 1}. <@${data.userId}> - ${data.count} claims`
+            ).join('\n');
 
             embed.addFields({ name: 'Rankings', value: leaderboardText || 'No data available' });
-
-            // Add print range information field for print-based leaderboard
-            if (subcommand === 'print') {
-                const printRangeInfo = `**Note:** This data is based on your last 50 claims\n\n` +
-                                     `⭐**SP** = v**1**-v**10**\n` +
-                                     `🌟**LP** = v**11**-v**99**\n` +
-                                     `💫**MP** = v**100**-v**499**\n` +
-                                     `✨**HP** = v**500**-v**1000**`;
-                embed.addFields({ name: 'Print Ranges', value: printRangeInfo });
-            }
 
             // Add user's rank if they exist in the data
             const userRank = leaderboardData.findIndex(data => data.userId === userId) + 1;
             const userData = leaderboardData.find(data => data.userId === userId);
 
             if (userRank > 0 && userData) {
-                let userStats;
-                if (subcommand === 'print' && interaction.options.getString('range') === 'ALL') {
-                    userStats = `**Your Stats:**\n` +
-                               `⭐**${userData.SP}** |🌟**${userData.LP}** |💫**${userData.MP}** |✨**${userData.HP}**\n` +
-                               `Total: ${userData.total} | Rank: #${userRank}/${leaderboardData.length}`;
-                } else {
-                    userStats = `Your Claims: **${userData.count}** | Your Rank: #**${userRank}**/**${leaderboardData.length}**`;
-                }
+                const userStats = `Your Claims: **${userData.count}** | Your Rank: #**${userRank}**/**${leaderboardData.length}**`;
                 embed.addFields({ name: 'Your Statistics', value: userStats });
             }
 
-            await interaction.editReply({ embeds: [embed] });
+            await handleInteraction(interaction, { embeds: [embed] }, 'editReply');
 
         } catch (error) {
-            console.error('Error in leaderboard command:', error);
-            await interaction.editReply('An error occurred while fetching the leaderboard.');
+            await handleCommandError(interaction, error, 'An error occurred while fetching the leaderboard.');
         }
     }
 };
