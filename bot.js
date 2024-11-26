@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os'); // Added for system monitoring
 
-const BOT_TOKEN = process.env.TOKEN;
+const BOT_TOKEN = process.env.TOKEN_CIEL;
 
 // Import database modules
 const db = require('./database/mongo');

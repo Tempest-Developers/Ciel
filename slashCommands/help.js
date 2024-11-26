@@ -11,8 +11,9 @@ const GATE_GUILD = process.env.GATE_GUILD;
 const MiMs_GUILD = process.env.MIMS_GUILD;
 
 // Admin command emoji
-const ADMIN_EMOJI = '⚡';
+const ADMIN_EMOJI = '🛡️';
 
+// Previous COMMAND_DETAILS remains the same...
 const COMMAND_DETAILS = {
     'leaderboard': {
         description: 'View rankings by tier, print ranges, or total claims',
@@ -95,16 +96,37 @@ const COMMAND_DETAILS = {
         ],
         adminOnly: false
     },
-    'wishlist': {
-        description: 'View and manage your card wishlist',
+    'wishlist_add': {
+        description: 'Search and add cards to your wishlist',
         usage: [
-            '`/wishlist add` - Add/Remove a card from all Mazoku card list',
-            '`/wishlist list` - View your wishlist',
-            '`/wishlist global` - View global wishlist stats'
+            '`/wishlist_add name:` - Search by character name',
+            '`/wishlist_add anime:` - Search by anime series',
+            '`/wishlist_add tier:` - Filter by tier',
+            '`/wishlist_add sort_by:` - Sort results'
         ],
         examples: [
-            'Add card to wishlist: `/wishlist add card_id`',
-            'View your wishlist: `/wishlist list`'
+            'Search Naruto cards: `/wishlist_add name:Naruto`',
+            'Find SR cards: `/wishlist_add tier:SR`'
+        ],
+        adminOnly: false
+    },
+    'wishlist_global': {
+        description: 'View most wishlisted cards globally',
+        usage: [
+            '`/wishlist_global` - Show most wishlisted cards'
+        ],
+        examples: [
+            'View global wishlist: `/wishlist_global`'
+        ],
+        adminOnly: false
+    },
+    'wishlist_me': {
+        description: 'View and manage your wishlisted cards',
+        usage: [
+            '`/wishlist_me` - View your wishlist'
+        ],
+        examples: [
+            'View your wishlist: `/wishlist_me`'
         ],
         adminOnly: false
     },
@@ -212,15 +234,43 @@ module.exports = {
 
             // Create initial embed with command names only
             const helpEmbed = new EmbedBuilder()
-                .setTitle('Mazoku Card Bot - Command List')
-                .setColor('#FFC0CB')
-                .setDescription(Object.entries(availableCommands)
+            .setTitle('Ciel Card Bot - Command List')
+            .setColor('#FFC0CB')
+            .setDescription([
+                "**Server Related Commands**",
+                ...Object.entries(availableCommands)
+                .filter(([cmd, details]) => ["leaderboard", "mystats", "recent", "server", "register", "sconfig"].includes(cmd))
+                .map(([cmd, details]) => {
+                    const adminMark = details.adminOnly ? ADMIN_EMOJI : '';
+                    return `\`/${cmd}\` ${adminMark}`;
+                }),
+                "\n**Mazoku related Commands**",
+                ...Object.entries(availableCommands)
+                .filter(([cmd, details]) => ["find", "inventory", "wishlist_add", "wishlist_global", "wishlist_me"].includes(cmd))
+                .map(([cmd, details]) => {
+                    const adminMark = details.adminOnly ? ADMIN_EMOJI : '';
+                    return `\`/${cmd}\` ${adminMark}`;
+                }),
+                ...(guildId === process.env.GATE_GUILD ? [
+                "\n**Gate related commands**",
+                ...Object.entries(availableCommands)
+                    .filter(([cmd, details]) => ["gate"].includes(cmd))
                     .map(([cmd, details]) => {
-                        const adminMark = details.adminOnly ? ADMIN_EMOJI : '';
-                        return `\`/${cmd}\` ${adminMark}`;
-                    })
-                    .join('\n'))
-                .setFooter({ text: 'Select a command from the dropdown for more details' });
+                    const adminMark = details.adminOnly ? ADMIN_EMOJI : '';
+                    return `\`/${cmd}\` ${adminMark}`;
+                    }),
+                ] : []),
+                ...(guildId === process.env.MIMS_GUILD ? [
+                "\n**MiMs related commands**",
+                ...Object.entries(availableCommands)
+                    .filter(([cmd, details]) => ["hstat", "hand", "giveaway"].includes(cmd))
+                    .map(([cmd, details]) => {
+                    const adminMark = details.adminOnly ? ADMIN_EMOJI : '';
+                    return `\`/${cmd}\` ${adminMark}`;
+                    }),
+                ] : []),
+            ].flat().join('\n'))
+            .setFooter({ text: 'Select a command from the dropdown for more details' });
 
             // Create dropdown with available commands
             const commandSelectMenu = new StringSelectMenuBuilder()
