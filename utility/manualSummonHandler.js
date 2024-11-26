@@ -173,7 +173,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
         const urlParts = newEmbed.image.url.split('/');
         const cardIds = urlParts.slice(4);
 
-        const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
+        const allowShowStats = serverSettings?.settings?.allowShowStats ?? false;
 
         try {
             // Wait for all card info and build description
@@ -202,7 +202,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
             let roleId = null;
 
             // Add description to embed if role pinging is allowed
-            if (description && allowRolePing) {
+            if (description && allowShowStats) {
                 countdownEmbed.description = description;
             }
 

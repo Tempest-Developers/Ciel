@@ -183,25 +183,18 @@ module.exports = {
                 components.push(selectMenu);
             }
 
-            const reply = await handleInteraction(interaction, {
+            await handleInteraction(interaction, {
                 embeds: [embed],
                 components
             }, 'editReply');
 
-            const collector = reply.createMessageComponentCollector({
+            const collector = interaction.channel.createMessageComponentCollector({
+                filter: i => i.user.id === interaction.user.id,
                 time: INTERACTION_TIMEOUT
             });
 
             collector.on('collect', async i => {
                 try {
-                    if (i.user.id !== interaction.user.id) {
-                        await handleInteraction(i, {
-                            content: 'You cannot use these controls.',
-                            ephemeral: true
-                        }, 'reply');
-                        return;
-                    }
-
                     await i.deferUpdate();
 
                     if (i.isButton()) {

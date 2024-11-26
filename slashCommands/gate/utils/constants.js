@@ -10,5 +10,5 @@ module.exports = {
     },
     MAX_TOKENS: 10000,
     MAX_TOKENS_TICKET: 5,
-    GIVEAWAY_FIRST_TICKET_FREE: true // New toggle for first ticket being free
+    GIVEAWAY_FIRST_TICKET_FREE: false // New toggle for first ticket being free
 };

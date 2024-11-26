@@ -204,6 +204,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
         const cardIds = urlParts.slice(4, 7);
 
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
+        const allowShowStats = serverSettings?.settings?.allowShowStats ?? false;
 
         try {
             // Determine elapsed time since message detection
@@ -227,9 +228,11 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
 
             let description = null;
 
-            // Pass allowRolePing to buildCardDescription
-            const result = await buildCardDescription(cardIds, client, newMessage, guildId, allowRolePing);
-            description = result.description;
+            // Pass allowRolePing and allowShowStats to buildCardDescription
+            if(allowShowStats){
+                const result = await buildCardDescription(cardIds, client, newMessage, guildId, allowRolePing);
+                description = result.description;
+            }
 
             // Add description to embed if it exists
             if (description) {

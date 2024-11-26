@@ -30,7 +30,7 @@ async function createServerSettings(serverID) {
                 register: false,
                 premier: false,
                 settings: {
-                    allowShowStats: true,
+                    allowShowStats: false,
                     allowRolePing: false,
                     allowCooldownPing: false,
                     handlers: {
@@ -116,16 +116,16 @@ async function toggleAllowRolePing(serverID) {
                 throw new Error('Server settings not found');
             }
 
-            const newAllowRolePingValue = !serverSettings.settings?.allowRolePing;
+            const newAllowRolePingValue = !serverSettings.settings?.allowShowStats;
 
             await mServerSettingsDB.updateOne(
                 { serverID },
-                { $set: { 'settings.allowRolePing': newAllowRolePingValue } }
+                { $set: { 'settings.allowShowStats': newAllowRolePingValue } }
             );
 
             return { serverID, allowRolePing: newAllowRolePingValue };
         } catch (error) {
-            console.error('Error toggling allowRolePing:', error);
+            console.error('Error toggling allowShowStats:', error);
             throw error;
         }
     });
