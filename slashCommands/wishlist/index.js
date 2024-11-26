@@ -113,6 +113,7 @@ module.exports = {
             let totalPages = 1;
             let allCards = [];
             let lastPageCards = 0;
+            let totalCards = 0;
 
             // Store search parameters for pagination
             const searchParams = isAddMode ? {
@@ -123,25 +124,6 @@ module.exports = {
                 sortOrder: interaction.options.getString('sort_order') || 'desc',
                 type: interaction.options.getString('type')
             } : null;
-
-            // Function to update cards based on mode and page
-            const updateCards = async (newPage) => {
-                if (isGlobalMode || isMeMode) {
-                    // For global and me modes, we paginate from the full list
-                    currentPage = newPage;
-                    currentCards = paginateCards(allCards, currentPage);
-                } else if (isAddMode) {
-                    // For add mode, we fetch new results with search parameters
-                    const result = await searchCards(searchParams, newPage);
-                    currentCards = result.cards;
-                    currentPage = newPage;
-
-                    if (searchParams.sortBy === 'wishlist') {
-                        currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
-                    }
-                }
-                return currentCards;
-            };
 
             try {
                 if (isGlobalMode) {
@@ -154,8 +136,9 @@ module.exports = {
                         }, 'editReply');
                     }
                     totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
-                    currentCards = await updateCards(currentPage);
+                    currentCards = paginateCards(allCards, currentPage);
                     lastPageCards = allCards.length % CARDS_PER_PAGE || CARDS_PER_PAGE;
+                    totalCards = allCards.length;
                 } else if (isMeMode) {
                     // Fetch user's personal wishlist
                     allCards = await fetchUserWishlistedCards(interaction.user.id);
@@ -166,166 +149,181 @@ module.exports = {
                         }, 'editReply');
                     }
                     totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
-                    currentCards = await updateCards(currentPage);
+                    currentCards = paginateCards(allCards, currentPage);
                     lastPageCards = allCards.length % CARDS_PER_PAGE || CARDS_PER_PAGE;
-                } else {
-                    const result = await searchCards(searchParams, currentPage);
-                    currentCards = result.cards;
-                    totalPages = result.totalPages;
+                    totalCards = allCards.length;
+                } else if (isAddMode) {
+                    try {
+                        const result = await searchCards(searchParams, currentPage);
+                        currentCards = result.cards;
+                        totalPages = result.totalPages;
+                        totalCards = result.totalCards;
+                        lastPageCards = totalCards % CARDS_PER_PAGE || CARDS_PER_PAGE;
 
-                    // Get last page cards count
-                    const lastPageResult = await searchCards(searchParams, totalPages);
-                    lastPageCards = lastPageResult.cards.length;
-
-                    if (searchParams.sortBy === 'wishlist') {
-                        currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
+                        if (searchParams.sortBy === 'wishlist') {
+                            currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
+                        }
+                    } catch (error) {
+                        console.error('Search error:', error);
+                        return await handleInteraction(interaction, {
+                            content: 'Failed to search cards. Please try again.',
+                            ephemeral: true
+                        }, 'editReply');
                     }
                 }
-            } catch (error) {
-                if (error.message === "Mazoku Servers unavailable") {
-                    throw error;
+
+                if (currentCards.length === 0) {
+                    return await handleInteraction(interaction, {
+                        content: 'No cards found matching your criteria.',
+                        ephemeral: true
+                    }, 'editReply');
                 }
-                throw new Error('Failed to fetch cards');
-            }
 
-            if (currentCards.length === 0) {
-                return await handleInteraction(interaction, {
-                    content: 'No cards found matching your criteria.',
-                    ephemeral: true
+                const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode || isMeMode, lastPageCards);
+                const navigationButtons = createNavigationButtons(currentPage, totalPages);
+                const selectMenu = createCardSelectMenu(currentCards);
+
+                const components = [navigationButtons];
+                if (selectMenu) {
+                    components.push(selectMenu);
+                }
+
+                await handleInteraction(interaction, {
+                    embeds: [embed],
+                    components
                 }, 'editReply');
-            }
 
-            const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode || isMeMode, lastPageCards);
-            const navigationButtons = createNavigationButtons(currentPage, totalPages);
-            const selectMenu = createCardSelectMenu(currentCards);
+                const collector = interaction.channel.createMessageComponentCollector({
+                    filter: i => i.user.id === interaction.user.id,
+                    time: INTERACTION_TIMEOUT
+                });
 
-            const components = [navigationButtons];
-            if (selectMenu) {
-                components.push(selectMenu);
-            }
+                collector.on('collect', async i => {
+                    try {
+                        await i.deferUpdate();
 
-            await handleInteraction(interaction, {
-                embeds: [embed],
-                components
-            }, 'editReply');
+                        if (i.isButton()) {
+                            if (i.customId === 'wishlist') {
+                                const cardId = i.message.embeds[0].description.split('\n')[0].split('[')[1].split(']')[0];
+                                const result = await toggleWishlist(i.user.id, cardId);
+                                
+                                if (!result.success) {
+                                    await handleInteraction(i, {
+                                        content: 'Failed to update wishlist. Please try again.',
+                                        ephemeral: true
+                                    }, 'followUp');
+                                    return;
+                                }
 
-            const collector = interaction.channel.createMessageComponentCollector({
-                filter: i => i.user.id === interaction.user.id,
-                time: INTERACTION_TIMEOUT
-            });
+                                const wishlistButton = createWishlistButton(result.isWishlisted);
+                                const backButton = createBackButton();
+                                const actionRow = new ActionRowBuilder()
+                                    .addComponents(wishlistButton, backButton);
 
-            collector.on('collect', async i => {
-                try {
-                    await i.deferUpdate();
+                                const selectedCard = currentCards.find(c => c.id === cardId);
+                                if (selectedCard) {
+                                    selectedCard.isWishlisted = result.isWishlisted;
+                                    const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
+                                    await i.editReply({
+                                        embeds: [updatedEmbed],
+                                        components: [actionRow]
+                                    });
+                                }
+                            } else if (i.customId === 'back') {
+                                const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode || isMeMode, lastPageCards);
+                                const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
+                                const newSelectMenu = createCardSelectMenu(currentCards);
 
-                    if (i.isButton()) {
-                        if (i.customId === 'wishlist') {
-                            const cardId = i.message.embeds[0].description.split('\n')[0].split('[')[1].split(']')[0];
-                            const result = await toggleWishlist(i.user.id, cardId);
-                            
-                            if (!result.success) {
-                                await handleInteraction(i, {
-                                    content: 'Failed to update wishlist. Please try again.',
-                                    ephemeral: true
-                                }, 'followUp');
-                                return;
-                            }
+                                const newComponents = [newNavigationButtons];
+                                if (newSelectMenu) {
+                                    newComponents.push(newSelectMenu);
+                                }
 
-                            const wishlistButton = createWishlistButton(result.isWishlisted);
-                            const backButton = createBackButton();
-                            const actionRow = new ActionRowBuilder()
-                                .addComponents(wishlistButton, backButton);
-
-                            const selectedCard = currentCards.find(c => c.id === cardId);
-                            if (selectedCard) {
-                                selectedCard.isWishlisted = result.isWishlisted;
-                                const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
                                 await i.editReply({
-                                    embeds: [updatedEmbed],
+                                    embeds: [newEmbed],
+                                    components: newComponents
+                                });
+                            } else {
+                                let newPage = currentPage;
+                                switch (i.customId) {
+                                    case 'first': newPage = 1; break;
+                                    case 'prev': newPage = Math.max(1, currentPage - 1); break;
+                                    case 'next': newPage = Math.min(totalPages, currentPage + 1); break;
+                                    case 'last': newPage = totalPages; break;
+                                }
+
+                                if (newPage !== currentPage) {
+                                    try {
+                                        if (isGlobalMode || isMeMode) {
+                                            currentPage = newPage;
+                                            currentCards = paginateCards(allCards, currentPage);
+                                        } else if (isAddMode) {
+                                            const result = await searchCards(searchParams, newPage);
+                                            currentCards = result.cards;
+                                            currentPage = newPage;
+
+                                            if (searchParams.sortBy === 'wishlist') {
+                                                currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
+                                            }
+                                        }
+                                        
+                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode || isMeMode, lastPageCards);
+                                        const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
+                                        const newSelectMenu = createCardSelectMenu(currentCards);
+
+                                        const newComponents = [newNavigationButtons];
+                                        if (newSelectMenu) {
+                                            newComponents.push(newSelectMenu);
+                                        }
+
+                                        await i.editReply({
+                                            embeds: [newEmbed],
+                                            components: newComponents
+                                        });
+                                    } catch (error) {
+                                        console.error('Page navigation error:', error);
+                                        await handleInteraction(i, {
+                                            content: 'Failed to load the next page. Please try again.',
+                                            ephemeral: true
+                                        }, 'followUp');
+                                    }
+                                }
+                            }
+                        } else if (i.isStringSelectMenu()) {
+                            const selectedCard = currentCards.find(c => c.id === i.values[0]);
+                            if (selectedCard) {
+                                const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
+                                const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.id);
+
+                                const wishlistButton = createWishlistButton(isWishlisted);
+                                const backButton = createBackButton();
+                                const actionRow = new ActionRowBuilder()
+                                    .addComponents(wishlistButton, backButton);
+
+                                await i.editReply({
+                                    embeds: [detailEmbed],
                                     components: [actionRow]
                                 });
                             }
-                        } else if (i.customId === 'back') {
-                            const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode || isMeMode, lastPageCards);
-                            const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
-                            const newSelectMenu = createCardSelectMenu(currentCards);
-
-                            const newComponents = [newNavigationButtons];
-                            if (newSelectMenu) {
-                                newComponents.push(newSelectMenu);
-                            }
-
-                            await i.editReply({
-                                embeds: [newEmbed],
-                                components: newComponents
-                            });
-                        } else {
-                            let newPage = currentPage;
-                            switch (i.customId) {
-                                case 'first': newPage = 1; break;
-                                case 'prev': newPage = Math.max(1, currentPage - 1); break;
-                                case 'next': newPage = Math.min(totalPages, currentPage + 1); break;
-                                case 'last': newPage = totalPages; break;
-                            }
-
-                            if (newPage !== currentPage) {
-                                try {
-                                    await updateCards(newPage);
-                                    
-                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode || isMeMode, lastPageCards);
-                                    const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
-                                    const newSelectMenu = createCardSelectMenu(currentCards);
-
-                                    const newComponents = [newNavigationButtons];
-                                    if (newSelectMenu) {
-                                        newComponents.push(newSelectMenu);
-                                    }
-
-                                    await i.editReply({
-                                        embeds: [newEmbed],
-                                        components: newComponents
-                                    });
-                                } catch (error) {
-                                    if (error.message === "Mazoku Servers unavailable") {
-                                        throw error;
-                                    }
-                                    throw new Error('Failed to load the next page');
-                                }
-                            }
                         }
-                    } else if (i.isStringSelectMenu()) {
-                        const selectedCard = currentCards.find(c => c.id === i.values[0]);
-                        if (selectedCard) {
-                            const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
-                            const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.id);
-
-                            const wishlistButton = createWishlistButton(isWishlisted);
-                            const backButton = createBackButton();
-                            const actionRow = new ActionRowBuilder()
-                                .addComponents(wishlistButton, backButton);
-
-                            await i.editReply({
-                                embeds: [detailEmbed],
-                                components: [actionRow]
-                            });
-                        }
+                    } catch (error) {
+                        console.error('Interaction error:', error);
+                        await handleCommandError(i, error, 'An error occurred while processing your request. Please try again.');
                     }
-                } catch (error) {
-                    await handleCommandError(i, error, error.message === "Mazoku Servers unavailable" 
-                        ? 'Mazoku Servers unavailable'
-                        : 'An error occurred. Please try again.');
-                }
-            });
+                });
 
-            collector.on('end', () => {
-                console.log('Wishlist command interaction collector ended');
-                console.log(`${interaction.user.tag} | ${interaction.user.id} | ${interaction.guild.name} | ${interaction.guild.id}`);
-            });
+                collector.on('end', () => {
+                    console.log('Wishlist command interaction collector ended');
+                    console.log(`${interaction.user.tag} | ${interaction.user.id} | ${interaction.guild.name} | ${interaction.guild.id}`);
+                });
 
+            } catch (error) {
+                console.error('Command execution error:', error);
+                await handleCommandError(interaction, error, 'An error occurred while processing your request. Please try again.');
+            }
         } catch (error) {
-            await handleCommandError(interaction, error, error.message === "Mazoku Servers unavailable" 
-                ? 'Mazoku Servers unavailable'
-                : 'An error occurred while processing your request. Please try again later.');
+            console.error('Top-level error:', error);
+            await handleCommandError(interaction, error, 'An error occurred while processing your request. Please try again.');
         }
     }
 };

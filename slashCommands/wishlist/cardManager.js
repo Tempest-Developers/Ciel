@@ -25,7 +25,7 @@ const sortByWishlistCount = async (cards, userId) => {
         return cardsWithWishlist.sort((a, b) => b.wishlistCount - a.wishlistCount);
     } catch (error) {
         console.error('Error sorting cards by wishlist count:', error);
-        return cards; // Return unsorted cards on error
+        throw new Error("Failed to sort cards");
     }
 };
 
@@ -57,7 +57,6 @@ const fetchAllWishlistedCards = async (userId) => {
                     }
                     return null;
                 } catch (error) {
-                    // If we get the server unavailable error, propagate it immediately
                     if (error.message === "Mazoku Servers unavailable") {
                         throw error;
                     }
@@ -71,20 +70,18 @@ const fetchAllWishlistedCards = async (userId) => {
                 // Filter out any failed fetches
                 return cardDetails.filter(card => card !== null);
             } catch (error) {
-                // Re-throw "Mazoku Servers unavailable" error
                 if (error.message === "Mazoku Servers unavailable") {
                     throw error;
                 }
                 console.error('Error in Promise.all:', error);
-                return [];
+                throw error;
             }
         } catch (error) {
-            // Re-throw "Mazoku Servers unavailable" error
             if (error.message === "Mazoku Servers unavailable") {
                 throw error;
             }
             console.error('Error fetching all wishlisted cards:', error);
-            return [];
+            throw error;
         }
     });
 };
@@ -111,7 +108,6 @@ const fetchUserWishlistedCards = async (userId) => {
                 }
                 return null;
             } catch (error) {
-                // If we get the server unavailable error, propagate it immediately
                 if (error.message === "Mazoku Servers unavailable") {
                     throw error;
                 }
@@ -127,20 +123,18 @@ const fetchUserWishlistedCards = async (userId) => {
                 .filter(card => card !== null)
                 .sort((a, b) => b.wishlistCount - a.wishlistCount);
         } catch (error) {
-            // Re-throw "Mazoku Servers unavailable" error
             if (error.message === "Mazoku Servers unavailable") {
                 throw error;
             }
             console.error('Error in Promise.all:', error);
-            return [];
+            throw error;
         }
     } catch (error) {
-        // Re-throw "Mazoku Servers unavailable" error
         if (error.message === "Mazoku Servers unavailable") {
             throw error;
         }
         console.error('Error fetching user wishlisted cards:', error);
-        return [];
+        throw error;
     }
 };
 
@@ -153,7 +147,7 @@ const paginateCards = (cards, page, pageSize = CARDS_PER_PAGE) => {
         return cards.slice(startIndex, endIndex);
     } catch (error) {
         console.error('Error paginating cards:', error);
-        return [];
+        throw new Error("Failed to paginate cards");
     }
 };
 
@@ -174,11 +168,7 @@ const toggleWishlist = async (userId, cardId) => {
         };
     } catch (error) {
         console.error('Error toggling wishlist:', error);
-        return {
-            success: false,
-            isWishlisted: false,
-            error: error.message
-        };
+        throw new Error("Failed to update wishlist");
     }
 };
 
