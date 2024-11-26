@@ -17,7 +17,7 @@ const createCardListEmbed = async (cards, page, totalPages, userId, isListMode =
             .setColor('#0099ff');
 
         const totalCards = calculateTotalCards(totalPages, lastPageCards || cards.length);
-        let description = `Page ${page} of ${totalPages}\t\t${totalCards} cards total\n\n`;
+        let description = `Page ${page} of ${totalPages}\t\t\`${totalCards}\` cards total\n\n`;
         
         if (!Array.isArray(cards) || cards.length === 0) {
             description += 'No cards found.';

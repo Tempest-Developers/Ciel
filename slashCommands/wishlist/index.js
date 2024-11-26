@@ -103,9 +103,11 @@ module.exports = {
 
             await safeDefer(interaction);
 
-            const subcommand = interaction.options.getSubcommand();
-            const isGlobalMode = subcommand === 'global';
-            const isMeMode = subcommand === 'me';
+            const mode = interaction.options.getSubcommand();
+            const isGlobalMode = mode === 'global';
+            const isMeMode = mode === 'me';
+            const isAddMode = mode === 'add';
+            
             let currentCards = [];
             let currentPage = 1;
             let totalPages = 1;
@@ -113,13 +115,32 @@ module.exports = {
             let lastPageCards = 0;
 
             // Store search parameters for pagination
-            const searchParams = {
+            const searchParams = isAddMode ? {
                 name: interaction.options.getString('name'),
                 anime: interaction.options.getString('anime'),
                 tier: interaction.options.getString('tier'),
                 sortBy: interaction.options.getString('sort_by'),
                 sortOrder: interaction.options.getString('sort_order') || 'desc',
                 type: interaction.options.getString('type')
+            } : null;
+
+            // Function to update cards based on mode and page
+            const updateCards = async (newPage) => {
+                if (isGlobalMode || isMeMode) {
+                    // For global and me modes, we paginate from the full list
+                    currentPage = newPage;
+                    currentCards = paginateCards(allCards, currentPage);
+                } else if (isAddMode) {
+                    // For add mode, we fetch new results with search parameters
+                    const result = await searchCards(searchParams, newPage);
+                    currentCards = result.cards;
+                    currentPage = newPage;
+
+                    if (searchParams.sortBy === 'wishlist') {
+                        currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
+                    }
+                }
+                return currentCards;
             };
 
             try {
@@ -132,6 +153,9 @@ module.exports = {
                             ephemeral: true
                         }, 'editReply');
                     }
+                    totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
+                    currentCards = await updateCards(currentPage);
+                    lastPageCards = allCards.length % CARDS_PER_PAGE || CARDS_PER_PAGE;
                 } else if (isMeMode) {
                     // Fetch user's personal wishlist
                     allCards = await fetchUserWishlistedCards(interaction.user.id);
@@ -141,6 +165,9 @@ module.exports = {
                             ephemeral: true
                         }, 'editReply');
                     }
+                    totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
+                    currentCards = await updateCards(currentPage);
+                    lastPageCards = allCards.length % CARDS_PER_PAGE || CARDS_PER_PAGE;
                 } else {
                     const result = await searchCards(searchParams, currentPage);
                     currentCards = result.cards;
@@ -161,12 +188,6 @@ module.exports = {
                 throw new Error('Failed to fetch cards');
             }
 
-            if (isGlobalMode || isMeMode) {
-                totalPages = Math.ceil(allCards.length / CARDS_PER_PAGE);
-                currentCards = paginateCards(allCards, currentPage);
-                lastPageCards = allCards.length % CARDS_PER_PAGE || CARDS_PER_PAGE;
-            }
-
             if (currentCards.length === 0) {
                 return await handleInteraction(interaction, {
                     content: 'No cards found matching your criteria.',
@@ -174,7 +195,7 @@ module.exports = {
                 }, 'editReply');
             }
 
-            const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode, lastPageCards);
+            const embed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, isGlobalMode || isMeMode, lastPageCards);
             const navigationButtons = createNavigationButtons(currentPage, totalPages);
             const selectMenu = createCardSelectMenu(currentCards);
 
@@ -218,14 +239,14 @@ module.exports = {
                             const selectedCard = currentCards.find(c => c.id === cardId);
                             if (selectedCard) {
                                 selectedCard.isWishlisted = result.isWishlisted;
-                                const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id, isGlobalMode);
+                                const updatedEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
                                 await i.editReply({
                                     embeds: [updatedEmbed],
                                     components: [actionRow]
                                 });
                             }
                         } else if (i.customId === 'back') {
-                            const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode, lastPageCards);
+                            const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode || isMeMode, lastPageCards);
                             const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                             const newSelectMenu = createCardSelectMenu(currentCards);
 
@@ -249,20 +270,9 @@ module.exports = {
 
                             if (newPage !== currentPage) {
                                 try {
-                                    if (isGlobalMode || isMeMode) {
-                                        currentPage = newPage;
-                                        currentCards = paginateCards(allCards, currentPage);
-                                    } else {
-                                        const result = await searchCards(searchParams, newPage);
-                                        currentCards = result.cards;
-                                        currentPage = newPage;
-
-                                        if (searchParams.sortBy === 'wishlist') {
-                                            currentCards = await sortByWishlistCount(currentCards, interaction.user.id);
-                                        }
-                                    }
+                                    await updateCards(newPage);
                                     
-                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode, lastPageCards);
+                                    const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, isGlobalMode || isMeMode, lastPageCards);
                                     const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                     const newSelectMenu = createCardSelectMenu(currentCards);
 
@@ -286,7 +296,7 @@ module.exports = {
                     } else if (i.isStringSelectMenu()) {
                         const selectedCard = currentCards.find(c => c.id === i.values[0]);
                         if (selectedCard) {
-                            const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id, isGlobalMode);
+                            const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
                             const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.id);
 
                             const wishlistButton = createWishlistButton(isWishlisted);
