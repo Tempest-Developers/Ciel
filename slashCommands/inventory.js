@@ -16,7 +16,6 @@ const handleMazokuAPICall = async (apiCall) => {
         const response = await apiCall();
         return response;
     } catch (error) {
-        console.log('Mazoku API Error:', error.message);
         throw new Error("Mazoku Servers unavailable");
     }
 };
@@ -99,7 +98,6 @@ const createCardListEmbed = async (cards, page, totalPages, userId, targetUser, 
         embed.setDescription(description);
         return embed;
     } catch (error) {
-        console.log('Error creating card list embed:', error.message);
         throw new Error('Failed to create card list');
     }
 };
@@ -127,7 +125,14 @@ const createCardDetailEmbed = async (item, userId) => {
                 handleMazokuAPICall(async () => {
                     const response = await axios.get(
                         `https://api.mazoku.cc/api/get-inventory-items-by-card/${card.id}`,
-                        createAxiosConfig({})
+                        {
+                            headers: {
+                                'Cache-Control': 'no-cache',
+                                'Content-Type': 'application/json',
+                                'Host': 'api.mazoku.cc'
+                            },
+                            timeout: 10000
+                        }
                     );
                     return response.data;
                 }),
@@ -145,19 +150,25 @@ const createCardDetailEmbed = async (item, userId) => {
                         value: `Prints Out \`${totalCopies.toString()}\`\nAll Owners \`${uniqueOwners.toString()}\`\nLowest Print \`#${lowestPrint.toString()}\`\n\`❤️ ${wishlistCount}\` `
                     }
                 );
+            } else {
+                embed.addFields(
+                    { 
+                        name: 'Global Card Details:', 
+                        value: 'No ownership data available'
+                    }
+                );
             }
         } catch (error) {
             embed.addFields(
                 { 
                     name: 'Global Card Details:', 
-                    value: '*Data Unavailable*'
+                    value: 'Data Unavailable'
                 }
             );
         }
 
         return embed;
     } catch (error) {
-        console.log('Error creating card detail embed:', error.message);
         throw new Error('Failed to create card details');
     }
 };
@@ -208,7 +219,6 @@ const createCardSelectMenu = (cards) => {
                     )
             );
     } catch (error) {
-        console.log('Error creating card select menu:', error.message);
         return null;
     }
 };
@@ -495,7 +505,7 @@ module.exports = {
                             components: []
                         });
                     } catch (error) {
-                        console.log('Error handling collector end:', error.message);
+                        // Silently handle collector end errors
                     }
                 });
 
