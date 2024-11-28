@@ -166,7 +166,7 @@ async function handleManualSummonInfo(client, newMessage, newEmbed, messageId) {
         serverSettings = await client.database.getServerSettings(guildId);
     }
 
-    if (!processedManualEdits.has(messageId) && newEmbed.image && newEmbed.image.url.includes('cdn.mazoku.cc/packs')) {
+    if (!processedManualEdits.has(messageId) && newEmbed.image && (newEmbed.image.url.includes('cdn.mazoku.cc/packs') || newEmbed.image.url.includes('cdn.testzoku.org/')) ) {
         // Mark this message as processed
         processedManualEdits.set(messageId, Date.now());
 
