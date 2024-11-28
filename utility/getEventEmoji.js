@@ -8,7 +8,7 @@ const getEventEmoji = (eventType) => {
         'christmas': '🎄',
         'halloween': '🎃'
     };
-
+    console.log(eventEmojis[eventType.toLowerCase()] || ``)
     return eventEmojis[eventType.toLowerCase()] || '';
 };
 

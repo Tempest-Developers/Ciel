@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const axios = require('axios');
 const db = require('../database/mongo');
 const getTierEmoji = require('../utility/getTierEmoji');
+const getEventEmoji = require('../utility/getEventEmoji');
 const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 // Constants
@@ -113,17 +114,35 @@ const createCardDetailEmbed = async (item, userId) => {
         const heartEmoji = isWishlisted ? ':yellow_heart:' : '';
         const cardName = card.name || '*Data Unavailable*';
         const cardSeries = card.series || '*Data Unavailable*';
-        const eventEmoji = card.eventType ? getEventEmoji(card.eventType) : '';
+        let eventEmoji = '';
+        
+        try {
+            eventEmoji = card.eventType ? getEventEmoji(card.eventType) : '';
+        } catch (error) {
+            console.error('Error getting event emoji:', error);
+            // If getEventEmoji fails, we'll just use an empty string
+        }
 
         const embed = new EmbedBuilder()
             .setTitle(`${getTierEmoji(formatTier(card.tier))} ${cardName} #${item.version} ${eventEmoji} ${heartEmoji}`)
-            .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n\`${cardSeries}\` \`❤️ ${wishlistCount}\``)
-            .setImage(`https://cdn.mazoku.cc/cards/${card.id}/card`)
             .setColor('#0099ff');
+
+        // Add description only if card.id is available
+        if (card.id) {
+            embed.setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n\`${cardSeries}\``);
+        } else {
+            embed.setDescription(`\`${cardSeries}\``);
+        }
+
+        // Set image only if card.id is available
+        if (card.id) {
+            embed.setImage(`https://cdn.mazoku.cc/cards/${card.id}/card`);
+        }
 
         try {
             const [owners, wishlistCount] = await Promise.all([
                 handleMazokuAPICall(async () => {
+                    if (!card.id) throw new Error('Card ID is missing');
                     const response = await axios.get(
                         `https://api.mazoku.cc/api/get-inventory-items-by-card/${card.id}`,
                         {
@@ -139,6 +158,9 @@ const createCardDetailEmbed = async (item, userId) => {
                 }),
                 db.getCardWishlistCount(card.id)
             ]);
+
+            // Add wishlist count to the description
+            embed.setDescription(embed.data.description + ` \`❤️ ${wishlistCount}\``);
 
             if (Array.isArray(owners) && owners.length > 0) {
                 const totalCopies = owners.length;
@@ -160,6 +182,7 @@ const createCardDetailEmbed = async (item, userId) => {
                 );
             }
         } catch (error) {
+            console.error('Error fetching additional card details:', error);
             embed.addFields(
                 { 
                     name: 'Global Card Details:', 
@@ -170,6 +193,7 @@ const createCardDetailEmbed = async (item, userId) => {
 
         return embed;
     } catch (error) {
+        console.error('Error in createCardDetailEmbed:', error);
         throw new Error('Failed to create card details');
     }
 };
@@ -467,26 +491,33 @@ module.exports = {
                         } else if (i.isStringSelectMenu()) {
                             const selectedCard = currentCards.find(c => c.id.toString() === i.values[0]);
                             if (selectedCard) {
-                                const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
-                                const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.card.id);
+                                try {
+                                    const detailEmbed = await createCardDetailEmbed(selectedCard, i.user.id);
+                                    const isWishlisted = await db.isInWishlist(i.user.id, selectedCard.card.id);
 
-                                const wishlistButton = new ButtonBuilder()
-                                    .setCustomId('wishlist')
-                                    .setEmoji(isWishlisted ? '❎' : '❤️')
-                                    .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
+                                    const wishlistButton = new ButtonBuilder()
+                                        .setCustomId('wishlist')
+                                        .setEmoji(isWishlisted ? '❎' : '❤️')
+                                        .setStyle(isWishlisted ? ButtonStyle.Danger : ButtonStyle.Success);
 
-                                const backButton = new ButtonBuilder()
-                                    .setCustomId('back')
-                                    .setLabel('Back to List')
-                                    .setStyle(ButtonStyle.Secondary);
+                                    const backButton = new ButtonBuilder()
+                                        .setCustomId('back')
+                                        .setLabel('Back to List')
+                                        .setStyle(ButtonStyle.Secondary);
 
-                                const actionRow = new ActionRowBuilder()
-                                    .addComponents(wishlistButton, backButton);
+                                    const actionRow = new ActionRowBuilder()
+                                        .addComponents(wishlistButton, backButton);
 
-                                await i.editReply({
-                                    embeds: [detailEmbed],
-                                    components: [actionRow]
-                                });
+                                    await i.editReply({
+                                        embeds: [detailEmbed],
+                                        components: [actionRow]
+                                    });
+                                } catch (error) {
+                                    console.error('Error creating card detail embed:', error);
+                                    await handleCommandError(i, error, "An error occurred while fetching card details.");
+                                }
+                            } else {
+                                await handleCommandError(i, new Error('Selected card not found'), "The selected card could not be found.");
                             }
                         }
                     } catch (error) {

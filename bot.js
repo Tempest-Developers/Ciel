@@ -43,28 +43,9 @@ function monitorSystem() {
     const heapUsed = (processMemoryUsage.heapUsed / 1024 / 1024).toFixed(2);
     const heapTotal = (processMemoryUsage.heapTotal / 1024 / 1024).toFixed(2);
 
-    // Network Interfaces
-    const networkInterfaces = os.networkInterfaces();
-    const networkStats = Object.entries(networkInterfaces)
-        .map(([name, interfaces]) => {
-            return interfaces
-                .filter(iface => !iface.internal) // Filter out loopback interface
-                .map(iface => ({
-                    name,
-                    address: iface.address,
-                    family: iface.family,
-                    mac: iface.mac
-                }));
-        })
-        .flat();
-
     console.log('\n=== System Monitor ===');
     console.log(`RAM Usage: ${memoryUsagePercent}% (${(usedMemory / 1024 / 1024 / 1024).toFixed(2)}GB / ${(totalMemory / 1024 / 1024 / 1024).toFixed(2)}GB)`);
     console.log(`Heap Usage: ${heapUsed}MB / ${heapTotal}MB`);
-    console.log('\nNetwork Interfaces:');
-    networkStats.forEach(iface => {
-        console.log(`${iface.name}: ${iface.address} (${iface.family})`);
-    });
     console.log('===================\n');
 }
 
