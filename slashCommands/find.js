@@ -89,7 +89,7 @@ const formatAutocompleteSuggestion = (card) => {
 };
 
 const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 1, totalPages, userId) => {
-    const cardImageUrl = `https://cdn.mazoku.cc/packs/${cardDetails.id}`;
+    const cardImageUrl = `https://cdn.mazoku.cc/cards/${cardDetails.id}/card`;
     const eventMark = cardDetails.eventType ? EVENT_EMOJI : '';
     const lowestPrint = findLowestPrint(ownersList);
     const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);

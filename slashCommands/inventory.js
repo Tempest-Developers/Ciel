@@ -119,7 +119,7 @@ const createCardDetailEmbed = async (item, userId) => {
         const embed = new EmbedBuilder()
             .setTitle(`${getTierEmoji(formatTier(card.tier))} ${cardName} #${item.version} ${card.eventType ? '🎃' : ''} ${heartEmoji}`)
             .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n*${cardSeries}*`)
-            .setImage(`https://cdn.mazoku.cc/packs/${card.id}`)
+            .setImage(`https://cdn.mazoku.cc/cards/${card.id}/card`)
             .setColor('#0099ff');
 
         try {

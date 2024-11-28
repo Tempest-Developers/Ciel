@@ -271,7 +271,7 @@ module.exports = {
                                            `**Owner**: ${enrichedCard.owner}\n` +
                                            `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
                                 })
-                                .setThumbnail(`https://cdn.mazoku.cc/packs/${bestPrint.cardID}`);
+                                .setThumbnail(`https://cdn.mazoku.cc/cards/${bestPrint.cardID}/card`);
                             } else {
                                 embed.addFields({
                                     name: 'Best Drop (Last 30 Minutes)',

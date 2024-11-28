@@ -196,7 +196,7 @@ module.exports = {
                                            `**Owner**: ${enrichedCard.owner}\n` +
                                            `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
                                 })
-                                .setThumbnail(`https://cdn.mazoku.cc/packs/${bestCard.cardID}`);
+                                .setThumbnail(`https://cdn.mazoku.cc/cards/${bestCard.cardID}/card`);
                             } else {
                                 embed.addFields({
                                     name: 'No Cards',

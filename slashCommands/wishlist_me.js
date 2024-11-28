@@ -61,7 +61,7 @@ const createCardDetailEmbed = async (card, userId) => {
         const embed = new EmbedBuilder()
             .setTitle(`${getTierEmoji(`${card.tier}T`)} ${card.name} ${card.eventType ? '🎃' : ''} :yellow_heart:`)
             .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n*${card.series}*`)
-            .setImage(`https://cdn.mazoku.cc/packs/${card.id}`)
+            .setImage(`https://cdn.mazoku.cc/cards/${card.id}/card`)
             .setColor('#0099ff')
             .addFields({ 
                 name: 'Global Card Details:', 
