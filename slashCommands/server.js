@@ -45,8 +45,7 @@ module.exports = {
                     { name: 'Tier Distribution', value: 'tiers' },
                     { name: 'Print Distribution', value: 'prints' },
                     { name: 'Tier Claim Times', value: 'tiertimes' },
-                    { name: 'Print Claim Times', value: 'printtimes' },
-                    { name: 'Last Claimed Timestamps', value: 'lastclaimed' }
+                    { name: 'Print Claim Times', value: 'printtimes' }
                 )),
 
     async execute(interaction, { database }) {
@@ -158,23 +157,21 @@ module.exports = {
                     uniqueOwners.add(claim.owner);
                     
                     if (claim.timestamp) {
-                        const claimDate = new Date(claim.timestamp);
-                        
                         if (isWithinLastHour(claim.timestamp)) {
                             recentUniqueOwners.add(claim.owner);
-                            
-                            // Update last claimed timestamp for each tier
-                            if (!lastClaimedByTier[tier] || claimDate > new Date(lastClaimedByTier[tier])) {
-                                lastClaimedByTier[tier] = claim.timestamp;
-                            }
                             
                             // Only consider claims from last hour for best print
                             if (!bestPrint || isHigherQuality({ ...claim, tier }, { ...bestPrint, tier: bestPrint.tier })) {
                                 bestPrint = { ...claim, tier };
                             }
+
+                            // Update last claimed timestamp for each tier
+                            if (!lastClaimedByTier[tier] || new Date(claim.timestamp) > new Date(lastClaimedByTier[tier])) {
+                                lastClaimedByTier[tier] = claim.timestamp;
+                            }
                         }
                         
-                        claimTimesByTier[tier].push(claimDate);
+                        claimTimesByTier[tier].push(new Date(claim.timestamp));
                     }
                     
                     const printNum = claim.print;
@@ -190,23 +187,11 @@ module.exports = {
 
             // Calculate print range counts for last hour
             const printRangeCounts = {
-                SP: 0,
-                LP: 0,
-                MP: 0,
-                HP: 0
+                SP: claimTimesByPrintRange.SP.length,
+                LP: claimTimesByPrintRange.LP.length,
+                MP: claimTimesByPrintRange.MP.length,
+                HP: claimTimesByPrintRange.HP.length
             };
-
-            for (const tier in mServerDB.claims) {
-                for (const claim of mServerDB.claims[tier] || []) {
-                    if (isWithinLastHour(claim.timestamp)) {
-                        const printNum = claim.print;
-                        if (printNum >= 1 && printNum <= 10) printRangeCounts.SP++;
-                        else if (printNum >= 11 && printNum <= 99) printRangeCounts.LP++;
-                        else if (printNum >= 100 && printNum <= 499) printRangeCounts.MP++;
-                        else if (printNum >= 500 && printNum <= 2000) printRangeCounts.HP++;
-                    }
-                }
-            }
 
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
             const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
@@ -267,6 +252,13 @@ module.exports = {
                         name: `Total Claims:  ${totalClaims.toString()}`, 
                         value: `*Claimers in last 1 hour*: ${recentUniqueOwners.size.toString()}`,
                     });
+                    embed.addFields({
+                        name: 'Last Claimed Timestamps',
+                        value: Object.entries(lastClaimedByTier)
+                            .filter(([_, timestamp]) => timestamp !== null)
+                            .map(([tier, timestamp]) => `${getTierEmoji(tier)}: <t:${isoToUnixTimestamp(timestamp)}:R>`)
+                            .join('\n') || '*No claims in the last 1 hour*'
+                    });
                     break;
 
                 case 'best':
@@ -284,12 +276,12 @@ module.exports = {
                                 embed.addFields({
                                     name: 'Best Drop (Last 1 Hour)',
                                     value: `*${series}*\n` +
-                                           `${getTierEmoji(bestPrint.tier+"T")} **${cardName}** #**${enrichedCard.print}** \n` +
+                                           `${getTierEmoji(bestPrint.tier)} **${cardName}** #**${enrichedCard.print}** \n` +
                                            `**Maker(s)**: ${makers}\n` +
                                            `**Owner**: ${enrichedCard.owner}\n` +
                                            `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
                                 })
-                                .setThumbnail(`https://cdn.mazoku.cc/cards/${bestPrint.cardID}/card`);
+                                .setThumbnail(`https://cdn.mazoku.cc/packs/${bestPrint.cardID}`);
                             } else {
                                 embed.addFields({
                                     name: 'Best Drop (Last 1 Hour)',
@@ -316,11 +308,11 @@ module.exports = {
 
                 case 'tiers':
                     embed.addFields({
-                        name: 'Claims by Tier (Last 1 Hour)',
-                        value: Object.entries(printRangeCounts)
+                        name: 'Claims by Tier',
+                        value: Object.entries(tierCounts)
                             .map(([tier, count]) => {
-                                const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
-                                return `${getTierEmoji(tier+"T")} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
+                                const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
+                                return `${getTierEmoji(tier)} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
                             })
                             .join('\n')
                     });
@@ -340,12 +332,12 @@ module.exports = {
 
                 case 'tiertimes':
                     embed.addFields({
-                        name: 'Average Time Between Claims by Tier (Last 1 Hour)',
+                        name: 'Average Time Between Claims by Tier',
                         value: Object.entries(claimTimesByTier)
                             .filter(([_, times]) => times.length > 0)
                             .map(([tier, times]) => {
                                 const avgTime = calculateAverageTimeBetweenClaims(times);
-                                return `${getTierEmoji(tier+"T")}: ${avgTime || '*Data Unavailable*'}`;
+                                return `${getTierEmoji(tier)}: ${avgTime || '*Data Unavailable*'}`;
                             })
                             .join('\n') || '*Data Unavailable*'
                     });
@@ -353,7 +345,7 @@ module.exports = {
 
                 case 'printtimes':
                     embed.addFields({
-                        name: 'Average Print Claim Time (Last 1 Hour)',
+                        name: 'Average Print Claim Time',
                         value: Object.entries(claimTimesByPrintRange)
                             .filter(([_, times]) => times.length > 0)
                             .map(([range, times]) => {
@@ -362,24 +354,6 @@ module.exports = {
                             })
                             .join('\n') || '*Data Unavailable*'
                     });
-                    break;
-
-                case 'lastclaimed':
-                    const lastClaimedFields = Object.entries(lastClaimedByTier)
-                        .filter(([_, timestamp]) => timestamp !== null)
-                        .map(([tier, timestamp]) => ({
-                            name: `${getTierEmoji(tier+"T")} Last Claimed`,
-                            value: timestamp ? `<t:${isoToUnixTimestamp(timestamp)}:R>` : '*No claims*'
-                        }));
-
-                    if (lastClaimedFields.length > 0) {
-                        embed.addFields(lastClaimedFields);
-                    } else {
-                        embed.addFields({
-                            name: 'Last Claimed Timestamps',
-                            value: '*No claims in the last 1 hour*'
-                        });
-                    }
                     break;
             }
 
