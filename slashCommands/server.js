@@ -284,7 +284,7 @@ module.exports = {
                                 embed.addFields({
                                     name: 'Best Drop (Last 1 Hour)',
                                     value: `*${series}*\n` +
-                                           `${getTierEmoji(bestPrint.tier)} **${cardName}** #**${enrichedCard.print}** \n` +
+                                           `${getTierEmoji(bestPrint.tier+"T")} **${cardName}** #**${enrichedCard.print}** \n` +
                                            `**Maker(s)**: ${makers}\n` +
                                            `**Owner**: ${enrichedCard.owner}\n` +
                                            `**Claimed**: <t:${isoToUnixTimestamp(enrichedCard.timestamp)}:R>`
@@ -320,7 +320,7 @@ module.exports = {
                         value: Object.entries(printRangeCounts)
                             .map(([tier, count]) => {
                                 const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
-                                return `${getTierEmoji(tier)} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
+                                return `${getTierEmoji(tier+"T")} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
                             })
                             .join('\n')
                     });
@@ -345,7 +345,7 @@ module.exports = {
                             .filter(([_, times]) => times.length > 0)
                             .map(([tier, times]) => {
                                 const avgTime = calculateAverageTimeBetweenClaims(times);
-                                return `${getTierEmoji(tier)}: ${avgTime || '*Data Unavailable*'}`;
+                                return `${getTierEmoji(tier+"T")}: ${avgTime || '*Data Unavailable*'}`;
                             })
                             .join('\n') || '*Data Unavailable*'
                     });
@@ -368,7 +368,7 @@ module.exports = {
                     const lastClaimedFields = Object.entries(lastClaimedByTier)
                         .filter(([_, timestamp]) => timestamp !== null)
                         .map(([tier, timestamp]) => ({
-                            name: `${getTierEmoji(tier)} Last Claimed`,
+                            name: `${getTierEmoji(tier+"T")} Last Claimed`,
                             value: timestamp ? `<t:${isoToUnixTimestamp(timestamp)}:R>` : '*No claims*'
                         }));
 

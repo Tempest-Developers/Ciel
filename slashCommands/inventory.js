@@ -395,7 +395,21 @@ module.exports = {
                             return;
                         }
 
-                        await i.deferUpdate();
+                        try {
+                            await i.deferUpdate();
+                        } catch (error) {
+                            console.error('Error deferring update:', error);
+                            // If we can't defer the update, we'll try to respond with an ephemeral message
+                            try {
+                                await i.reply({
+                                    content: 'This interaction has expired. Please run the command again.',
+                                    ephemeral: true
+                                });
+                            } catch (replyError) {
+                                console.error('Error replying to interaction:', replyError);
+                            }
+                            return;
+                        }
 
                         if (i.isButton()) {
                             if (i.customId === 'wishlist') {
