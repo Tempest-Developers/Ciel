@@ -196,7 +196,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
         serverSettings = await client.database.getServerSettings(guildId);
     }
     
-    if (!processedManualEdits.has(messageId) && newEmbed.image && (newEmbed.image.url.includes('cdn.mazoku.cc/packs' || newEmbed.image.url.includes('https://cdn.testzoku.org/'))) ) {
+    if (!processedEdits.has(messageId) && newEmbed.image && (newEmbed.image.url.includes('cdn.mazoku.cc/packs' || newEmbed.image.url.includes('https://cdn.testzoku.org/'))) ) {
         // Mark this message as processed
         processedEdits.set(messageId, Date.now());
 
