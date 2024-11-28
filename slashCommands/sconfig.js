@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 module.exports = {
@@ -13,7 +13,11 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand
                 .setName('ping')
-                .setDescription('Toggle manual summon cooldown ping notifications')),
+                .setDescription('Toggle manual summon cooldown ping notifications'))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('status')
+                .setDescription('View current server configuration settings')),
 
     async execute(interaction) {
         try {
@@ -31,23 +35,51 @@ module.exports = {
             }
 
             let toggleResult;
-            let responseMessage;
+            let responseEmbed;
 
             if (subcommand === 'tier') {
                 // Toggle the tier display setting
                 toggleResult = await interaction.client.database.toggleAllowRolePing(guildId);
-                responseMessage = `Tier display in summon messages ${toggleResult.allowRolePing ? 'enabled' : 'disabled'} for this server.`;
+                responseEmbed = new EmbedBuilder()
+                    .setColor('#2B2D31')
+                    .setTitle('Server Configuration Updated')
+                    .setDescription(`Tier display in summon messages ${toggleResult.allowRolePing ? 'enabled' : 'disabled'} for this server.`)
+                    .setTimestamp();
             } 
             else if (subcommand === 'ping') {
                 // Toggle the cooldown ping setting
                 toggleResult = await interaction.client.database.toggleAllowCooldownPing(guildId);
-                responseMessage = `Manual summon cooldown pings ${toggleResult.allowCooldownPing ? 'enabled' : 'disabled'} for this server.`;
+                responseEmbed = new EmbedBuilder()
+                    .setColor('#2B2D31')
+                    .setTitle('Server Configuration Updated')
+                    .setDescription(`Manual summon cooldown pings ${toggleResult.allowCooldownPing ? 'enabled' : 'disabled'} for this server.`)
+                    .setTimestamp();
+            }
+            else if (subcommand === 'status') {
+                // Display current server configuration status
+                responseEmbed = new EmbedBuilder()
+                    .setColor('#2B2D31')
+                    .setTitle('Server Configuration Status')
+                    .addFields(
+                        { 
+                            name: 'Tier Display', 
+                            value: serverData.allowRolePing ? 'Enabled ✅' : 'Disabled ❌', 
+                            inline: true 
+                        },
+                        { 
+                            name: 'Cooldown Ping Notifications', 
+                            value: serverData.allowCooldownPing ? 'Enabled ✅' : 'Disabled ❌', 
+                            inline: true 
+                        }
+                    )
+                    .setTimestamp()
+                    .setFooter({ text: `Server ID: ${guildId}` });
             }
 
-            console.log(`${interaction.guild.name} - ${subcommand}: ${JSON.stringify(toggleResult)}`);
+            console.log(`${interaction.guild.name} - ${subcommand}: ${JSON.stringify(toggleResult || serverData)}`);
 
             await handleInteraction(interaction, {
-                content: responseMessage,
+                embeds: [responseEmbed],
                 ephemeral: true
             }, 'editReply');
 

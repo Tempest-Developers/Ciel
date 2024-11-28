@@ -110,13 +110,14 @@ const createCardDetailEmbed = async (item, userId) => {
 
         const card = item.card;
         const isWishlisted = await db.isInWishlist(userId, card.id);
-        const heartEmoji = isWishlisted ? '❤️' : '';
+        const heartEmoji = isWishlisted ? ':yellow_heart:' : '';
         const cardName = card.name || '*Data Unavailable*';
         const cardSeries = card.series || '*Data Unavailable*';
+        const eventEmoji = card.eventType ? getEventEmoji(card.eventType) : '';
 
         const embed = new EmbedBuilder()
-            .setTitle(`${getTierEmoji(formatTier(card.tier))} ${cardName} #${item.version} ${card.eventType ? '🎃' : ''} ${heartEmoji}`)
-            .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n*${cardSeries}*`)
+            .setTitle(`${getTierEmoji(formatTier(card.tier))} ${cardName} #${item.version} ${eventEmoji} ${heartEmoji}`)
+            .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n\`${cardSeries}\` \`❤️ ${wishlistCount}\``)
             .setImage(`https://cdn.mazoku.cc/cards/${card.id}/card`)
             .setColor('#0099ff');
 
@@ -147,7 +148,7 @@ const createCardDetailEmbed = async (item, userId) => {
                 embed.addFields(
                     { 
                         name: 'Global Card Details:', 
-                        value: `Prints Out \`${totalCopies.toString()}\`\nAll Owners \`${uniqueOwners.toString()}\`\nLowest Print \`#${lowestPrint.toString()}\`\n\`❤️ ${wishlistCount}\` `
+                        value: `Prints Out \`${totalCopies.toString()}\`\nAll Owners \`${uniqueOwners.toString()}\`\nLowest Print \`#${lowestPrint.toString()}\``
                     }
                 );
             } else {

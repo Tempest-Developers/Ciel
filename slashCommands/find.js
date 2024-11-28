@@ -3,32 +3,19 @@ const fs = require('fs').promises;
 const path = require('path');
 const { getCardWishlistCount, isInWishlist } = require('../database/modules/wishlist');
 const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
+const getEventEmoji = require('../utility/getEventEmoji');
+const getTierEmoji = require('../utility/getTierEmoji');
 
 // Utility constants
 const COOLDOWN_DURATION = 10000;
-const EVENT_EMOJI = '🎃 ';
-const MAX_SERIES_LENGTH = 15;
-const MAX_VERSIONS_DISPLAY = 10;
+const MAX_SERIES_LENGTH = 30;
+const MAX_VERSIONS_DISPLAY = 4;
 const OWNERS_PER_PAGE = 10;
 const MAX_PAGES = 50;
 const INTERACTION_TIMEOUT = 300000; // 5 minutes
 
 // Cooldown management
 const cooldowns = new Map();
-
-// Function to handle Mazoku API errors
-const handleMazokuAPICall = async (apiCall) => {
-    try {
-        const response = await apiCall();
-        if (!response.ok) {
-            throw new Error(`API responded with status ${response.status}`);
-        }
-        return response;
-    } catch (error) {
-        console.error('Mazoku API Error:', error);
-        throw new Error("Mazoku Servers unavailable");
-    }
-};
 
 // Utility functions
 const formatSeriesName = (series) => {
@@ -49,16 +36,22 @@ const sortVersions = (versions) => {
 const hasCMPrint = (versions) => versions.includes(0);
 
 const findLowestPrint = (ownersList) => {
-    let lowest = Infinity;
+    let versions = [];
     ownersList.forEach(owner => {
-        owner.versions.forEach(version => {
-            if (version !== 0 && version < lowest) {
-                lowest = version;
-            }
-        });
+      owner.versions.forEach(version => {
+        if (version !== 0) {
+          versions.push(version);
+        }
+      });
     });
-    return lowest === Infinity ? '*Data Unavailable*' : lowest;
-};
+    // Sort the versions in ascending order and remove duplicates
+    versions = [...new Set(versions)].sort((a, b) => a - b);
+    // Return up to the three lowest versions separated by spaces, or '*Data Unavailable*' if there are no versions
+    if (versions.length === 0) return '*Data Unavailable*';
+    if (versions.length === 1) return `\`${versions[0]}\``;
+    if (versions.length === 2) return `\`${versions[0]}\` \`${versions[1]}\``;
+    return `\`${versions[0]}\` \`${versions[1]}\` \`${versions[2]}\``;
+  };
 
 const formatVersionsDisplay = (versions) => {
     if (!versions || versions.length === 0) return '*Data Unavailable*';
@@ -66,7 +59,7 @@ const formatVersionsDisplay = (versions) => {
         return versions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ');
     }
     const displayVersions = versions.slice(0, MAX_VERSIONS_DISPLAY);
-    return `${displayVersions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ')} +${versions.length - MAX_VERSIONS_DISPLAY} more`;
+    return `${displayVersions.map(version => `\`${version === 0 ? 'CM' : version}\``).join(' ')} +**${versions.length - MAX_VERSIONS_DISPLAY}** more`;
 };
 
 const loadCardsData = async () => {
@@ -82,17 +75,18 @@ const loadCardsData = async () => {
 
 const formatAutocompleteSuggestion = (card) => {
     const tierDisplay = `[${card.tier || 'Unknown'}]`;
-    const eventMark = card.eventType ? EVENT_EMOJI : '';
+    const eventMark = card.eventType ? getEventEmoji(card.eventType) : '';
     const series = formatSeriesName(card.series);
     const name = card.name || '*Data Unavailable*';
-    return `${tierDisplay} ${name} ${eventMark}${series}`;
+    return `${tierDisplay}${eventMark} ${name} | ${series}`;
 };
 
 const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 1, totalPages, userId) => {
     const cardImageUrl = `https://cdn.mazoku.cc/cards/${cardDetails.id}/card`;
-    const eventMark = cardDetails.eventType ? EVENT_EMOJI : '';
+    const eventMark = cardDetails.eventType ? getEventEmoji(cardDetails.eventType) : '';
     const lowestPrint = findLowestPrint(ownersList);
     const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
+    const batchId = cardDetails.batchId;
     
     const makerMentions = (cardDetails.makers || [])
         .map(maker => `<@${maker}>`)
@@ -105,27 +99,28 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
     // Get wishlist information
     const wishlistCount = await getCardWishlistCount(cardDetails.id);
     const isWishlisted = await isInWishlist(userId, cardDetails.id);
-    const wishlistInfo = wishlistCount > 0 ? `\n${isWishlisted ? ':yellow_heart:' : '❤️'}${wishlistCount}` : '';
+    const wishlistInfo = `\`❤️ ${wishlistCount}\``;
 
     const statsInfo = [
-        `**Series:** ${eventMark}*${cardSeries}*`,
+        `**Series:** ${eventMark}\`${cardSeries}\` [${wishlistInfo}]`,
         `**Makers:** ${makerMentions}`,
         `**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`,
-        `**Lowest Print Out**: *${lowestPrint}*`,
-        `**Total Prints Claimed**: *${totalPrints}*`,
-        `**Total Owners**: *${ownersList.length}*${wishlistInfo}`
+        `**Lowest Print Out**: ${lowestPrint}`,
+        `**Total Prints Claimed**: \`${totalPrints}\``,
+        `**Total Owners**: \`${ownersList.length}\``,
+        `**Batch** \`${batchId}\``
     ].join('\n');
 
     const embed = new EmbedBuilder()
-        .setTitle(`${tierDisplay} ${cardName} ${eventMark}`)
+        .setTitle(`${getTierEmoji(cardDetails.tier+"T")} ${cardName} ${eventMark}`)
         .setDescription(statsInfo)
         .setThumbnail(cardImageUrl);
 
     if (userOwnership) {
         const versionsString = formatVersionsDisplay(userOwnership.versions);
         embed.addFields({ 
-            name: `Your Copies (${userOwnership.versions.length})`, 
-            value: versionsString
+            name: `Your Copies ( \`${userOwnership.versions.length}\` )`, 
+            value: `<@${userId}> \`ver:\` `+versionsString
         });
     }
     
@@ -137,24 +132,24 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
             .map(owner => {
                 const displayName = owner.user?.username || owner.id || '*Data Unavailable*';
                 const versionsString = formatVersionsDisplay(owner.versions);
-                return `🔰 *[${displayName}](https://mazoku.cc/user/${owner.id})* ( ${versionsString} ) [ **${owner.versionCount}** ]`;
+                return `:identification_card: [${displayName}](https://mazoku.cc/user/${owner.id}) ${versionsString} [ **${owner.versionCount}** ]`;
             })
             .join('\n');
 
         embed.addFields({
-            name: `Owners (Page ${page}/${totalPages})`,
+            name: `Owners ( Page \`${page}\`/\`${totalPages}\` )`,
             value: ownersText || '*Data Unavailable*'
         });
     }
 
     embed.setFooter({ 
-        text: `Mazoku Collector | ${new Date().toLocaleString()}`
+        text: `Mazoku Collector`
     });
 
     return embed;
 };
 
-const createNavigationButtons = (currentPage, totalPages) => {
+const createNavigationButtons = (currentPage, totalPages, cardDetails) => {
     const row = new ActionRowBuilder();
     
     row.addComponents(
@@ -169,6 +164,11 @@ const createNavigationButtons = (currentPage, totalPages) => {
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(currentPage === 1),
         new ButtonBuilder()
+            .setCustomId('full_image')
+            .setLabel('🖼️')
+            .setStyle(ButtonStyle.Primary)
+            .setDisabled(false),
+        new ButtonBuilder()
             .setCustomId('next')
             .setLabel('>')
             .setStyle(ButtonStyle.Secondary)
@@ -178,6 +178,35 @@ const createNavigationButtons = (currentPage, totalPages) => {
             .setLabel('>>')
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(currentPage === totalPages)
+    );
+
+    return row;
+};
+
+const createFullImageEmbed = (cardDetails) => {
+    const cardImageUrl = `https://cdn.mazoku.cc/cards/${cardDetails.id}/card`;
+    const eventMark = cardDetails.eventType ? getEventEmoji(cardDetails.eventType) : '';
+    
+    const tierDisplay = `[${cardDetails.tier || 'Unknown'}]`;
+    const cardName = cardDetails.name || '*Data Unavailable*';
+
+    const embed = new EmbedBuilder()
+        .setTitle(`${getTierEmoji(cardDetails.tier+"T")} ${cardName} ${eventMark} - Full Image`)
+        .setImage(cardImageUrl)
+        .setFooter({ text: 'Full Card Image' });
+
+    return embed;
+};
+
+const createFullImageButtons = () => {
+    const row = new ActionRowBuilder();
+    
+    row.addComponents(
+        new ButtonBuilder()
+            .setCustomId('back_to_owners')
+            .setLabel('Back to Owners')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(false)
     );
 
     return row;
@@ -198,10 +227,26 @@ module.exports = {
         
         try {
             const focusedValue = interaction.options.getFocused().toLowerCase();
-            if (!focusedValue) return await interaction.respond([]);
-
             const cards = await loadCardsData();
             
+            // If no input, return default Rimuru suggestion
+            if (!focusedValue) {
+                const rimuruCards = cards.filter(card => 
+                    card.name?.toLowerCase().includes('rimuru')
+                );
+                
+                if (rimuruCards.length > 0) {
+                    const suggestions = rimuruCards
+                        .slice(0, 25)
+                        .map(card => ({
+                            name: formatAutocompleteSuggestion(card),
+                            value: card.id
+                        }));
+                    
+                    return await interaction.respond(suggestions);
+                }
+            }
+
             // First try to find exact matches
             const exactMatches = cards.filter(card => 
                 card.name?.toLowerCase() === focusedValue
@@ -323,7 +368,7 @@ module.exports = {
                 
                 // Create and send initial embed
                 const initialEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, interaction.user.id);
-                const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages)] : [];
+                const components = totalPages > 1 ? [createNavigationButtons(currentPage, totalPages, cardDetails)] : [];
                 
                 const message = await handleInteraction(interaction, {
                     embeds: [initialEmbed],
@@ -353,12 +398,28 @@ module.exports = {
                                 case 'prev': currentPage = Math.max(1, currentPage - 1); break;
                                 case 'next': currentPage = Math.min(totalPages, currentPage + 1); break;
                                 case 'last': currentPage = totalPages; break;
+                                case 'full_image': {
+                                    const fullImageEmbed = createFullImageEmbed(cardDetails);
+                                    await handleInteraction(interaction, {
+                                        embeds: [fullImageEmbed],
+                                        components: [createFullImageButtons()]
+                                    }, 'editReply');
+                                    return;
+                                }
+                                case 'back_to_owners': {
+                                    const newEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, i.user.id);
+                                    await handleInteraction(interaction, {
+                                        embeds: [newEmbed],
+                                        components: [createNavigationButtons(currentPage, totalPages, cardDetails)]
+                                    }, 'editReply');
+                                    return;
+                                }
                             }
 
                             const newEmbed = await createOwnersEmbed(cardDetails, ownersList, userOwnership, currentPage, totalPages, i.user.id);
                             await handleInteraction(interaction, {
                                 embeds: [newEmbed],
-                                components: [createNavigationButtons(currentPage, totalPages)]
+                                components: [createNavigationButtons(currentPage, totalPages, cardDetails)]
                             }, 'editReply');
                         } catch (error) {
                             console.error('Error handling button interaction:', error);

@@ -8,10 +8,10 @@ const { handleInteraction, handleCommandError, safeDefer } = require('../utility
 const cooldowns = new Map();
 const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
 
-// Function to check if timestamp is within last 30 minutes
-const isWithinLast30Minutes = (timestamp) => {
-    const thirtyMinutesAgo = Date.now() - (30 * 60 * 1000);
-    return new Date(timestamp).getTime() > thirtyMinutesAgo;
+// Function to check if timestamp is within last 1 hour
+const isWithinLastHour = (timestamp) => {
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    return new Date(timestamp).getTime() > oneHourAgo;
 };
 
 // Function to handle Mazoku API errors
@@ -45,7 +45,8 @@ module.exports = {
                     { name: 'Tier Distribution', value: 'tiers' },
                     { name: 'Print Distribution', value: 'prints' },
                     { name: 'Tier Claim Times', value: 'tiertimes' },
-                    { name: 'Print Claim Times', value: 'printtimes' }
+                    { name: 'Print Claim Times', value: 'printtimes' },
+                    { name: 'Last Claimed Timestamps', value: 'lastclaimed' }
                 )),
 
     async execute(interaction, { database }) {
@@ -101,6 +102,12 @@ module.exports = {
                 MP: [], // 100-499
                 HP: []  // 500-2000
             };
+            const lastClaimedByTier = {
+                CT: null,
+                RT: null,
+                SRT: null,
+                SSRT: null
+            };
 
             // Function to get print quality
             const getPrintQuality = (print) => {
@@ -131,7 +138,7 @@ module.exports = {
                 
                 if (tier1Rank !== tier2Rank) {
                     return tier1Rank > tier2Rank;
-            }
+                }
 
                 // If both print rank and tier rank are equal, prefer lower print number
                 return card1.print < card2.print;
@@ -151,28 +158,37 @@ module.exports = {
                     uniqueOwners.add(claim.owner);
                     
                     if (claim.timestamp) {
-                        if (isWithinLast30Minutes(claim.timestamp)) {
+                        const claimDate = new Date(claim.timestamp);
+                        
+                        if (isWithinLastHour(claim.timestamp)) {
                             recentUniqueOwners.add(claim.owner);
                             
-                            // Only consider claims from last 30 minutes for best print
+                            // Update last claimed timestamp for each tier
+                            if (!lastClaimedByTier[tier] || claimDate > new Date(lastClaimedByTier[tier])) {
+                                lastClaimedByTier[tier] = claim.timestamp;
+                            }
+                            
+                            // Only consider claims from last hour for best print
                             if (!bestPrint || isHigherQuality({ ...claim, tier }, { ...bestPrint, tier: bestPrint.tier })) {
                                 bestPrint = { ...claim, tier };
                             }
                         }
                         
-                        claimTimesByTier[tier].push(new Date(claim.timestamp));
+                        claimTimesByTier[tier].push(claimDate);
                     }
                     
                     const printNum = claim.print;
                     const timestamp = new Date(claim.timestamp);
-                    if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(timestamp);
-                    else if (printNum >= 11 && printNum <= 99) claimTimesByPrintRange.LP.push(timestamp);
-                    else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(timestamp);
-                    else if (printNum >= 500 && printNum <= 2000) claimTimesByPrintRange.HP.push(timestamp);
+                    if (isWithinLastHour(claim.timestamp)) {
+                        if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(timestamp);
+                        else if (printNum >= 11 && printNum <= 99) claimTimesByPrintRange.LP.push(timestamp);
+                        else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(timestamp);
+                        else if (printNum >= 500 && printNum <= 2000) claimTimesByPrintRange.HP.push(timestamp);
+                    }
                 }
             }
 
-            // Calculate print range counts
+            // Calculate print range counts for last hour
             const printRangeCounts = {
                 SP: 0,
                 LP: 0,
@@ -182,11 +198,13 @@ module.exports = {
 
             for (const tier in mServerDB.claims) {
                 for (const claim of mServerDB.claims[tier] || []) {
-                    const printNum = claim.print;
-                    if (printNum >= 1 && printNum <= 10) printRangeCounts.SP++;
-                    else if (printNum >= 11 && printNum <= 99) printRangeCounts.LP++;
-                    else if (printNum >= 100 && printNum <= 499) printRangeCounts.MP++;
-                    else if (printNum >= 500 && printNum <= 2000) printRangeCounts.HP++;
+                    if (isWithinLastHour(claim.timestamp)) {
+                        const printNum = claim.print;
+                        if (printNum >= 1 && printNum <= 10) printRangeCounts.SP++;
+                        else if (printNum >= 11 && printNum <= 99) printRangeCounts.LP++;
+                        else if (printNum >= 100 && printNum <= 499) printRangeCounts.MP++;
+                        else if (printNum >= 500 && printNum <= 2000) printRangeCounts.HP++;
+                    }
                 }
             }
 
@@ -234,7 +252,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor('#FFC0CB')
                 .setAuthor({
-                    name: `${interaction.guild.name} Server Stats`,
+                    name: `${interaction.guild.name} Server Stats (Last 1 Hour)`,
                     iconURL: interaction.guild.iconURL()
                 })
                 .setThumbnail(interaction.guild.iconURL())
@@ -247,7 +265,7 @@ module.exports = {
                 case 'overview':
                     embed.addFields({ 
                         name: `Total Claims:  ${totalClaims.toString()}`, 
-                        value: `*Claimers in last 30 minutes*: ${recentUniqueOwners.size.toString()}`,
+                        value: `*Claimers in last 1 hour*: ${recentUniqueOwners.size.toString()}`,
                     });
                     break;
 
@@ -264,7 +282,7 @@ module.exports = {
                                 const series = enrichedCard.card.series || '*Data Unavailable*';
                                 
                                 embed.addFields({
-                                    name: 'Best Drop (Last 30 Minutes)',
+                                    name: 'Best Drop (Last 1 Hour)',
                                     value: `*${series}*\n` +
                                            `${getTierEmoji(bestPrint.tier)} **${cardName}** #**${enrichedCard.print}** \n` +
                                            `**Maker(s)**: ${makers}\n` +
@@ -274,8 +292,8 @@ module.exports = {
                                 .setThumbnail(`https://cdn.mazoku.cc/cards/${bestPrint.cardID}/card`);
                             } else {
                                 embed.addFields({
-                                    name: 'Best Drop (Last 30 Minutes)',
-                                    value: '*No drops in the last 30 minutes*'
+                                    name: 'Best Drop (Last 1 Hour)',
+                                    value: '*No drops in the last 1 hour*'
                                 });
                             }
                         } catch (error) {
@@ -284,24 +302,24 @@ module.exports = {
                             }
                             console.error('Error enriching card data:', error);
                             embed.addFields({
-                                name: 'Best Drop (Last 30 Minutes)',
+                                name: 'Best Drop (Last 1 Hour)',
                                 value: '*Data Unavailable*'
                             });
                         }
                     } else {
                         embed.addFields({
-                            name: 'Best Drop (Last 30 Minutes)',
-                            value: '*No drops in the last 30 minutes*'
+                            name: 'Best Drop (Last 1 Hour)',
+                            value: '*No drops in the last 1 hour*'
                         });
                     }
                     break;
 
                 case 'tiers':
                     embed.addFields({
-                        name: 'Claims by Tier',
-                        value: Object.entries(tierCounts)
+                        name: 'Claims by Tier (Last 1 Hour)',
+                        value: Object.entries(printRangeCounts)
                             .map(([tier, count]) => {
-                                const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
+                                const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
                                 return `${getTierEmoji(tier)} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
                             })
                             .join('\n')
@@ -310,7 +328,7 @@ module.exports = {
 
                 case 'prints':
                     embed.addFields({
-                        name: 'Print Distribution',
+                        name: 'Print Distribution (Last 1 Hour)',
                         value: Object.entries(printRangeCounts)
                             .map(([range, count]) => {
                                 const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
@@ -322,7 +340,7 @@ module.exports = {
 
                 case 'tiertimes':
                     embed.addFields({
-                        name: 'Average Time Between Claims by Tier',
+                        name: 'Average Time Between Claims by Tier (Last 1 Hour)',
                         value: Object.entries(claimTimesByTier)
                             .filter(([_, times]) => times.length > 0)
                             .map(([tier, times]) => {
@@ -335,7 +353,7 @@ module.exports = {
 
                 case 'printtimes':
                     embed.addFields({
-                        name: 'Average Print claim time',
+                        name: 'Average Print Claim Time (Last 1 Hour)',
                         value: Object.entries(claimTimesByPrintRange)
                             .filter(([_, times]) => times.length > 0)
                             .map(([range, times]) => {
@@ -344,6 +362,24 @@ module.exports = {
                             })
                             .join('\n') || '*Data Unavailable*'
                     });
+                    break;
+
+                case 'lastclaimed':
+                    const lastClaimedFields = Object.entries(lastClaimedByTier)
+                        .filter(([_, timestamp]) => timestamp !== null)
+                        .map(([tier, timestamp]) => ({
+                            name: `${getTierEmoji(tier)} Last Claimed`,
+                            value: timestamp ? `<t:${isoToUnixTimestamp(timestamp)}:R>` : '*No claims*'
+                        }));
+
+                    if (lastClaimedFields.length > 0) {
+                        embed.addFields(lastClaimedFields);
+                    } else {
+                        embed.addFields({
+                            name: 'Last Claimed Timestamps',
+                            value: '*No claims in the last 1 hour*'
+                        });
+                    }
                     break;
             }
 

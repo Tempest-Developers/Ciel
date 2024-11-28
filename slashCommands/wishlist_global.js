@@ -2,11 +2,23 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const db = require('../database/mongo');
 const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 const getTierEmoji = require('../utility/getTierEmoji');
+const axios = require('axios');
 
 // Constants
 const COOLDOWN_DURATION = 10000;
 const CARDS_PER_PAGE = 10;
 const INTERACTION_TIMEOUT = 900000; // 15 minutes
+
+// Function to handle Mazoku API errors
+const handleMazokuAPICall = async (apiCall) => {
+    try {
+        const response = await apiCall();
+        return response;
+    } catch (error) {
+        throw new Error("Mazoku Servers unavailable");
+    }
+};
+
 
 // Cooldown management
 const cooldowns = new Map();
@@ -63,13 +75,55 @@ const createCardDetailEmbed = async (card, userId) => {
 
         const embed = new EmbedBuilder()
             .setTitle(`${getTierEmoji(`${card.tier}T`)} ${card.name} ${card.eventType ? '🎃' : ''} ${heartEmoji}`)
-            .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n*${card.series}*`)
+            .setDescription(`[${card.id}](https://mazoku.cc/card/${card.id})\n\`${card.series}\` \`❤️ ${card.wishlistCount}\``)
             .setImage(`https://cdn.mazoku.cc/cards/${card.id}/card`)
             .setColor('#0099ff')
-            .addFields({ 
-                name: 'Global Card Details:', 
-                value: `\`❤️ ${card.wishlistCount}\``
-            });
+
+        try {
+            const [owners] = await Promise.all([
+                handleMazokuAPICall(async () => {
+                    const response = await axios.get(
+                        `https://api.mazoku.cc/api/get-inventory-items-by-card/${card.id}`,
+                        {
+                            headers: {
+                                'Cache-Control': 'no-cache',
+                                'Content-Type': 'application/json',
+                                'Host': 'api.mazoku.cc'
+                            },
+                            timeout: 10000
+                        }
+                    );
+                    return response.data;
+                })
+            ]);
+
+            if (Array.isArray(owners) && owners.length > 0) {
+                const totalCopies = owners.length;
+                const uniqueOwners = new Set(owners.map(o => o.owner)).size;
+                const lowestPrint = Math.min(...owners.map(o => o.version).filter(v => v > 0));
+
+                embed.addFields(
+                    { 
+                        name: 'Global Card Details:', 
+                        value: `Prints Out \`${totalCopies.toString()}\`\nAll Owners \`${uniqueOwners.toString()}\`\nLowest Print \`#${lowestPrint.toString()}\``
+                    }
+                );
+            } else {
+                embed.addFields(
+                    { 
+                        name: 'Global Card Details:', 
+                        value: 'No ownership data available'
+                    }
+                );
+            }
+        } catch (error) {
+            embed.addFields(
+                { 
+                    name: 'Global Card Details:', 
+                    value: 'Data Unavailable'
+                }
+            );
+        }
 
         return embed;
     } catch (error) {

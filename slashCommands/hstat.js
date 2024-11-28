@@ -125,6 +125,7 @@ module.exports = {
                     
                     const adminSettings = [
                         settings.settings.allowRolePing ? '🟢' : '🔴',
+                        settings.settings.allowShowStats ? '🟢' : '🔴',
                         settings.settings.allowCooldownPing ? '🟢' : '🔴'
                     ].join('');
 
