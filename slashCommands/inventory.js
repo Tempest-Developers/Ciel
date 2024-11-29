@@ -136,7 +136,7 @@ const createCardDetailEmbed = async (item, userId) => {
 
         // Set image only if card.id is available
         if (card.id) {
-            embed.setImage(`https://cdn.mazoku.cc/cards/${card.id}/card`);
+            embed.setImage(`https://cdn.mazoku.cc/packs/${card.id}`);
         }
 
         try {
@@ -395,20 +395,23 @@ module.exports = {
                             return;
                         }
 
+                        // Check if the interaction is still valid
+                        if (i.message.interaction && i.message.interaction.id !== interaction.id) {
+                            await i.reply({
+                                content: 'This interaction has expired. Please run the command again.',
+                                ephemeral: true
+                            });
+                            return;
+                        }
+
                         try {
                             await i.deferUpdate();
                         } catch (error) {
-                            console.error('Error deferring update:', error);
-                            // If we can't defer the update, we'll try to respond with an ephemeral message
-                            try {
-                                await i.reply({
-                                    content: 'This interaction has expired. Please run the command again.',
-                                    ephemeral: true
-                                });
-                            } catch (replyError) {
-                                console.error('Error replying to interaction:', replyError);
+                            if (error.code === 10062) {  // Unknown interaction error
+                                console.log('Interaction expired, ignoring.');
+                                return;
                             }
-                            return;
+                            throw error;
                         }
 
                         if (i.isButton()) {
@@ -535,23 +538,47 @@ module.exports = {
                             }
                         }
                     } catch (error) {
-                        await handleCommandError(i, error, error.message === "Mazoku Servers unavailable" 
-                            ? "Mazoku Servers unavailable"
-                            : "An error occurred while processing your request.");
+                        if (error.code === 10062) {  // Unknown interaction error
+                            console.log('Interaction expired, ignoring.');
+                        } else {
+                            await handleCommandError(i, error, error.message === "Mazoku Servers unavailable" 
+                                ? "Mazoku Servers unavailable"
+                                : "An error occurred while processing your request.");
+                        }
                     }
                 });
 
                 collector.on('end', async () => {
                     try {
-                        const finalEmbed = EmbedBuilder.from(await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, targetUser, lastPageCards))
+                        const finalEmbed = EmbedBuilder.from(embed)
                             .setFooter({ text: 'This interaction has expired. Please run the command again.' });
+
+                        const disabledComponents = components.map(row => {
+                            const newRow = new ActionRowBuilder().addComponents(
+                                row.components.map(component => {
+                                    if (component instanceof ButtonBuilder) {
+                                        return ButtonBuilder.from(component).setDisabled(true);
+                                    } else if (component instanceof StringSelectMenuBuilder) {
+                                        return StringSelectMenuBuilder.from(component).setDisabled(true);
+                                    }
+                                    return component;
+                                })
+                            );
+                            return newRow;
+                        });
 
                         await interaction.editReply({
                             embeds: [finalEmbed],
-                            components: []
+                            components: disabledComponents
+                        }).catch(error => {
+                            if (error.code === 10062) {  // Unknown interaction error
+                                console.log('Interaction expired, unable to update message.');
+                            } else {
+                                console.error('Error updating message after collector end:', error);
+                            }
                         });
                     } catch (error) {
-                        // Silently handle collector end errors
+                        console.error('Error in collector end event:', error);
                     }
                 });
 

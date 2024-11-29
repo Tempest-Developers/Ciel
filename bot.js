@@ -3,7 +3,8 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const os = require('os'); // Added for system monitoring
+const os = require('os');
+const cron = require('node-cron');
 
 const BOT_TOKEN = process.env.TOKEN_CIEL;
 
@@ -17,7 +18,7 @@ const commandLogsModule = require('./database/modules/commandLogs');
 const wishlistModule = require('./database/modules/wishlist');
 
 const client = new Client({
-    shards: 'auto', // Enable sharding mode
+    shards: 'auto',
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
@@ -32,13 +33,11 @@ client.config = require('./config.json');
 
 // System monitoring function
 function monitorSystem() {
-    // RAM Usage
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
     const usedMemory = totalMemory - freeMemory;
     const memoryUsagePercent = ((usedMemory / totalMemory) * 100).toFixed(2);
 
-    // Process Memory Usage
     const processMemoryUsage = process.memoryUsage();
     const heapUsed = (processMemoryUsage.heapUsed / 1024 / 1024).toFixed(2);
     const heapTotal = (processMemoryUsage.heapTotal / 1024 / 1024).toFixed(2);
@@ -66,12 +65,8 @@ async function initializeDatabase(retries = 5, delay = 5000) {
                 mUserWishlistDB
             } = await db.connectDB();
 
-            // Make database collections and methods accessible throughout the bot
             client.database = {
-                // Spread database methods first
                 ...db,
-                
-                // Include specific database module methods
                 createServer: serverModule.createServer,
                 createServerSettings: serverModule.createServerSettings,
                 toggleRegister: serverModule.toggleRegister,
@@ -79,25 +74,13 @@ async function initializeDatabase(retries = 5, delay = 5000) {
                 getServerData: serverModule.getServerData,
                 getServerSettings: serverModule.getServerSettings,
                 addServerClaim: serverModule.addServerClaim,
-
-                // Player module methods
                 createPlayer: playerModule.createPlayer,
                 getPlayer: playerModule.getPlayer,
                 updatePlayer: playerModule.updatePlayer,
-
-                // Gate module methods
                 ...gateModule,
-
-                // Giveaway module methods
                 ...giveawayModule,
-
-                // Command logs module methods
                 logCommand: commandLogsModule.logCommand,
-
-                // Wishlist module methods
                 ...wishlistModule,
-
-                // Set specific collections so they don't get overwritten
                 servers: mServerDB,
                 users: mUserDB,
                 serverSettings: mServerSettingsDB,
@@ -204,6 +187,18 @@ client.on('warn', info => {
     console.log(`[Shard ${client.shard?.ids[0]}] Warning:`, info);
 });
 
+// Function to reset counts
+async function resetCounts() {
+    const shardId = client.shard?.ids[0] ?? 'Unsharded';
+    try {
+        const serverResetCount = await serverModule.resetServerCounts();
+        const userResetCount = await playerModule.resetUserCounts();
+        console.log(`[Shard ${shardId}] Monthly reset completed. Reset ${serverResetCount} server counts and ${userResetCount} user counts.`);
+    } catch (error) {
+        console.error(`[Shard ${shardId}] Error during monthly reset:`, error);
+    }
+}
+
 // Initialize database and start bot
 async function startBot() {
     try {
@@ -214,8 +209,14 @@ async function startBot() {
         }
 
         // Start system monitoring
-        setInterval(monitorSystem, 60000); // Monitor every minute
-        monitorSystem(); // Initial monitoring call
+        setInterval(monitorSystem, 60000);
+        monitorSystem();
+
+        // Schedule monthly reset
+        cron.schedule('0 0 1 * *', resetCounts, {
+            scheduled: true,
+            timezone: "UTC"
+        });
 
         await client.login(BOT_TOKEN);
         console.log(`[Shard ${client.shard?.ids[0]}] Bot successfully logged in to Discord`);

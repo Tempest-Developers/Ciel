@@ -6,3 +6,5 @@ deploy-commands.js
 cardCalculation.js
 cardCalculation.json
 leaveGuild.js
+slashCommands/mystats-auto.js
+slashCommands/mystats-manual.js

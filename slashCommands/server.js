@@ -237,7 +237,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor('#FFC0CB')
                 .setAuthor({
-                    name: `${interaction.guild.name} Server Stats (Last 1 Hour)`,
+                    name: `${interaction.guild.name} Server Stats`,
                     iconURL: interaction.guild.iconURL()
                 })
                 .setThumbnail(interaction.guild.iconURL())
@@ -312,7 +312,7 @@ module.exports = {
                         value: Object.entries(tierCounts)
                             .map(([tier, count]) => {
                                 const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
-                                return `${getTierEmoji(tier)} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
+                                return `${getTierEmoji(tier)} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(2)}* **%**`;
                             })
                             .join('\n')
                     });
@@ -324,7 +324,7 @@ module.exports = {
                         value: Object.entries(printRangeCounts)
                             .map(([range, count]) => {
                                 const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
-                                return `**${range}** (${getRangeDescription(range)}): **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(0)}* **%**`;
+                                return `**${range}** (${getRangeDescription(range)}): **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(2)}* **%**`;
                             })
                             .join('\n')
                     });
@@ -345,7 +345,7 @@ module.exports = {
 
                 case 'printtimes':
                     embed.addFields({
-                        name: 'Average Print Claim Time',
+                        name: 'Average Print Claim Time ( Last 1 Hr )',
                         value: Object.entries(claimTimesByPrintRange)
                             .filter(([_, times]) => times.length > 0)
                             .map(([range, times]) => {

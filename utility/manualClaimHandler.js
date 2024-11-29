@@ -59,33 +59,33 @@ async function handleManualClaim(client, newMessage, newEmbed, field, guildId) {
             serverSettings = await client.database.getServerSettings(guildId);
         }
 
-        const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
-        if (!match) return;
+        // const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
+        // if (!match) return;
 
-        // Get the username of who claimed the card
-        const claimer = field.name.split(" ")[2];
-        const userId = await findUserId(client, claimer);
+        // // Get the username of who claimed the card
+        // const claimer = field.name.split(" ")[2];
+        // const userId = await findUserId(client, claimer);
         
-        // Validate tier is one of CT, RT, SRT, SSRT
-        const tier = match[1];
-        if (!['CT', 'RT', 'SRT', 'SSRT'].includes(tier)) {
-            console.log(`Skipping manual claim for unsupported tier: ${tier}`);
-            return;
-        }
+        // // Validate tier is one of CT, RT, SRT, SSRT
+        // const tier = match[1];
+        // if (!['CT', 'RT', 'SRT', 'SSRT'].includes(tier)) {
+        //     console.log(`Skipping manual claim for unsupported tier: ${tier}`);
+        //     return;
+        // }
 
-        const cardClaimed = {
-            claimedID: match[2],
-            userID: userId,
-            serverID: guildId,
-            cardName: match[3],
-            cardID: newEmbed.image.url.split("/")[4],
-            owner: claimer,
-            artist: field.value.split(" ")[3],
-            print: match[4],
-            tier: tier,
-            timestamp: newEmbed.timestamp
-        };
-        await startManualClaimCooldown(userId, newMessage.channel.id, guildId, client);
+        // const cardClaimed = {
+        //     claimedID: match[2],
+        //     userID: userId,
+        //     serverID: guildId,
+        //     cardName: match[3],
+        //     cardID: newEmbed.image.url.split("/")[4],
+        //     owner: claimer,
+        //     artist: field.value.split(" ")[3],
+        //     print: match[4],
+        //     tier: tier,
+        //     timestamp: newEmbed.timestamp
+        // };
+        // await startManualClaimCooldown(userId, newMessage.channel.id, guildId, client);
 
         // // Create unique key for this manual claim
         // const claimKey = `manual-${cardClaimed.cardID}-${cardClaimed.userID}-${cardClaimed.serverID}-${cardClaimed.timestamp}`;
@@ -116,10 +116,8 @@ async function handleManualClaim(client, newMessage, newEmbed, field, guildId) {
         //     : true;
 
         // if (shouldTrackCards) {
-        //     // Update both player manual claims and server claims
-        //     await Promise.all([
-        //         client.database.addManualClaim(guildId, userId, cardClaimed),
-        //     ]);
+        //     // Update player manual claims and increment count
+        //     await client.database.addManualClaim(guildId, userId, cardClaimed);
         //     console.log(`Updated ${userId} - ${cardClaimed.owner} player manual claims and server | Server ${guildId} - ${newMessage.guild.name} Database`);
             
         //     // Start cooldown for the claimer

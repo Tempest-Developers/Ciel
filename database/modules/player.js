@@ -20,6 +20,7 @@ async function createPlayer(userID, serverID) {
                     $set: {
                         [`servers.${serverID}`]: {
                             counts: [0, 0, 0, 0, 0, 0],
+                            countManualClaims: [0, 0, 0, 0, 0, 0],
                             claims: {
                                 CT: [],
                                 RT: [],
@@ -40,6 +41,7 @@ async function createPlayer(userID, serverID) {
                 servers: {
                     [serverID]: {
                         counts: [0, 0, 0, 0, 0, 0],
+                        countManualClaims: [0, 0, 0, 0, 0, 0],
                         claims: {
                             CT: [],
                             RT: [],
@@ -139,7 +141,10 @@ async function addManualClaim(serverID, userID, claim) {
                         $slice: -48
                     }
                 },
-                $inc: { [`servers.${serverID}.counts.${getTierIndex(claim.tier)}`]: 1 }
+                $inc: { 
+                    [`servers.${serverID}.counts.${getTierIndex(claim.tier)}`]: 1,
+                    [`servers.${serverID}.countManualClaims.${getTierIndex(claim.tier)}`]: 1
+                }
             }
         );
 
@@ -157,14 +162,32 @@ async function getPlayerData(userID, serverID) {
         if (!userData || !userData.servers[serverID]) {
             return null;
         }
-        // Return in the old format for backward compatibility
+        // Return in the old format for backward compatibility, including countManualClaims
         return {
             userID,
             serverID,
             counts: userData.servers[serverID].counts,
+            countManualClaims: userData.servers[serverID].countManualClaims || [0, 0, 0, 0, 0, 0],
             claims: userData.servers[serverID].claims,
             manualClaims: userData.servers[serverID].manualClaims
         };
+    });
+}
+
+async function resetUserCounts() {
+    return wrapDbOperation(async () => {
+        const { mUserDB } = await connectDB();
+        const result = await mUserDB.updateMany(
+            {},
+            { 
+                $set: { 
+                    "servers.$[].counts": [0, 0, 0, 0, 0, 0],
+                    "servers.$[].countManualClaims": [0, 0, 0, 0, 0, 0]
+                } 
+            }
+        );
+        console.log(`Reset counts for ${result.modifiedCount} users`);
+        return result.modifiedCount;
     });
 }
 
@@ -172,5 +195,6 @@ module.exports = {
     createPlayer,
     addClaim,
     addManualClaim,
-    getPlayerData
+    getPlayerData,
+    resetUserCounts
 };

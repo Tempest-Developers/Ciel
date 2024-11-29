@@ -82,7 +82,7 @@ const formatAutocompleteSuggestion = (card) => {
 };
 
 const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 1, totalPages, userId) => {
-    const cardImageUrl = `https://cdn.mazoku.cc/cards/${cardDetails.id}/card`;
+    const cardImageUrl = `https://cdn.mazoku.cc/packs/${cardDetails.id}`;
     const eventMark = cardDetails.eventType ? getEventEmoji(cardDetails.eventType) : '';
     const lowestPrint = findLowestPrint(ownersList);
     const totalPrints = ownersList.reduce((acc, owner) => acc + owner.versionCount, 0);
@@ -184,7 +184,7 @@ const createNavigationButtons = (currentPage, totalPages, cardDetails) => {
 };
 
 const createFullImageEmbed = (cardDetails) => {
-    const cardImageUrl = `https://cdn.mazoku.cc/cards/${cardDetails.id}/card`;
+    const cardImageUrl = `https://cdn.mazoku.cc/packs/${cardDetails.id}`;
     const eventMark = cardDetails.eventType ? getEventEmoji(cardDetails.eventType) : '';
     
     const tierDisplay = `[${cardDetails.tier || 'Unknown'}]`;

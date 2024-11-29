@@ -266,6 +266,18 @@ function getTierIndex(tier) {
     return tiers.indexOf(tier);
 }
 
+async function resetServerCounts() {
+    return wrapDbOperation(async () => {
+        const { mServerDB } = await connectDB();
+        const result = await mServerDB.updateMany(
+            {},
+            { $set: { counts: [0, 0, 0, 0, 0, 0] } }
+        );
+        console.log(`Reset counts for ${result.modifiedCount} servers`);
+        return result.modifiedCount;
+    });
+}
+
 module.exports = {
     createServer,
     createServerSettings,
@@ -275,5 +287,6 @@ module.exports = {
     toggleHandler,
     getServerData,
     getServerSettings,
-    addServerClaim
+    addServerClaim,
+    resetServerCounts
 };
