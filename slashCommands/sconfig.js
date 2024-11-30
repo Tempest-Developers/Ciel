@@ -63,12 +63,12 @@ module.exports = {
                     .addFields(
                         { 
                             name: 'Tier Display', 
-                            value: serverData.allowRolePing ? 'Enabled ✅' : 'Disabled ❌', 
+                            value: serverData.settings.allowRolePing ? 'Enabled ✅' : 'Disabled ❌', 
                             inline: true 
                         },
                         { 
                             name: 'Cooldown Ping Notifications', 
-                            value: serverData.allowCooldownPing ? 'Enabled ✅' : 'Disabled ❌', 
+                            value: serverData.settings.allowCooldownPing ? 'Enabled ✅' : 'Disabled ❌', 
                             inline: true 
                         }
                     )
