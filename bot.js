@@ -31,9 +31,6 @@ client.commands = new Collection();
 client.slashCommands = new Collection();
 client.config = require('./config.json');
 
-// Global flag to indicate when the bot is in reset mode
-let isResetting = false;
-
 // System monitoring function
 function monitorSystem() {
     const totalMemory = os.totalmem();
@@ -134,7 +131,6 @@ for (const file of eventFiles) {
     const event = require(path.join(eventsPath, file));
     if (event.once) {
         client.once(event.name, async (...args) => {
-            if (isResetting) return; // Ignore events during reset
             try {
                 if (!args[0].guild) return;
                 const serverExist = await client.database.getServerSettings(args[0].guild.id);
@@ -150,7 +146,6 @@ for (const file of eventFiles) {
         });
     } else {
         client.on(event.name, async (...args) => {
-            if (isResetting) return; // Ignore events during reset
             try {
                 if (event.name === 'messageCreate') {
                     await event.execute(...args, { 
@@ -192,28 +187,15 @@ client.on('warn', info => {
     console.log(`[Shard ${client.shard?.ids[0]}] Warning:`, info);
 });
 
-// Function to reset all collections
-async function resetAllCollections() {
+// Function to reset counts
+async function resetCounts() {
     const shardId = client.shard?.ids[0] ?? 'Unsharded';
-    console.log(`[Shard ${shardId}] Starting monthly reset. Bot is now in reset mode.`);
-    isResetting = true;
     try {
-        const resetFunctions = [
-            serverModule.resetServerCounts,
-            playerModule.resetUserCounts,
-            gateModule.resetGateCounts,
-            giveawayModule.resetGiveawayCounts,
-            commandLogsModule.resetCommandLogs
-        ];
-
-        const results = await Promise.all(resetFunctions.map(func => func()));
-
-        console.log(`[Shard ${shardId}] Monthly reset completed. Reset results:`, results);
+        const serverResetCount = await serverModule.resetServerCounts();
+        const userResetCount = await playerModule.resetUserCounts();
+        console.log(`[Shard ${shardId}] Monthly reset completed. Reset ${serverResetCount} server counts and ${userResetCount} user counts.`);
     } catch (error) {
         console.error(`[Shard ${shardId}] Error during monthly reset:`, error);
-    } finally {
-        isResetting = false;
-        console.log(`[Shard ${shardId}] Reset mode disabled. Bot is now processing events normally.`);
     }
 }
 
@@ -231,7 +213,7 @@ async function startBot() {
         monitorSystem();
 
         // Schedule monthly reset
-        cron.schedule('0 0 1 * *', resetAllCollections, {
+        cron.schedule('0 0 1 * *', resetCounts, {
             scheduled: true,
             timezone: "UTC"
         });
@@ -255,3 +237,9 @@ process.on('SIGINT', async () => {
         process.exit(1);
     }
 });
+
+process.on('unhandledRejection', error => {
+    console.error(`[Shard ${client.shard?.ids[0]}] Unhandled promise rejection:`, error);
+});
+
+startBot();
