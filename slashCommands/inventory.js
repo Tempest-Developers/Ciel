@@ -51,7 +51,7 @@ const createBaseRequestBody = (userId) => ({
     name: "",
     seriesName: "",
     sortBy: "dateAdded",
-    sortOrder: "asc",
+    sortOrder: "desc",
     owner: userId,
     minVersion: 0,
     maxVersion: 2000
