@@ -12,25 +12,34 @@ async function createPlayer(userID, serverID) {
         // First try to find if user document exists
         const existingUser = await mUserDB.findOne({ userID });
         
+        const defaultServerData = {
+            counts: [0, 0, 0, 0, 0, 0],
+            countManualClaims: [0, 0, 0, 0, 0, 0],
+            claims: {
+                CT: [],
+                RT: [],
+                SRT: [],
+                SSRT: [],
+                URT: [],
+                EXT: []
+            },
+            manualClaims: {
+                CT: [],
+                RT: [],
+                SRT: [],
+                SSRT: [],
+                URT: [],
+                EXT: []
+            }
+        };
+        
         if (existingUser) {
             // If user exists, add new server data
             return await mUserDB.updateOne(
                 { userID },
                 {
                     $set: {
-                        [`servers.${serverID}`]: {
-                            counts: [0, 0, 0, 0, 0, 0],
-                            countManualClaims: [0, 0, 0, 0, 0, 0],
-                            claims: {
-                                CT: [],
-                                RT: [],
-                                SRT: [],
-                                SSRT: [],
-                                URT: [],
-                                EXT: []
-                            },
-                            manualClaims: []
-                        }
+                        [`servers.${serverID}`]: defaultServerData
                     }
                 }
             );
@@ -39,19 +48,7 @@ async function createPlayer(userID, serverID) {
             return await mUserDB.insertOne({
                 userID,
                 servers: {
-                    [serverID]: {
-                        counts: [0, 0, 0, 0, 0, 0],
-                        countManualClaims: [0, 0, 0, 0, 0, 0],
-                        claims: {
-                            CT: [],
-                            RT: [],
-                            SRT: [],
-                            SSRT: [],
-                            URT: [],
-                            EXT: []
-                        },
-                        manualClaims: []
-                    }
+                    [serverID]: defaultServerData
                 }
             });
         }
@@ -124,7 +121,7 @@ async function addManualClaim(serverID, userID, claim) {
         const userUpdate = await mUserDB.findOneAndUpdate(
             {
                 userID,
-                [`servers.${serverID}.manualClaims`]: {
+                [`servers.${serverID}.manualClaims.${claim.tier}`]: {
                     $not: {
                         $elemMatch: {
                             claimedID: claim.claimedID,
@@ -136,9 +133,9 @@ async function addManualClaim(serverID, userID, claim) {
             },
             {
                 $push: {
-                    [`servers.${serverID}.manualClaims`]: {
+                    [`servers.${serverID}.manualClaims.${claim.tier}`]: {
                         $each: [claimData],
-                        $slice: -48
+                        $slice: -24
                     }
                 },
                 $inc: { 
@@ -182,11 +179,27 @@ async function resetUserCounts() {
             { 
                 $set: { 
                     "servers.$[].counts": [0, 0, 0, 0, 0, 0],
-                    "servers.$[].countManualClaims": [0, 0, 0, 0, 0, 0]
+                    "servers.$[].countManualClaims": [0, 0, 0, 0, 0, 0],
+                    "servers.$[].claims": {
+                        CT: [],
+                        RT: [],
+                        SRT: [],
+                        SSRT: [],
+                        URT: [],
+                        EXT: []
+                    },
+                    "servers.$[].manualClaims": {
+                        CT: [],
+                        RT: [],
+                        SRT: [],
+                        SSRT: [],
+                        URT: [],
+                        EXT: []
+                    }
                 } 
             }
         );
-        console.log(`Reset counts for ${result.modifiedCount} users`);
+        console.log(`Reset counts, claims, and manual claims for ${result.modifiedCount} users`);
         return result.modifiedCount;
     });
 }

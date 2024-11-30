@@ -271,9 +271,21 @@ async function resetServerCounts() {
         const { mServerDB } = await connectDB();
         const result = await mServerDB.updateMany(
             {},
-            { $set: { counts: [0, 0, 0, 0, 0, 0] } }
+            { 
+                $set: { 
+                    counts: [0, 0, 0, 0, 0, 0],
+                    claims: {
+                        CT: [],
+                        RT: [],
+                        SRT: [],
+                        SSRT: [],
+                        URT: [],
+                        EXT: []
+                    }
+                } 
+            }
         );
-        console.log(`Reset counts for ${result.modifiedCount} servers`);
+        console.log(`Reset counts and claims for ${result.modifiedCount} servers`);
         return result.modifiedCount;
     });
 }
