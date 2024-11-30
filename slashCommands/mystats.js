@@ -144,12 +144,12 @@ module.exports = {
 
             // Calculate tier counts
             const tierCounts = {
-                CT: 0,
-                RT: 0,
-                SRT: 0,
-                SSRT: 0,
-                URT: 0,
-                EXT: 0
+                CT: userData.counts[0] || 0,
+                RT: userData.counts[1] || 0,
+                SRT: userData.counts[2] || 0,
+                SSRT: userData.counts[3] || 0,
+                URT: userData.counts[4] || 0,
+                EXT: userData.counts[5] || 0
             };
 
             // Process claims data
@@ -157,7 +157,6 @@ module.exports = {
                 for (const tier in claims) {
                     for (const claim of claims[tier] || []) {
                         uniqueOwners.add(claim.owner);
-                        tierCounts[tier]++;
                         
                         if (claim.timestamp) {
                             if (isWithinLastWeek(claim.timestamp)) {
