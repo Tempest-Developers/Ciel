@@ -8,6 +8,16 @@ const { handleInteraction, handleCommandError, safeDefer } = require('../utility
 const cooldowns = new Map();
 const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
 
+// Define tier cooldowns in seconds
+const TIER_COOLDOWNS = {
+    CT: 120,
+    RT: 300,
+    SRT: 900,
+    SSRT: 3600,
+    URT: 3600,
+    EXT: 3600
+};
+
 // Function to check if timestamp is within last 1 hour
 const isWithinLastHour = (timestamp) => {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
@@ -134,19 +144,20 @@ module.exports = {
 
             // Calculate tier counts
             const tierCounts = {
-                CT: (userData.counts[0] || 0) + (userData.countManualClaims[0] || 0),
-                RT: (userData.counts[1] || 0) + (userData.countManualClaims[1] || 0),
-                SRT: (userData.counts[2] || 0) + (userData.countManualClaims[2] || 0),
-                SSRT: (userData.counts[3] || 0) + (userData.countManualClaims[3] || 0),
-                URT: userData.countManualClaims[4] || 0,
-                EXT: userData.countManualClaims[5] || 0
+                CT: 0,
+                RT: 0,
+                SRT: 0,
+                SSRT: 0,
+                URT: 0,
+                EXT: 0
             };
 
             // Process claims data
-            function processClaims(claims, isManual = false) {
+            function processClaims(claims) {
                 for (const tier in claims) {
                     for (const claim of claims[tier] || []) {
                         uniqueOwners.add(claim.owner);
+                        tierCounts[tier]++;
                         
                         if (claim.timestamp) {
                             if (isWithinLastWeek(claim.timestamp)) {
@@ -177,15 +188,8 @@ module.exports = {
                 }
             }
 
-            // Process auto claims
+            // Process all claims
             processClaims(userData.claims);
-
-            // Process manual claims
-            processClaims(userData.manualClaims.reduce((acc, claim) => {
-                if (!acc[claim.tier]) acc[claim.tier] = [];
-                acc[claim.tier].push(claim);
-                return acc;
-            }, {}), true);
 
             // Calculate print range counts for last hour
             const printRangeCounts = {
@@ -219,11 +223,20 @@ module.exports = {
                         value: `*Active in Last 1 Hour*: ${recentUniqueOwners.size.toString()}`,
                     });
                     embed.addFields({
-                        name: 'Last Claimed Timestamps',
+                        name: `Cooldown for ${interaction.guild.name}`,
                         value: Object.entries(lastClaimedByTier)
-                            .filter(([_, timestamp]) => timestamp !== null)
-                            .map(([tier, timestamp]) => `${getTierEmoji(tier)}: <t:${isoToUnixTimestamp(timestamp)}:R>`)
-                            .join('\n') || '*No claims found*'
+                            .map(([tier, timestamp]) => {
+                                if (!timestamp) return `${getTierEmoji(tier)}: Ready`;
+                                const cooldownEnd = new Date(timestamp).getTime() + TIER_COOLDOWNS[tier] * 1000;
+                                const now = Date.now();
+                                if (now >= cooldownEnd) {
+                                    return `${getTierEmoji(tier)}: Ready`;
+                                } else {
+                                    const timeLeft = Math.floor((cooldownEnd - now) / 1000);
+                                    return `${getTierEmoji(tier)}: <t:${Math.floor(cooldownEnd / 1000)}:R>`;
+                                }
+                            })
+                            .join('\n') || '*No claim data available*'
                     });
                     break;
 

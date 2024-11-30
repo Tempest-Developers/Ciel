@@ -158,8 +158,10 @@ module.exports = {
             };
 
             // Process claims data
+            const allClaims = [];
             for (const tier in mServerDB.claims) {
                 for (const claim of mServerDB.claims[tier] || []) {
+                    allClaims.push({ ...claim, tier });
                     uniqueOwners.add(claim.owner);
                     
                     if (claim.timestamp) {
@@ -191,13 +193,23 @@ module.exports = {
                 }
             }
 
-            // Calculate print range counts for last hour
+            // Sort all claims by timestamp (newest first) and get the last 30
+            allClaims.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const last30Claims = allClaims.slice(0, 30);
+
+            // Calculate print range counts for last 30 claims
             const printRangeCounts = {
-                SP: claimTimesByPrintRange.SP.filter(isWithinLastHour).length,
-                LP: claimTimesByPrintRange.LP.filter(isWithinLastHour).length,
-                MP: claimTimesByPrintRange.MP.filter(isWithinLastHour).length,
-                HP: claimTimesByPrintRange.HP.filter(isWithinLastHour).length
+                SP: 0,
+                LP: 0,
+                MP: 0,
+                HP: 0
             };
+            last30Claims.forEach(claim => {
+                const quality = getPrintQuality(claim.print);
+                if (printRangeCounts.hasOwnProperty(quality)) {
+                    printRangeCounts[quality]++;
+                }
+            });
 
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
             const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
@@ -327,14 +339,14 @@ module.exports = {
 
                 case 'prints':
                     embed.addFields({
-                        name: 'Print Distribution (Last 1 Hour)',
+                        name: 'Print Distribution (Last 30 Claims)',
                         value: Object.entries(printRangeCounts)
                             .filter(([_, count]) => count > 0)
                             .map(([range, count]) => {
                                 const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
                                 return `**${range}** (${getRangeDescription(range)}): **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(2)}* **%**`;
                             })
-                            .join('\n') || '*No print data available for the last 1 hour*'
+                            .join('\n') || '*No print data available for the last 30 claims*'
                     });
                     break;
 
