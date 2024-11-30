@@ -1,7 +1,7 @@
 {
   "name": "ciel",
   "version": "3.0.0",
-  "description": "",
+  "description": "A Discord bot for managing game-related tasks and interactions",
   "main": "shard.js",
   "scripts": {
     "start": "node shard.js",
@@ -22,5 +22,8 @@
     "nodemon": "^3.1.7",
     "p-queue": "^8.0.1",
     "sqlite3": "^5.1.7"
+  },
+  "engines": {
+    "node": ">=16.9.0"
   }
 }

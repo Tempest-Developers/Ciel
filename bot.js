@@ -17,72 +17,15 @@ const giveawayModule = require('./database/modules/giveaway');
 const commandLogsModule = require('./database/modules/commandLogs');
 const wishlistModule = require('./database/modules/wishlist');
 
-// Simple Queue implementation
-class Queue {
-    constructor(interval = 1000, limit = 30) {
-        this.queue = [];
-        this.interval = interval;
-        this.limit = limit;
-        this.processing = false;
-    }
-
-    add(fn) {
-        return new Promise((resolve, reject) => {
-            this.queue.push({ fn, resolve, reject });
-            this.process();
-        });
-    }
-
-    async process() {
-        if (this.processing) return;
-        this.processing = true;
-
-        while (this.queue.length > 0) {
-            const batch = this.queue.splice(0, this.limit);
-            const promises = batch.map(item => {
-                return item.fn()
-                    .then(item.resolve)
-                    .catch(item.reject);
-            });
-
-            await Promise.all(promises);
-            await new Promise(resolve => setTimeout(resolve, this.interval));
-        }
-
-        this.processing = false;
-    }
-
-    get size() {
-        return this.queue.length;
-    }
-
-    get pending() {
-        return this.processing ? this.limit : 0;
-    }
-}
-
-// Create a new queue instance
-const queue = new Queue(1000, 30);
-
-// Wrap Discord client methods to use the queue
-function wrapMethod(client, methodName) {
-    const original = client[methodName];
-    client[methodName] = function(...args) {
-        return queue.add(() => original.apply(this, args));
-    };
-}
-
 const client = new Client({
     shards: 'auto',
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMembers
     ]
 });
-
-// Wrap methods that make API calls
-['send', 'edit', 'delete', 'react'].forEach(method => wrapMethod(client, method));
 
 client.commands = new Collection();
 client.slashCommands = new Collection();
@@ -105,8 +48,6 @@ function monitorSystem() {
     console.log('\n=== System Monitor ===');
     console.log(`RAM Usage: ${memoryUsagePercent}% (${(usedMemory / 1024 / 1024 / 1024).toFixed(2)}GB / ${(totalMemory / 1024 / 1024 / 1024).toFixed(2)}GB)`);
     console.log(`Heap Usage: ${heapUsed}MB / ${heapTotal}MB`);
-    console.log(`Queue Size: ${queue.size}`);
-    console.log(`Queue Pending: ${queue.pending}`);
     console.log('===================\n');
 }
 
@@ -259,7 +200,10 @@ async function resetAllCollections() {
     try {
         const resetFunctions = [
             serverModule.resetServerCounts,
-            playerModule.resetUserCounts
+            playerModule.resetUserCounts,
+            gateModule.resetGateCounts,
+            giveawayModule.resetGiveawayCounts,
+            commandLogsModule.resetCommandLogs
         ];
 
         const results = await Promise.all(resetFunctions.map(func => func()));
@@ -311,9 +255,3 @@ process.on('SIGINT', async () => {
         process.exit(1);
     }
 });
-
-process.on('unhandledRejection', error => {
-    console.error(`[Shard ${client.shard?.ids[0]}] Unhandled promise rejection:`, error);
-});
-
-startBot();
