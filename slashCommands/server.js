@@ -14,6 +14,12 @@ const isWithinLastHour = (timestamp) => {
     return new Date(timestamp).getTime() > oneHourAgo;
 };
 
+// Function to check if timestamp is within last 1 week
+const isWithinLastWeek = (timestamp) => {
+    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    return new Date(timestamp).getTime() > oneWeekAgo;
+};
+
 // Function to handle Mazoku API errors
 const handleMazokuAPICall = async (apiCall) => {
     try {
@@ -157,47 +163,47 @@ module.exports = {
                     uniqueOwners.add(claim.owner);
                     
                     if (claim.timestamp) {
-                        if (isWithinLastHour(claim.timestamp)) {
-                            recentUniqueOwners.add(claim.owner);
+                        if (isWithinLastWeek(claim.timestamp)) {
                             
-                            // Only consider claims from last hour for best print
-                            if (!bestPrint || isHigherQuality({ ...claim, tier }, { ...bestPrint, tier: bestPrint.tier })) {
-                                bestPrint = { ...claim, tier };
-                            }
-
                             // Update last claimed timestamp for each tier
                             if (!lastClaimedByTier[tier] || new Date(claim.timestamp) > new Date(lastClaimedByTier[tier])) {
                                 lastClaimedByTier[tier] = claim.timestamp;
                             }
+
+                            claimTimesByTier[tier].push(new Date(claim.timestamp));
+                            
+                            const printNum = claim.print;
+                            const timestamp = new Date(claim.timestamp);
+                            if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(timestamp);
+                            else if (printNum >= 11 && printNum <= 99) claimTimesByPrintRange.LP.push(timestamp);
+                            else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(timestamp);
+                            else if (printNum >= 500 && printNum <= 2000) claimTimesByPrintRange.HP.push(timestamp);
                         }
                         
-                        claimTimesByTier[tier].push(new Date(claim.timestamp));
-                    }
-                    
-                    const printNum = claim.print;
-                    const timestamp = new Date(claim.timestamp);
-                    if (isWithinLastHour(claim.timestamp)) {
-                        if (printNum >= 1 && printNum <= 10) claimTimesByPrintRange.SP.push(timestamp);
-                        else if (printNum >= 11 && printNum <= 99) claimTimesByPrintRange.LP.push(timestamp);
-                        else if (printNum >= 100 && printNum <= 499) claimTimesByPrintRange.MP.push(timestamp);
-                        else if (printNum >= 500 && printNum <= 2000) claimTimesByPrintRange.HP.push(timestamp);
+                        if (isWithinLastHour(claim.timestamp)) {
+                            recentUniqueOwners.add(claim.owner);
+                            // Only consider claims from last hour for best print
+                            if (!bestPrint || isHigherQuality({ ...claim, tier }, { ...bestPrint, tier: bestPrint.tier })) {
+                                bestPrint = { ...claim, tier };
+                            }
+                        }
                     }
                 }
             }
 
             // Calculate print range counts for last hour
             const printRangeCounts = {
-                SP: claimTimesByPrintRange.SP.length,
-                LP: claimTimesByPrintRange.LP.length,
-                MP: claimTimesByPrintRange.MP.length,
-                HP: claimTimesByPrintRange.HP.length
+                SP: claimTimesByPrintRange.SP.filter(isWithinLastHour).length,
+                LP: claimTimesByPrintRange.LP.filter(isWithinLastHour).length,
+                MP: claimTimesByPrintRange.MP.filter(isWithinLastHour).length,
+                HP: claimTimesByPrintRange.HP.filter(isWithinLastHour).length
             };
 
             const totalClaims = Object.values(tierCounts).reduce((a, b) => a + b, 0);
             const totalPrints = Object.values(printRangeCounts).reduce((a, b) => a + b, 0);
 
             const calculateAverageTimeBetweenClaims = (times) => {
-                if (!times || times.length < 2) return null;
+                if (!times || times.length === 0) return null;
                 
                 const timestamps = times.map(time => Math.floor(time.getTime() / 1000));
                 timestamps.sort((a, b) => a - b);
@@ -249,15 +255,15 @@ module.exports = {
             switch(statType) {
                 case 'overview':
                     embed.addFields({ 
-                        name: `Total Claims:  ${totalClaims.toString()}`, 
-                        value: `*Claimers in last 1 hour*: ${recentUniqueOwners.size.toString()}`,
+                        name: `Total Claims This Month:  ${totalClaims.toString()}`, 
+                        value: `*Active Players ( Last 1 Hour )*: ${recentUniqueOwners.size.toString()}`,
                     });
                     embed.addFields({
                         name: 'Last Claimed Timestamps',
                         value: Object.entries(lastClaimedByTier)
                             .filter(([_, timestamp]) => timestamp !== null)
                             .map(([tier, timestamp]) => `${getTierEmoji(tier)}: <t:${isoToUnixTimestamp(timestamp)}:R>`)
-                            .join('\n') || '*No claims in the last 1 hour*'
+                            .join('\n') || '*No claims found*'
                     });
                     break;
 
@@ -310,11 +316,12 @@ module.exports = {
                     embed.addFields({
                         name: 'Claims by Tier',
                         value: Object.entries(tierCounts)
+                            .filter(([_, count]) => count > 0)
                             .map(([tier, count]) => {
                                 const percentage = totalClaims > 0 ? (count / totalClaims) * 100 : 0;
                                 return `${getTierEmoji(tier)} **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(2)}* **%**`;
                             })
-                            .join('\n')
+                            .join('\n') || '*No claims data available*'
                     });
                     break;
 
@@ -322,37 +329,38 @@ module.exports = {
                     embed.addFields({
                         name: 'Print Distribution (Last 1 Hour)',
                         value: Object.entries(printRangeCounts)
+                            .filter(([_, count]) => count > 0)
                             .map(([range, count]) => {
                                 const percentage = totalPrints > 0 ? (count / totalPrints) * 100 : 0;
                                 return `**${range}** (${getRangeDescription(range)}): **${count}** ${getLoadBar(percentage)} *${percentage.toFixed(2)}* **%**`;
                             })
-                            .join('\n')
+                            .join('\n') || '*No print data available for the last 1 hour*'
                     });
                     break;
 
                 case 'tiertimes':
                     embed.addFields({
-                        name: 'Average Time Between Claims by Tier',
+                        name: 'Average Time Between Claims by Tier (Last 1 Week)',
                         value: Object.entries(claimTimesByTier)
                             .filter(([_, times]) => times.length > 0)
                             .map(([tier, times]) => {
                                 const avgTime = calculateAverageTimeBetweenClaims(times);
                                 return `${getTierEmoji(tier)}: ${avgTime || '*Data Unavailable*'}`;
                             })
-                            .join('\n') || '*Data Unavailable*'
+                            .join('\n') || '*No claim data available for the last 1 week*'
                     });
                     break;
 
                 case 'printtimes':
                     embed.addFields({
-                        name: 'Average Print Claim Time ( Last 1 Hr )',
+                        name: 'Average Print Claim Time (Last 1 Week)',
                         value: Object.entries(claimTimesByPrintRange)
                             .filter(([_, times]) => times.length > 0)
                             .map(([range, times]) => {
                                 const avgTime = calculateAverageTimeBetweenClaims(times);
                                 return `**${range}** (${getRangeDescription(range)}): ${avgTime || '*Data Unavailable*'}`;
                             })
-                            .join('\n') || '*Data Unavailable*'
+                            .join('\n') || '*No print claim data available for the last 1 week*'
                     });
                     break;
             }
@@ -381,7 +389,7 @@ module.exports = {
     },
 };
 
-// Rest of the helper functions remain unchanged
+// Helper functions remain unchanged
 function getRangeDescription(range) {
     switch (range) {
         case 'SP': return '1-10';

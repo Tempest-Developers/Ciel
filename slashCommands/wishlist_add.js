@@ -6,7 +6,7 @@ const getTierEmoji = require('../utility/getTierEmoji');
 // Constants
 const COOLDOWN_DURATION = 10000;
 const CARDS_PER_PAGE = 10;
-const INTERACTION_TIMEOUT = 900000; // 15 minutes
+const INTERACTION_TIMEOUT = 300000; // 5 minutes
 
 // Function to handle Mazoku API errors
 const handleMazokuAPICall = async (apiCall) => {
@@ -17,7 +17,6 @@ const handleMazokuAPICall = async (apiCall) => {
         throw new Error("Mazoku Servers unavailable");
     }
 };
-
 
 // Cooldown management
 const cooldowns = new Map();
@@ -419,7 +418,7 @@ module.exports = {
                                     });
                                 }
                             } else if (i.customId === 'back') {
-                                const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id);
+                                const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, totalCards);
                                 const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
                                 const newSelectMenu = createCardSelectMenu(currentCards);
 
@@ -439,27 +438,27 @@ module.exports = {
                                     case 'last': newPage = totalPages; break;
                                 }
 
-                    if (newPage !== currentPage) {
-                        try {
-                            const newResult = await searchCards(searchParams, newPage);
-                            currentCards = newResult.cards;
-                            currentPage = newPage;
+                                if (newPage !== currentPage) {
+                                    try {
+                                        const newResult = await searchCards(searchParams, newPage);
+                                        currentCards = newResult.cards;
+                                        currentPage = newPage;
 
-                            const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, totalCards);
-                            const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
-                            const newSelectMenu = createCardSelectMenu(currentCards);
+                                        const newEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, i.user.id, totalCards);
+                                        const newNavigationButtons = createNavigationButtons(currentPage, totalPages);
+                                        const newSelectMenu = createCardSelectMenu(currentCards);
 
-                            const newComponents = [newNavigationButtons];
-                            if (newSelectMenu) newComponents.push(newSelectMenu);
+                                        const newComponents = [newNavigationButtons];
+                                        if (newSelectMenu) newComponents.push(newSelectMenu);
 
-                            await i.editReply({
-                                embeds: [newEmbed],
-                                components: newComponents
-                            });
-                        } catch (error) {
-                            throw new Error("Failed to load the next page");
-                        }
-                    }
+                                        await i.editReply({
+                                            embeds: [newEmbed],
+                                            components: newComponents
+                                        });
+                                    } catch (error) {
+                                        throw new Error("Failed to load the next page");
+                                    }
+                                }
                             }
                         } else if (i.isStringSelectMenu()) {
                             const selectedCard = currentCards.find(c => c.id === i.values[0]);
@@ -488,9 +487,23 @@ module.exports = {
                         const finalEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, totalCards);
                         finalEmbed.setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
+                        const disabledComponents = components.map(row => {
+                            const newRow = new ActionRowBuilder().addComponents(
+                                row.components.map(component => {
+                                    if (component instanceof ButtonBuilder) {
+                                        return ButtonBuilder.from(component).setDisabled(true);
+                                    } else if (component instanceof StringSelectMenuBuilder) {
+                                        return StringSelectMenuBuilder.from(component).setDisabled(true);
+                                    }
+                                    return component;
+                                })
+                            );
+                            return newRow;
+                        });
+
                         await interaction.editReply({
                             embeds: [finalEmbed],
-                            components: []
+                            components: disabledComponents
                         });
                     } catch (error) {
                         console.error('Error handling collector end:', error);
@@ -505,5 +518,3 @@ module.exports = {
         }
     }
 };
-
-// Rest of the code remains exactly the same

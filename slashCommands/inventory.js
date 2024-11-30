@@ -8,7 +8,7 @@ const { handleInteraction, handleCommandError, safeDefer } = require('../utility
 // Constants
 const COOLDOWN_DURATION = 10000;
 const CARDS_PER_PAGE = 10;
-const INTERACTION_TIMEOUT = 900000; // 15 minutes
+const INTERACTION_TIMEOUT = 300000; // 5 minutes
 const API_URL = 'https://api.mazoku.cc/api/get-inventory-items/';
 
 // Function to handle Mazoku API errors

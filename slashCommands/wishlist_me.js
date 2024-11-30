@@ -7,7 +7,7 @@ const axios = require('axios');
 // Constants
 const COOLDOWN_DURATION = 10000;
 const CARDS_PER_PAGE = 10;
-const INTERACTION_TIMEOUT = 900000; // 15 minutes
+const INTERACTION_TIMEOUT = 300000; // 5 minutes
 
 // Function to handle Mazoku API errors
 const handleMazokuAPICall = async (apiCall) => {
@@ -18,7 +18,6 @@ const handleMazokuAPICall = async (apiCall) => {
         throw new Error("Mazoku Servers unavailable");
     }
 };
-
 
 // Cooldown management
 const cooldowns = new Map();
@@ -402,9 +401,23 @@ module.exports = {
                         const finalEmbed = await createCardListEmbed(currentCards, currentPage, totalPages, interaction.user.id, totalCards);
                         finalEmbed.setFooter({ text: 'This interaction has expired. Please run the command again.' });
 
+                        const disabledComponents = components.map(row => {
+                            const newRow = new ActionRowBuilder().addComponents(
+                                row.components.map(component => {
+                                    if (component instanceof ButtonBuilder) {
+                                        return ButtonBuilder.from(component).setDisabled(true);
+                                    } else if (component instanceof StringSelectMenuBuilder) {
+                                        return StringSelectMenuBuilder.from(component).setDisabled(true);
+                                    }
+                                    return component;
+                                })
+                            );
+                            return newRow;
+                        });
+
                         await interaction.editReply({
                             embeds: [finalEmbed],
-                            components: []
+                            components: disabledComponents
                         });
                     } catch (error) {
                         console.error('Error handling collector end:', error);
