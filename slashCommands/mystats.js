@@ -381,7 +381,7 @@ function isoToUnixTimestamp(isoTimestamp) {
 }
 
 function calculateAverageTimeBetweenClaims(times) {
-    if (!times || times.length < 2) return null;
+    if (!times) return null;
     
     const timestamps = times.map(time => Math.floor(time.getTime() / 1000));
     timestamps.sort((a, b) => a - b);
