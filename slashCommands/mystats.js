@@ -226,14 +226,16 @@ module.exports = {
                         name: `Cooldown for ${interaction.guild.name}`,
                         value: Object.entries(lastClaimedByTier)
                             .map(([tier, timestamp]) => {
-                                if (!timestamp) return `${getTierEmoji(tier)}: Ready`;
-                                const cooldownEnd = new Date(timestamp).getTime() + TIER_COOLDOWNS[tier] * 1000;
-                                const now = Date.now();
-                                if (now >= cooldownEnd) {
-                                    return `${getTierEmoji(tier)}: Ready`;
-                                } else {
-                                    const timeLeft = Math.floor((cooldownEnd - now) / 1000);
-                                    return `${getTierEmoji(tier)}: <t:${Math.floor(cooldownEnd / 1000)}:R>`;
+                                if(tier!=="EXT") {
+                                    if (!timestamp) return `${getTierEmoji(tier)}: Ready`;
+                                    const cooldownEnd = new Date(timestamp).getTime() + TIER_COOLDOWNS[tier] * 1000;
+                                    const now = Date.now();
+                                    if (now >= cooldownEnd) {
+                                        return `${getTierEmoji(tier)}: Ready`;
+                                    } else {
+                                        const timeLeft = Math.floor((cooldownEnd - now) / 1000);
+                                        return `${getTierEmoji(tier)}: <t:${Math.floor(cooldownEnd / 1000)}:R>`;
+                                    }
                                 }
                             })
                             .join('\n') || '*No claim data available*'
