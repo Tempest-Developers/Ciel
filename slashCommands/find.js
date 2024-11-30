@@ -9,9 +9,9 @@ const getTierEmoji = require('../utility/getTierEmoji');
 // Utility constants
 const COOLDOWN_DURATION = 10000;
 const MAX_SERIES_LENGTH = 30;
-const MAX_VERSIONS_DISPLAY = 4;
+const MAX_VERSIONS_DISPLAY = 3;
 const OWNERS_PER_PAGE = 10;
-const MAX_PAGES = 50;
+const MAX_PAGES = 100;
 const INTERACTION_TIMEOUT = 300000; // 5 minutes
 
 // Cooldown management
@@ -50,7 +50,8 @@ const findLowestPrint = (ownersList) => {
     if (versions.length === 0) return '*Data Unavailable*';
     if (versions.length === 1) return `\`${versions[0]}\``;
     if (versions.length === 2) return `\`${versions[0]}\` \`${versions[1]}\``;
-    return `\`${versions[0]}\` \`${versions[1]}\` \`${versions[2]}\``;
+    if (versions.length === 3) return `\`${versions[0]}\` \`${versions[1]}\` \`${versions[2]}\``;
+    return `\`${versions[0]}\` \`${versions[1]}\` \`${versions[2]}\` \`${versions[3]}\``;
   };
 
 const formatVersionsDisplay = (versions) => {
@@ -72,6 +73,16 @@ const loadCardsData = async () => {
         throw new Error('Failed to load cards data');
     }
 };
+
+const totalCardsRemaining = async (tier) => {
+    tierCount = {
+        C: 2000,
+        R: 750,
+        SR: 250,
+        SSR: 100
+    };
+    return tierCount[tier];
+}
 
 const formatAutocompleteSuggestion = (card) => {
     const tierDisplay = `[${card.tier || 'Unknown'}]`;
@@ -106,7 +117,7 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
         `**Makers:** ${makerMentions}`,
         `**Card ID:** [${cardDetails.id}](https://mazoku.cc/card/${cardDetails.id})`,
         `**Lowest Print Out**: ${lowestPrint}`,
-        `**Total Prints Claimed**: \`${totalPrints}\``,
+        `**Total Prints Claimed**: \`${totalPrints}\` / \`${await totalCardsRemaining(cardDetails.tier)}\``,
         `**Total Owners**: \`${ownersList.length}\``,
         `**Batch** \`${batchId}\``
     ].join('\n');
@@ -132,7 +143,7 @@ const createOwnersEmbed = async (cardDetails, ownersList, userOwnership, page = 
             .map(owner => {
                 const displayName = owner.user?.username || owner.id || '*Data Unavailable*';
                 const versionsString = formatVersionsDisplay(owner.versions);
-                return `:identification_card: [${displayName}](https://mazoku.cc/user/${owner.id}) ${versionsString} [ **${owner.versionCount}** ]`;
+                return `※ [${displayName.substring(0, 18)}](https://mazoku.cc/user/${owner.id}) ${versionsString} [ **${owner.versionCount}** ]`;
             })
             .join('\n');
 
