@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const cron = require('node-cron');
+const PQueue = require('p-queue').default;
 
 const BOT_TOKEN = process.env.TOKEN_CIEL;
 
@@ -17,6 +18,17 @@ const giveawayModule = require('./database/modules/giveaway');
 const commandLogsModule = require('./database/modules/commandLogs');
 const wishlistModule = require('./database/modules/wishlist');
 
+// Create a new queue instance
+const queue = new PQueue({concurrency: 1, interval: 1000, intervalCap: 30});
+
+// Wrap Discord client methods to use the queue
+function wrapMethod(client, methodName) {
+    const original = client[methodName];
+    client[methodName] = function(...args) {
+        return queue.add(() => original.apply(this, args));
+    };
+}
+
 const client = new Client({
     shards: 'auto',
     intents: [
@@ -26,6 +38,9 @@ const client = new Client({
         GatewayIntentBits.GuildMembers
     ]
 });
+
+// Wrap methods that make API calls
+['send', 'edit', 'delete', 'react'].forEach(method => wrapMethod(client, method));
 
 client.commands = new Collection();
 client.slashCommands = new Collection();
@@ -48,6 +63,8 @@ function monitorSystem() {
     console.log('\n=== System Monitor ===');
     console.log(`RAM Usage: ${memoryUsagePercent}% (${(usedMemory / 1024 / 1024 / 1024).toFixed(2)}GB / ${(totalMemory / 1024 / 1024 / 1024).toFixed(2)}GB)`);
     console.log(`Heap Usage: ${heapUsed}MB / ${heapTotal}MB`);
+    console.log(`Queue Size: ${queue.size}`);
+    console.log(`Queue Pending: ${queue.pending}`);
     console.log('===================\n');
 }
 

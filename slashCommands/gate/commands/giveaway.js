@@ -44,9 +44,9 @@ module.exports = {
                     description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
                                 `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
                 } else if (giveaway.level === 2) {
-                    const prizes = giveaway.item?.name?.split('|').map((p, i) => `${p.trim()}`).join(' ') || 'No Prizes Set';
+                    const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
                     description = `**Prizes:**\n${prizes}\n\n` +
-                                `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
+                                `${giveaway.item?.description || 'No Message Set'}`;
                 }
 
                 description += `\n\n🎫 Your Tickets: **${userTickets}**\n` +
