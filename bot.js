@@ -5,7 +5,6 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const cron = require('node-cron');
-const PQueue = require('p-queue').default;
 
 const BOT_TOKEN = process.env.TOKEN_CIEL;
 
@@ -18,8 +17,52 @@ const giveawayModule = require('./database/modules/giveaway');
 const commandLogsModule = require('./database/modules/commandLogs');
 const wishlistModule = require('./database/modules/wishlist');
 
+// Simple Queue implementation
+class Queue {
+    constructor(interval = 1000, limit = 30) {
+        this.queue = [];
+        this.interval = interval;
+        this.limit = limit;
+        this.processing = false;
+    }
+
+    add(fn) {
+        return new Promise((resolve, reject) => {
+            this.queue.push({ fn, resolve, reject });
+            this.process();
+        });
+    }
+
+    async process() {
+        if (this.processing) return;
+        this.processing = true;
+
+        while (this.queue.length > 0) {
+            const batch = this.queue.splice(0, this.limit);
+            const promises = batch.map(item => {
+                return item.fn()
+                    .then(item.resolve)
+                    .catch(item.reject);
+            });
+
+            await Promise.all(promises);
+            await new Promise(resolve => setTimeout(resolve, this.interval));
+        }
+
+        this.processing = false;
+    }
+
+    get size() {
+        return this.queue.length;
+    }
+
+    get pending() {
+        return this.processing ? this.limit : 0;
+    }
+}
+
 // Create a new queue instance
-const queue = new PQueue({concurrency: 1, interval: 1000, intervalCap: 30});
+const queue = new Queue(1000, 30);
 
 // Wrap Discord client methods to use the queue
 function wrapMethod(client, methodName) {
