@@ -31,13 +31,6 @@ const calculateTotalCards = (totalPages, lastPageCards) => {
 // Cooldown management
 const cooldowns = new Map();
 
-const versionRanges = {
-    'SP': { min: 0, max: 10 },
-    'LP': { min: 11, max: 100 },
-    'MP': { min: 101, max: 500 },
-    'HP': { min: 501, max: 2000 }
-};
-
 // Convert tier to format expected by getTierEmoji
 const formatTier = (tier) => `${tier}T`;
 
@@ -54,14 +47,14 @@ const createAxiosConfig = (body) => ({
 const createBaseRequestBody = (userId) => ({
     page: 1,
     pageSize: CARDS_PER_PAGE,
-    name: "",
     type: "Card",
+    name: "",
     seriesName: "",
-    minVersion: 0,
-    maxVersion: 2000,
     sortBy: "dateAdded",
-    sortOrder: "desc",
-    owner: userId
+    sortOrder: "asc",
+    owner: userId,
+    minVersion: 0,
+    maxVersion: 2000
 });
 
 const createCardListEmbed = async (cards, page, totalPages, userId, targetUser, lastPageCards) => {
@@ -259,8 +252,8 @@ module.exports = {
             option.setName('name')
                 .setDescription('Filter cards by name'))
         .addStringOption(option =>
-            option.setName('anime')
-                .setDescription('Filter cards by anime series'))
+            option.setName('series')
+                .setDescription('Filter cards by series name'))
         .addStringOption(option =>
             option.setName('tier')
                 .setDescription('Filter cards by tier')
@@ -272,27 +265,37 @@ module.exports = {
                     { name: 'UR', value: 'UR' }
                 ))
         .addStringOption(option =>
-            option.setName('version')
-                .setDescription('Filter cards by version range')
+            option.setName('card_type')
+                .setDescription('Filter cards by type')
                 .addChoices(
-                    { name: 'SP (1-10)', value: 'SP' },
-                    { name: 'LP (1-100)', value: 'LP' },
-                    { name: 'MP (1-499)', value: 'MP' },
-                    { name: 'HP (1-1000)', value: 'HP' }
+                    { name: 'Anime', value: 'anime' },
+                    { name: 'Manga', value: 'manga' },
+                    { name: 'Light Novel', value: 'lightNovel' },
+                    { name: 'Game', value: 'game' },
+                    { name: 'Other', value: 'other' }
+                ))
+        .addIntegerOption(option =>
+            option.setName('min_version')
+                .setDescription('Minimum version number'))
+        .addIntegerOption(option =>
+            option.setName('max_version')
+                .setDescription('Maximum version number'))
+        .addStringOption(option =>
+            option.setName('event_type')
+                .setDescription('Filter cards by event type')
+                .addChoices(
+                    { name: 'Halloween 🎃', value: 'halloween' },
+                    { name: 'Christmas 🎄', value: 'christmas' }
                 ))
         .addStringOption(option =>
-            option.setName('sort_by')
-                .setDescription('Sort cards by')
+            option.setName('sort')
+                .setDescription('Sort cards')
                 .addChoices(
-                    { name: 'Date Added', value: 'dateAdded' },
-                    { name: 'Name', value: 'name' }
-                ))
-        .addStringOption(option =>
-            option.setName('sort_order')
-                .setDescription('Sort order')
-                .addChoices(
-                    { name: 'Ascending', value: 'asc' },
-                    { name: 'Descending', value: 'desc' }
+                    { name: 'Recent', value: 'recent' },
+                    { name: 'High to Low Tier', value: 'high_to_low' },
+                    { name: 'Low to High Tier', value: 'low_to_high' },
+                    { name: 'Name [ A - Z ]', value: 'name_asc' },
+                    { name: 'Name [ Z - A ]', value: 'name_desc' }
                 )),
 
     async execute(interaction) {
@@ -326,26 +329,50 @@ module.exports = {
 
             // Handle options with validation
             const name = interaction.options.getString('name');
-            const anime = interaction.options.getString('anime');
+            const series = interaction.options.getString('series');
             const tier = interaction.options.getString('tier');
-            const version = interaction.options.getString('version');
-            const sortBy = interaction.options.getString('sort_by');
-            const sortOrder = interaction.options.getString('sort_order');
-            const type = interaction.options.getString('type');
+            const cardType = interaction.options.getString('card_type');
+            const minVersion = interaction.options.getInteger('min_version');
+            const maxVersion = interaction.options.getInteger('max_version');
+            const eventType = interaction.options.getString('event_type');
+            const sort = interaction.options.getString('sort');
 
             if (name?.trim()) requestBody.name = name.trim();
-            if (anime?.trim()) requestBody.seriesName = anime.trim();
+            if (series?.trim()) requestBody.seriesName = series.trim();
             if (tier) requestBody.tiers = [tier];
-            if (version) {
-                const range = versionRanges[version];
-                if (range) {
-                    requestBody.minVersion = range.min;
-                    requestBody.maxVersion = range.max;
-                }
+            if (cardType) requestBody.cardType = [cardType];
+            if (minVersion !== null) requestBody.minVersion = minVersion;
+            if (maxVersion !== null) requestBody.maxVersion = maxVersion;
+            if (eventType) requestBody.eventType = eventType;
+
+            // Handle sorting
+            switch (sort) {
+                case 'recent':
+                    requestBody.sortBy = 'dateAdded';
+                    requestBody.sortOrder = 'asc';
+                    break;
+                case 'high_to_low':
+                    requestBody.sortBy = 'tier';
+                    requestBody.sortOrder = 'asc';
+                    break;
+                case 'low_to_high':
+                    requestBody.sortBy = 'tier';
+                    requestBody.sortOrder = 'desc';
+                    break;
+                case 'name_asc':
+                    requestBody.sortBy = 'name';
+                    requestBody.sortOrder = 'asc';
+                    break;
+                case 'name_desc':
+                    requestBody.sortBy = 'name';
+                    requestBody.sortOrder = 'desc';
+                    break;
             }
-            if (sortBy) requestBody.sortBy = sortBy;
-            if (sortOrder) requestBody.sortOrder = sortOrder;
-            if (type) requestBody.eventType = type === 'event';
+
+            // Remove properties that are not included when empty
+            if (!requestBody.eventType) delete requestBody.eventType;
+            if (!requestBody.tiers) delete requestBody.tiers;
+            if (!requestBody.cardType) delete requestBody.cardType;
 
             try {
                 const response = await handleMazokuAPICall(async () => {
