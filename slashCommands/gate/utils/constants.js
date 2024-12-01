@@ -5,7 +5,7 @@ module.exports = {
     USER_COOLDOWN: 10, // 10 seconds for regular users
     COSTS: {
         TICKET: 50,
-        PREMIUM: 250,
+        PREMIUM: 500,
         GIFT_TICKET: 40
     },
     MAX_TOKENS: 10000,

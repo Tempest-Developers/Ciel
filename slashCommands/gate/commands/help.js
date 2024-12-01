@@ -47,13 +47,13 @@ module.exports = {
                         `\`/gate giveaway\` - View giveaway rewards\n` +
                         `**Cooldown**: ${constants.USER_COOLDOWN} seconds`, inline: false },
                     { name: 'Information', value:
-                        `• Earn Slime Tokens 1 up to rare 100 by chatting and claiming cards\n` +
-                        `• Earn bonus Slime Tokens when Booster role or Clan role is present\n` +
-                        `• Maximum balance: ${constants.MAX_TOKENS} Slime Tokens\n` +
-                        `• Regular ticket: ${constants.COSTS.TICKET} Slime Tokens\n` +
-                        `• Gift Regular Ticket: ${constants.COSTS.GIFT_TICKET} Slime Tokens\n` +
-                        `• Premium (1 week): ${constants.COSTS.PREMIUM} Slime Tokens\n` +
-                        `• Premium benefits: High-Tier-Ping role`, inline: false 
+                        `• Earn <:Slime_Token:1304929154285703179> \`1\` up to rare \`100\` by chatting and claiming cards\n` +
+                        `• Earn bonus <:Slime_Token:1304929154285703179> when \`Booster\` role or \`Clan\` role is present\n` +
+                        `• \`Maximum balance\`: ${constants.MAX_TOKENS} <:Slime_Token:1304929154285703179>\n` +
+                        `• \`Regular ticket\`: ${constants.COSTS.TICKET} <:Slime_Token:1304929154285703179>\n` +
+                        `• \`Gift Regular Ticket\`: ${constants.COSTS.GIFT_TICKET} <:Slime_Token:1304929154285703179>\n` +
+                        `• \`Premium (1 week)\`: ${constants.COSTS.PREMIUM} <:Slime_Token:1304929154285703179>\n` +
+                        `• \`Premium benefits\`: \`High-Tier-Ping\` role`, inline: false 
                     }
                 );
 
