@@ -53,7 +53,7 @@ module.exports = {
                         `• \`Regular ticket\`: ${constants.COSTS.TICKET} <:Slime_Token:1304929154285703179>\n` +
                         `• \`Gift Regular Ticket\`: ${constants.COSTS.GIFT_TICKET} <:Slime_Token:1304929154285703179>\n` +
                         `• \`Premium (1 week)\`: ${constants.COSTS.PREMIUM} <:Slime_Token:1304929154285703179>\n` +
-                        `• \`Premium benefits\`: \`High-Tier-Ping\` role`, inline: false 
+                        `• \`Premium benefits\`: \`<@&1305567492277796908>\` role`, inline: false 
                     }
                 );
 
