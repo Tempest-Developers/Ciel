@@ -43,7 +43,7 @@ module.exports = {
                 responseEmbed = new EmbedBuilder()
                     .setColor('#2B2D31')
                     .setTitle('Server Configuration Updated')
-                    .setDescription(`Tier display in summon messages ${toggleResult.allowRolePing ? 'enabled' : 'disabled'} for this server.`)
+                    .setDescription(`Tier display in summon messages ${toggleResult.allowShowStats ? 'enabled' : 'disabled'} for this server.`)
                     .setTimestamp();
             } 
             else if (subcommand === 'ping') {
@@ -63,7 +63,7 @@ module.exports = {
                     .addFields(
                         { 
                             name: 'Tier Display', 
-                            value: serverData.settings.allowRolePing ? 'Enabled ✅' : 'Disabled ❌', 
+                            value: serverData.settings.allowShowStats ? 'Enabled ✅' : 'Disabled ❌', 
                             inline: true 
                         },
                         { 
