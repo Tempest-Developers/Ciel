@@ -249,7 +249,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                 try {
                     countdownEmbed.fields[0] = {
                         name: `Next Summon <t:${nextSummonTime}:R> 📵`,
-                        value: `🌟 \`/help\` to see all commands`
+                        value: `\`Batch - 4\` <t:1733248800:R>`
                     };
                     await countdownMsg.edit({
                         embeds: [countdownEmbed]
