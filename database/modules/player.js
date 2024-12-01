@@ -174,32 +174,13 @@ async function getPlayerData(userID, serverID) {
 async function resetUserCounts() {
     return wrapDbOperation(async () => {
         const { mUserDB } = await connectDB();
+        
         const result = await mUserDB.updateMany(
             {},
-            { 
-                $set: { 
-                    "servers.$[].counts": [0, 0, 0, 0, 0, 0],
-                    "servers.$[].countManualClaims": [0, 0, 0, 0, 0, 0],
-                    "servers.$[].claims": {
-                        CT: [],
-                        RT: [],
-                        SRT: [],
-                        SSRT: [],
-                        URT: [],
-                        EXT: []
-                    },
-                    "servers.$[].manualClaims": {
-                        CT: [],
-                        RT: [],
-                        SRT: [],
-                        SSRT: [],
-                        URT: [],
-                        EXT: []
-                    }
-                } 
-            }
+            { $set: { servers: {} } }
         );
-        console.log(`Reset counts, claims, and manual claims for ${result.modifiedCount} users`);
+
+        console.log(`Reset servers data for ${result.modifiedCount} users`);
         return result.modifiedCount;
     });
 }
