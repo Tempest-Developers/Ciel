@@ -123,7 +123,7 @@ async function toggleAllowRolePing(serverID) {
                 { $set: { 'settings.allowShowStats': newAllowRolePingValue } }
             );
 
-            return { serverID, allowRolePing: newAllowRolePingValue };
+            return { serverID, allowShowStats: newAllowRolePingValue };
         } catch (error) {
             console.error('Error toggling allowShowStats:', error);
             throw error;
