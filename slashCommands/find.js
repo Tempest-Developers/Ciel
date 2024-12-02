@@ -79,7 +79,8 @@ const totalCardsRemaining = async (tier) => {
         C: 2000,
         R: 750,
         SR: 250,
-        SSR: 100
+        SSR: 100,
+        UR: 50
     };
     return tierCount[tier];
 }
