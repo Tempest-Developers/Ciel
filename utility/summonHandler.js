@@ -157,10 +157,10 @@ async function buildCardDescription(cardIds, client, message, guildId, allowRole
                     : "**No versions available**";
                 
                 const remainingText = cardInfo.versions.remainingVersions > 0 
-                    ? ` \`+${cardInfo.versions.remainingVersions}V left\`` 
+                    ? ` \`+${cardInfo.versions.remainingVersions}v left\`` 
                     : '';
 
-                const batchInfo = cardInfo.batchID ? `\`B:\` \`${cardInfo.batchID}\`` : '';
+                const batchInfo = cardInfo.batchID ? `\`B-${cardInfo.batchID}\`` : '';
 
                 const newEMOTE = cardInfo.batchID==4 ? '🆕' : '';
 
