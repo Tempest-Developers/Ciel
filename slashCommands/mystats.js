@@ -78,6 +78,21 @@ module.exports = {
         try {
             await safeDefer(interaction);
             hasDeferred = true;
+
+            if (cooldowns.has(cooldownKey)) {
+                const expirationTime = cooldowns.get(cooldownKey);
+                if (Date.now() < expirationTime) {
+                    const timeLeft = (expirationTime - Date.now()) / 1000;
+                    return await handleInteraction(interaction, { 
+                        content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
+                        ephemeral: true 
+                    });
+                }
+            }
+    
+            // Set cooldown
+            cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
+            setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
             
             const statType = interaction.options.getString('type');
             const targetUser = interaction.options.getUser('user') || interaction.user;
