@@ -46,7 +46,7 @@ async function getCardInfo(cardId, client) {
                 series: card.series || '*Data Unavailable*',
                 tier: card.tier,
                 batchID: card.batchId,
-                cardLink: `https://mazoku.cc/card/${cardID}`,
+                cardLink: `https://mazoku.cc/card/${cardId}`,
                 versions: await getAvailableVersions(data, card.tier),
                 wishlistCount: wishlistCount || 0
             };
