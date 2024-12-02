@@ -14,6 +14,9 @@ const GUILD_CHANNELS = {
 module.exports = {
     name: 'messageCreate',
     async execute(message, { database }) {
+
+        if(message.guild.id != '1240866080985976844') return;
+        
         // Skip if no database
         if (!database || !database.mGiveawayDB) {
             console.error('Database or mGiveawayDB not available');
