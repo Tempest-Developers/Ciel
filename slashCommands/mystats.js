@@ -73,26 +73,26 @@ module.exports = {
         const userId = interaction.user.id;
         const guildId = interaction.guild.id;
         const cooldownKey = `${userId}-${guildId}`;
-        
-        if (cooldowns.has(cooldownKey)) {
-            const expirationTime = cooldowns.get(cooldownKey);
-            if (Date.now() < expirationTime) {
-                const timeLeft = (expirationTime - Date.now()) / 1000;
-                return await handleInteraction(interaction, { 
-                    content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
-                    ephemeral: true 
-                });
-            }
-        }
-
-        // Set cooldown
-        cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
-        setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
 
         let hasDeferred = false;
         try {
             await safeDefer(interaction);
             hasDeferred = true;
+
+            if (cooldowns.has(cooldownKey)) {
+                const expirationTime = cooldowns.get(cooldownKey);
+                if (Date.now() < expirationTime) {
+                    const timeLeft = (expirationTime - Date.now()) / 1000;
+                    return await handleInteraction(interaction, { 
+                        content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
+                        ephemeral: true 
+                    });
+                }
+            }
+    
+            // Set cooldown
+            cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
+            setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
             
             const statType = interaction.options.getString('type');
             const targetUser = interaction.options.getUser('user') || interaction.user;
@@ -110,7 +110,7 @@ module.exports = {
             const userData = await database.getPlayerData(targetUser.id, guildId);
             if (!userData) {
                 return await handleInteraction(interaction, {
-                    content: 'No data found for this user.',
+                    content: 'To check mystats user must collect a card in this server',
                     ephemeral: true
                 }, 'editReply');
             }
@@ -346,7 +346,7 @@ module.exports = {
         } catch (error) {
             console.error('Error in mystats command:', error);
             
-            const errorMessage = error.message === "The Mazoku Servers are currently unavailable. Please try again later."
+            const errorMessage = error.message === "The Mazoku Servers are unavailable. Please try again later."
                 ? error.message
                 : 'An error occurred while fetching stats.';
             

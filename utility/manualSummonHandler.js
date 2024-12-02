@@ -45,6 +45,8 @@ async function getCardInfo(cardId, client) {
                 name: card.name || '*Data Unavailable*',
                 series: card.series || '*Data Unavailable*',
                 tier: card.tier,
+                batchID: card.batchId,
+                cardLink: `https://mazoku.cc/card/${cardID}`,
                 versions: await getAvailableVersions(data, card.tier),
                 wishlistCount: wishlistCount || 0
             };
@@ -120,17 +122,21 @@ async function buildCardDescription(cardIds, client) {
                 const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
                 
                 const versionsText = cardInfo.versions.availableVersions.length > 0 
-                    ? `\`Ver:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
+                    ? `\`V:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
                     : "**No versions available**";
                 
                 const remainingText = cardInfo.versions.remainingVersions > 0 
-                    ? ` \`+${cardInfo.versions.remainingVersions} ver left\`` 
+                    ? ` \`+${cardInfo.versions.remainingVersions}V left\`` 
                     : '';
+
+                const batchInfo = cardInfo.batchID ? `\`B:\` \`${cardInfo.batchID}\`` : '';
+
+                const newEMOTE = cardInfo.batchID==4 ? '🆕' : '';
 
                 const wishlistCount = cardInfo.wishlistCount;
                 const seriesName = cardInfo.series.length > 25 ? cardInfo.series.substring(0, 25)+"..." : cardInfo.series;
                 
-                description += `${letters[i]} \`❤️ ${wishlistCount}\` ${tierEmoji} **${cardInfo.name}** *${seriesName}*\n${versionsText}${remainingText} \n`;
+                description += `${letters[i]} \`❤️ ${wishlistCount}\` ${tierEmoji} [${cardInfo.name}](${cardInfo.cardLink}) *${seriesName}*\n${batchInfo} ${versionsText}${remainingText}${newEMOTE} \n`;
             }
         }
     } catch (error) {

@@ -18,6 +18,8 @@ module.exports = {
       const { user } = interaction;
       const guildId = interaction.guild.id;
       
+      await safeDefer(interaction);
+
       if (!cooldowns.has(guildId)) {
         cooldowns.set(guildId, new Map());
       }
@@ -36,8 +38,6 @@ module.exports = {
       }
       
       guildCooldowns.set(user.id, Date.now());
-      
-      await safeDefer(interaction);
       
       const serverData = await database.getServerData(interaction.guild.id);
 

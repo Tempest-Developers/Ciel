@@ -40,6 +40,8 @@ module.exports = {
         const userId = interaction.user.id;
         const cooldownKey = `${guildId}-${userId}`;
 
+        await safeDefer(interaction);
+
         if (cooldowns.has(cooldownKey)) {
             const expirationTime = cooldowns.get(cooldownKey);
             if (Date.now() < expirationTime) {
@@ -53,8 +55,6 @@ module.exports = {
 
         cooldowns.set(cooldownKey, Date.now() + COOLDOWN_DURATION);
         setTimeout(() => cooldowns.delete(cooldownKey), COOLDOWN_DURATION);
-
-        await safeDefer(interaction);
 
         try {
             const subcommand = interaction.options.getSubcommand();
