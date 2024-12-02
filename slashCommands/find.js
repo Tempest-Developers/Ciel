@@ -7,7 +7,7 @@ const getEventEmoji = require('../utility/getEventEmoji');
 const getTierEmoji = require('../utility/getTierEmoji');
 
 // Utility constants
-const COOLDOWN_DURATION = 10000;
+const COOLDOWN_DURATION = 5000;
 const MAX_SERIES_LENGTH = 30;
 const MAX_VERSIONS_DISPLAY = 3;
 const OWNERS_PER_PAGE = 10;

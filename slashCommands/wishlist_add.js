@@ -4,7 +4,7 @@ const { handleInteraction, handleCommandError, safeDefer } = require('../utility
 const getTierEmoji = require('../utility/getTierEmoji');
 
 // Constants
-const COOLDOWN_DURATION = 10000;
+const COOLDOWN_DURATION = 5000;
 const CARDS_PER_PAGE = 10;
 const INTERACTION_TIMEOUT = 300000; // 5 minutes
 

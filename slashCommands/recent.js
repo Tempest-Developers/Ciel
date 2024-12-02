@@ -4,7 +4,7 @@ const getTierEmoji = require('../utility/getTierEmoji');
 require('dotenv').config();
 
 const cooldowns = new Map();
-const COOLDOWN_DURATION = 5000; // 5 seconds
+const COOLDOWN_DURATION = 2000; // 5 seconds
 
 module.exports = {
   data: new SlashCommandBuilder()

@@ -6,7 +6,7 @@ const getEventEmoji = require('../utility/getEventEmoji');
 const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 
 // Constants
-const COOLDOWN_DURATION = 10000;
+const COOLDOWN_DURATION = 5000;
 const CARDS_PER_PAGE = 10;
 const INTERACTION_TIMEOUT = 300000; // 5 minutes
 const API_URL = 'https://api.mazoku.cc/api/get-inventory-items/';

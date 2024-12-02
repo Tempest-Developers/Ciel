@@ -6,7 +6,7 @@ const { handleInteraction, handleCommandError, safeDefer } = require('../utility
 
 // Add cooldown system
 const cooldowns = new Map();
-const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
+const COOLDOWN_DURATION = 2000; // 5 seconds in milliseconds
 
 // Function to check if timestamp is within last 1 hour
 const isWithinLastHour = (timestamp) => {
@@ -62,7 +62,7 @@ module.exports = {
 
         let hasDeferred = false;
         try {
-            
+
             await safeDefer(interaction);
             hasDeferred = true;
             

@@ -4,7 +4,7 @@ const { handleInteraction, handleCommandError, safeDefer } = require('../utility
 
 // Add cooldown system
 const cooldowns = new Map();
-const COOLDOWN_DURATION = 5000; // 5 seconds in milliseconds
+const COOLDOWN_DURATION = 2000; // 5 seconds in milliseconds
 
 // Guild IDs
 const GATE_GUILD = process.env.GATE_GUILD;
