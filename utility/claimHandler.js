@@ -20,7 +20,7 @@ setInterval(() => {
             recentClaimAttempts.delete(key);
         }
     }
-}, 60 * 60 * 1000);
+}, 10 * 60 * 1000);
 
 async function handleClaim(client, newMessage, newEmbed, field, guildId) {
     try {
