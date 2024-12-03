@@ -85,7 +85,7 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
                 client.database.addClaim(guildId, userId, claimData),
                 client.database.addServerClaim(guildId, claimData)
             ]);
-            console.log(`Updated ${userId} - ${claimData.owner} | ${newMessage.guild.name} ${guildId} Database`, 'background: #222; color: #bada55' );
+            console.log(`%c Updated ${userId} - ${claimData.owner} | ${newMessage.guild.name} ${guildId} Database`, 'background: #222; color: #bada55' );
         }
     } catch (error) {
         console.error('Error processing claim:', error);
