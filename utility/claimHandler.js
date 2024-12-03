@@ -3,6 +3,9 @@ const findUserId = require('./findUserId');
 // Use a Map to track processed claims with a TTL
 const processedClaims = new Map();
 
+// Use a Map to track server-specific processing status
+const serverProcessing = new Map();
+
 // Clean up old entries every hour
 setInterval(() => {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
@@ -14,7 +17,49 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 async function handleClaim(client, newMessage, newEmbed, field, guildId) {
+    // Generate claim data
+    const claimData = generateClaimData(newMessage, newEmbed, field, guildId);
+    
+    // Create unique key for this claim
+    const claimKey = `${claimData.cardID}-${claimData.userID}-${claimData.serverID}-${claimData.timestamp}`;
+    
+    // Check if we've already processed this claim recently
+    if (processedClaims.has(claimKey)) {
+        console.log(`Skipping duplicate claim: ${claimKey}`);
+        return;
+    }
+
+    // Mark this claim as processed with current timestamp
+    processedClaims.set(claimKey, Date.now());
+
+    // Process the claim asynchronously
+    processClaimAsync(client, claimData, claimKey, guildId);
+}
+
+function generateClaimData(newMessage, newEmbed, field, guildId) {
+    const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
+    if (!match) return null;
+
+    const claimer = field.name.split(" ")[2];
+    
+    return {
+        claimedID: match[2],
+        userID: claimer, // We'll resolve this to the actual user ID later
+        serverID: guildId,
+        cardName: match[3],
+        cardID: newEmbed.image.url.split("/")[4],
+        owner: claimer,
+        artist: field.value.split(" ")[3],
+        print: match[4],
+        tier: match[1],
+        timestamp: newEmbed.timestamp
+    };
+}
+
+async function processClaimAsync(client, claimData, claimKey, guildId) {
     try {
+        console.log(`Processing claim for server: ${guildId}, ClaimKey: ${claimKey}`);
+
         // Get server data for settings check
         let serverData = await client.database.getServerData(guildId);
         if (!serverData) {
@@ -29,46 +74,15 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
             serverSettings = await client.database.getServerSettings(guildId);
         }
 
-        const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
-        if (!match) return;
-
-        // Get the username of who claimed the card
-        const claimer = field.name.split(" ")[2];
-        const userId = await findUserId(client, claimer);
-        
-        // Validate tier is one of CT, RT, SRT, SSRT
-        const tier = match[1];
-        if (!['CT', 'RT', 'SRT', 'SSRT'].includes(tier)) {
-            console.log(`Skipping claim for unsupported tier: ${tier}`);
+        // Validate tier
+        if (!['CT', 'RT', 'SRT', 'SSRT'].includes(claimData.tier)) {
+            console.log(`Skipping claim for unsupported tier: ${claimData.tier}`);
             return;
         }
 
-        const cardClaimed = {
-            claimedID: match[2],
-            userID: userId,
-            serverID: guildId,
-            cardName: match[3],
-            cardID: newEmbed.image.url.split("/")[4],
-            owner: claimer,
-            artist: field.value.split(" ")[3],
-            print: match[4],
-            tier: tier,
-            timestamp: newEmbed.timestamp
-        };
-
-        // Create unique key for this claim
-        const claimKey = `${cardClaimed.cardID}-${cardClaimed.userID}-${cardClaimed.serverID}-${cardClaimed.timestamp}`;
-        
-        // Check if we've already processed this claim recently
-        if (processedClaims.has(claimKey)) {
-            console.log(`Skipping duplicate claim: ${claimKey}`);
-            return;
-        }
-
-        // Mark this claim as processed with current timestamp
-        processedClaims.set(claimKey, Date.now());
-        console.warn(`GUILD: ${newMessage.guild.name} | ${newMessage.guild.id}`);
-        // console.log('Card Claimed:', cardClaimed);
+        // Resolve user ID
+        const userId = await findUserId(client, claimData.userID);
+        claimData.userID = userId;
 
         // Create server and player data if they don't exist
         let serverPlayerData = await client.database.getPlayerData(userId, guildId);
@@ -78,7 +92,6 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
         }
 
         // Add claim to database if card tracking is enabled
-        // For Gate guild, check gateServerData settings, for other guilds always track
         const GATE_GUILD = '1240866080985976844';
         const shouldTrackCards = guildId === GATE_GUILD 
             ? (await client.database.mGateServerDB.findOne({ serverID: GATE_GUILD }))?.cardTrackingEnabled !== false
@@ -87,13 +100,16 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
         if (shouldTrackCards) {
             // Update both player and server databases
             await Promise.all([
-                client.database.addClaim(guildId, userId, cardClaimed),
-                client.database.addServerClaim(guildId, cardClaimed)
+                client.database.addClaim(guildId, userId, claimData),
+                client.database.addServerClaim(guildId, claimData)
             ]);
-            console.log(`Updated ${userId} - ${cardClaimed.owner} player and server | Server ${guildId} - ${newMessage.guild.name} Database`);
+            console.log(`Updated ${userId} - ${claimData.owner} player and server | Server ${guildId} Database`);
         }
     } catch (error) {
         console.error('Error processing claim:', error);
+    } finally {
+        // Remove the processing flag for this server
+        serverProcessing.delete(guildId);
     }
 }
 
