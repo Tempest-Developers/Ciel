@@ -48,7 +48,7 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
         // Mark this claim as processed with current timestamp
         processedClaims.set(claimKey, Date.now());
 
-        console.log(`Processing claim for server: ${guildId}, ClaimKey: ${claimKey}`);
+        console.warn(`Processing claim at ${newMessage.guild.name} | ${guildId}, ClaimKey: ${claimKey}`);
 
         // Get server data and settings
         let [serverData, serverSettings] = await Promise.all([
@@ -85,7 +85,7 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
                 client.database.addClaim(guildId, userId, claimData),
                 client.database.addServerClaim(guildId, claimData)
             ]);
-            console.log(`Updated ${userId} - ${claimData.owner} player and server | Server ${guildId} Database`);
+            console.log(`Updated ${userId} - ${claimData.owner} | ${newMessage.guild.name} ${guildId} Database`, 'background: #222; color: #bada55' );
         }
     } catch (error) {
         console.error('Error processing claim:', error);
