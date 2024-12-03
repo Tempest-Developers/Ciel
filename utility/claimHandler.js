@@ -3,9 +3,6 @@ const findUserId = require('./findUserId');
 // Use a Map to track processed claims with a TTL
 const processedClaims = new Map();
 
-// Use a Map to track server-specific processing status
-const serverProcessing = new Map();
-
 // Clean up old entries every hour
 setInterval(() => {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
@@ -17,62 +14,30 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 async function handleClaim(client, newMessage, newEmbed, field, guildId) {
-    // Generate claim data
-    const claimData = generateClaimData(newMessage, newEmbed, field, guildId);
-    
-    // Create unique key for this claim
-    const claimKey = `${claimData.cardID}-${claimData.userID}-${claimData.serverID}-${claimData.timestamp}`;
-    
-    // Check if we've already processed this claim recently
-    if (processedClaims.has(claimKey)) {
-        console.log(`Skipping duplicate claim: ${claimKey}`);
-        return;
-    }
-
-    // Mark this claim as processed with current timestamp
-    processedClaims.set(claimKey, Date.now());
-
-    // Process the claim asynchronously
-    processClaimAsync(client, claimData, claimKey, guildId);
-}
-
-function generateClaimData(newMessage, newEmbed, field, guildId) {
-    const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
-    if (!match) return null;
-
-    const claimer = field.name.split(" ")[2];
-    
-    return {
-        claimedID: match[2],
-        userID: claimer, // We'll resolve this to the actual user ID later
-        serverID: guildId,
-        cardName: match[3],
-        cardID: newEmbed.image.url.split("/")[4],
-        owner: claimer,
-        artist: field.value.split(" ")[3],
-        print: match[4],
-        tier: match[1],
-        timestamp: newEmbed.timestamp
-    };
-}
-
-async function processClaimAsync(client, claimData, claimKey, guildId) {
     try {
+        // Generate claim data
+        const claimData = generateClaimData(newMessage, newEmbed, field, guildId);
+        if (!claimData) return;
+
+        // Create unique key for this claim
+        const claimKey = `${claimData.cardID}-${claimData.userID}-${claimData.serverID}-${claimData.timestamp}`;
+        
+        // Check if we've already processed this claim recently
+        if (processedClaims.has(claimKey)) {
+            console.log(`Skipping duplicate claim: ${claimKey}`);
+            return;
+        }
+
+        // Mark this claim as processed with current timestamp
+        processedClaims.set(claimKey, Date.now());
+
         console.log(`Processing claim for server: ${guildId}, ClaimKey: ${claimKey}`);
 
-        // Get server data for settings check
-        let serverData = await client.database.getServerData(guildId);
-        if (!serverData) {
-            await client.database.createServer(guildId);
-            serverData = await client.database.getServerData(guildId);
-        }
-
-        // Get server settings
-        let serverSettings = await client.database.getServerSettings(guildId);
-        if (!serverSettings) {
-            await client.database.createServerSettings(guildId);
-            serverSettings = await client.database.getServerSettings(guildId);
-        }
+        // Get server data and settings
+        let [serverData, serverSettings] = await Promise.all([
+            getOrCreateServerData(client, guildId),
+            getOrCreateServerSettings(client, guildId)
+        ]);
 
         // Validate tier
         if (!['CT', 'RT', 'SRT', 'SSRT'].includes(claimData.tier)) {
@@ -99,18 +64,58 @@ async function processClaimAsync(client, claimData, claimKey, guildId) {
 
         if (shouldTrackCards) {
             // Update both player and server databases
-            await Promise.all([
+            const [playerResult, serverResult] = await Promise.all([
                 client.database.addClaim(guildId, userId, claimData),
                 client.database.addServerClaim(guildId, claimData)
             ]);
-            console.log(`Updated ${userId} - ${claimData.owner} player and server | Server ${guildId} Database`);
+
+            if (playerResult.updated && serverResult.updated) {
+                console.log(`Updated ${userId} - ${claimData.owner} player and server | Server ${guildId} Database`);
+            } else {
+                console.log(`Claim already exists or failed to update: ${claimKey}`);
+            }
         }
     } catch (error) {
         console.error('Error processing claim:', error);
-    } finally {
-        // Remove the processing flag for this server
-        serverProcessing.delete(guildId);
     }
+}
+
+function generateClaimData(newMessage, newEmbed, field, guildId) {
+    const match = newEmbed.title.match(/<:(.+?):(\d+)> (.+?) \*#(\d+)\*/);
+    if (!match) return null;
+
+    const claimer = field.name.split(" ")[2];
+    
+    return {
+        claimedID: match[2],
+        userID: claimer,
+        serverID: guildId,
+        cardName: match[3],
+        cardID: newEmbed.image.url.split("/")[4],
+        owner: claimer,
+        artist: field.value.split(" ")[3],
+        print: match[4],
+        tier: match[1],
+        timestamp: newEmbed.timestamp
+    };
+}
+
+async function getOrCreateServerData(client, guildId) {
+    let serverData = await client.database.getServerData(guildId);
+    if (!serverData) {
+        await client.database.createServer(guildId);
+        serverData = await client.database.getServerData(guildId);
+    }
+    return serverData;
+}
+
+async function getOrCreateServerSettings(client, guildId) {
+    let serverSettings = await client.database.getServerSettings(guildId);
+    if (!serverSettings) {
+        await client.database.createServerSettings(guildId);
+        serverSettings = await client.database.getServerSettings(guildId);
+    }
+    return serverSettings;
 }
 
 module.exports = handleClaim;
