@@ -3,12 +3,21 @@ const findUserId = require('./findUserId');
 // Use a Map to track processed claims with a TTL
 const processedClaims = new Map();
 
+// Use a Map to track recent claim attempts
+const recentClaimAttempts = new Map();
+
 // Clean up old entries every hour
 setInterval(() => {
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
     for (const [key, timestamp] of processedClaims.entries()) {
         if (timestamp < oneHourAgo) {
             processedClaims.delete(key);
+        }
+    }
+    // Also clean up recent claim attempts
+    for (const [key, timestamp] of recentClaimAttempts.entries()) {
+        if (timestamp < oneHourAgo) {
+            recentClaimAttempts.delete(key);
         }
     }
 }, 60 * 60 * 1000);
@@ -19,9 +28,17 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
         const claimData = generateClaimData(newMessage, newEmbed, field, guildId);
         if (!claimData) return;
 
-        // Create unique key for this claim
-        const claimKey = `${claimData.cardID}-${claimData.userID}-${claimData.serverID}-${claimData.timestamp}`;
+        // Create unique key for this claim (without timestamp)
+        const claimKey = `${claimData.cardID}-${claimData.userID}-${claimData.serverID}`;
         
+        // Check for recent claim attempts (5 second cooldown)
+        const recentAttempt = recentClaimAttempts.get(claimKey);
+        if (recentAttempt && Date.now() - recentAttempt < 5000) {
+            console.log(`Skipping claim attempt due to cooldown: ${claimKey}`);
+            return;
+        }
+        recentClaimAttempts.set(claimKey, Date.now());
+
         // Check if we've already processed this claim recently
         if (processedClaims.has(claimKey)) {
             console.log(`Skipping duplicate claim: ${claimKey}`);
@@ -64,16 +81,11 @@ async function handleClaim(client, newMessage, newEmbed, field, guildId) {
 
         if (shouldTrackCards) {
             // Update both player and server databases
-            const [playerResult, serverResult] = await Promise.all([
+            await Promise.all([
                 client.database.addClaim(guildId, userId, claimData),
                 client.database.addServerClaim(guildId, claimData)
             ]);
-
-            if (playerResult.updated && serverResult.updated) {
-                console.log(`Updated ${userId} - ${claimData.owner} player and server | Server ${guildId} Database`);
-            } else {
-                console.log(`Claim already exists or failed to update: ${claimKey}`);
-            }
+            console.log(`Updated ${userId} - ${claimData.owner} player and server | Server ${guildId} Database`);
         }
     } catch (error) {
         console.error('Error processing claim:', error);
