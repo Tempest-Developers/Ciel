@@ -170,9 +170,13 @@ for (const file of eventFiles) {
     }
 }
 
-// Discord client error handling with shard awareness
+// Improved error handling and reconnection logic
 client.on('error', error => {
     console.error(`[Shard ${client.shard?.ids[0]}] Discord client error:`, error);
+    if (error.code === 'ECONNRESET' || error.code === 'ECONNREFUSED') {
+        console.log(`[Shard ${client.shard?.ids[0]}] Attempting to reconnect...`);
+        setTimeout(() => client.login(BOT_TOKEN), 5000);
+    }
 });
 
 client.on('disconnect', () => {
@@ -226,7 +230,7 @@ async function startBot() {
     }
 }
 
-// Graceful shutdown
+// Graceful shutdown with improved error handling
 process.on('SIGINT', async () => {
     console.log(`[Shard ${client.shard?.ids[0]}] Received SIGINT. Cleaning up...`);
     try {
@@ -238,8 +242,9 @@ process.on('SIGINT', async () => {
     }
 });
 
-process.on('unhandledRejection', error => {
-    console.error(`[Shard ${client.shard?.ids[0]}] Unhandled promise rejection:`, error);
+process.on('unhandledRejection', (reason, promise) => {
+    console.error(`[Shard ${client.shard?.ids[0]}] Unhandled promise rejection:`, reason);
+    // Optionally, you can add more specific handling based on the reason
 });
 
 startBot();

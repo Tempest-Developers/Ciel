@@ -1,6 +1,7 @@
 const { Events } = require('discord.js');
 const { checkPermissions, checkIfGuildAllowed } = require('../utility/auth');
 const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
+const rateLimiter = require('../utility/rateLimiter');
 
 const GATE_GUILD = '1240866080985976844';
 
@@ -14,10 +15,12 @@ module.exports = {
         if (!checkPermissions(interaction.channel, client.user)) return;
 
         try {
-            // Modified to allow both register and registerguild commands
-            if((await checkIfGuildAllowed(client, interaction.guild?.id)==false) && 
-               interaction.commandName!="registerguild" && 
-               interaction.commandName!="register") return;
+            // Rate limiting
+            await rateLimiter.rateLimit(interaction.user.id);
+
+            if ((await checkIfGuildAllowed(client, interaction.guild?.id) == false) && 
+               interaction.commandName != "registerguild" && 
+               interaction.commandName != "register") return;
 
             if (interaction.isButton()) {
                 try {
@@ -98,7 +101,15 @@ module.exports = {
                 // Execute the command
                 await command.execute(interaction, { database, config });
             } catch (error) {
-                await handleCommandError(interaction, error);
+                if (error.code === 10062) {
+                    console.warn(`Rate limit hit for user ${interaction.user.id} on command ${interaction.commandName}`);
+                    await handleInteraction(interaction, {
+                        content: '⚠️ Servers are slow, please try again later.',
+                        ephemeral: true
+                    });
+                } else {
+                    await handleCommandError(interaction, error);
+                }
             }
         } catch (error) {
             console.error('Error in interaction create event:', error);
