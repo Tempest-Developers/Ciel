@@ -219,7 +219,7 @@ module.exports = {
                 case 'overview':
                     embed.addFields({ 
                         name: `Total Claims:  ${totalClaims.toString()}`, 
-                        value: `*Active in Last 1 Hour*: ${recentUniqueOwners.size.toString()}`,
+                        value: `*Cards Collected in Last 1 Hour*: ${totalPrints.toString()}`,
                     });
                     embed.addFields({
                         name: `Cooldown for ${interaction.guild.name}`,
