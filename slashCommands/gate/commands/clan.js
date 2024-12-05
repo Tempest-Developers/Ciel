@@ -33,17 +33,21 @@ module.exports = {
                 }, 'editReply');
             }
 
-            // Check cooldown using handleCooldown
-            const cooldownResult = handleCooldown(interaction.user.id, false, COOLDOWN);
-            if (cooldownResult.onCooldown) {
+            // Check cooldown at the beginning
+            const initialCooldownCheck = handleCooldown(interaction.user.id, false, COOLDOWN);
+            console.log(`Debug: Initial cooldown check:`, initialCooldownCheck);
+
+            if (initialCooldownCheck.onCooldown) {
                 return await handleInteraction(interaction, {
-                    content: `❌ This command is on cooldown. Please try again in ${cooldownResult.timeLeft} seconds.`,
+                    content: `❌ This command is on cooldown. Please try again in ${initialCooldownCheck.timeLeft} seconds.`,
                     ephemeral: true
                 }, 'editReply');
             }
 
             const action = interaction.options.getString('action');
             const userData = await ensureUser(interaction.user.id, database.mGateDB);
+
+            let commandExecuted = false;
 
             if (action === 'add') {
                 if (interaction.member.roles.cache.has(HIGH_TIER_PING_ROLE_ID)) {
@@ -54,6 +58,7 @@ module.exports = {
                 }
 
                 await interaction.member.roles.add(HIGH_TIER_PING_ROLE_ID);
+                commandExecuted = true;
                 await handleInteraction(interaction, {
                     content: '✅ Successfully added the High-Tier-Ping role to yourself.',
                     ephemeral: false
@@ -74,13 +79,23 @@ module.exports = {
                 }
 
                 await interaction.member.roles.remove(HIGH_TIER_PING_ROLE_ID);
+                commandExecuted = true;
                 await handleInteraction(interaction, {
                     content: '✅ Successfully removed the High-Tier-Ping role from yourself.',
                     ephemeral: false
                 }, 'editReply');
             }
 
+            // Apply cooldown only if the command was executed successfully
+            if (commandExecuted) {
+                const finalCooldownResult = handleCooldown(interaction.user.id, false, COOLDOWN);
+                console.log(`Debug: Final cooldown applied. Result:`, finalCooldownResult);
+            } else {
+                console.log(`Debug: Command not executed, cooldown not applied.`);
+            }
+
         } catch (error) {
+            console.error('Error in clan command:', error);
             await handleCommandError(interaction, error, '❌ An error occurred while processing your request.');
         }
     }
