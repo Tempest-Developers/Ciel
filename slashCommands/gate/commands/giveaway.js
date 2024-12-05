@@ -43,13 +43,16 @@ module.exports = {
                 } else if (giveaway.level === 1) {
                     description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
                                 `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
-                } else if (giveaway.level === 2 || giveaway.level === 3) {
+                } else if (giveaway.level === 2) {
                     const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
                     description = `**Prizes:**\n${prizes}\n\n` +
                                 `${giveaway.item?.description || 'No Message Set'}`;
+                } else if (giveaway.level === 3) {
+                    const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
+                    description = `👑 Premium access\n\n${giveaway.item?.description || 'No Message Set'}`;
                 }
 
-                description += `\n\n🎫 Your Tickets: **${userTickets}**\n` +
+                description += `\n🎟️ Your Tickets: **${userTickets}**\n` +
                              `🎯 Your Entries: **${userEntries}**\n` +
                              `👥 Total Entries: **${totalEntries}**`;
 
@@ -207,12 +210,20 @@ module.exports = {
 
             const { mGateDB, mGiveawayDB } = database;
             const tickets = user?.currency?.[5] || 0;
+            const slimeBalance = user?.currency?.[0] || 0;
             const userEntries = giveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
-            const isFreeEntry = GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0;
+            const isFreeEntry = GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0 && slimeBalance >= 10;
 
             if (!isFreeEntry && tickets < 1) {
                 return await handleInteraction(interaction, {
-                    content: '❌ You need at least 1 ticket to join!',
+                    content: '❌ You need at least 1 🎟️ to join!',
+                    ephemeral: true
+                }, 'reply');
+            }
+
+            if (GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0 && slimeBalance < 10) {
+                return await handleInteraction(interaction, {
+                    content: '❌ You need at least 10 <:Slime_Token:1304929154285703179> Balance to join for free!',
                     ephemeral: true
                 }, 'reply');
             }
@@ -233,20 +244,36 @@ module.exports = {
                     }
                 }
 
-                // Add entry to giveaway
+                // Calculate bonus entries for premium users
+                let bonusEntries = 0;
+                if (user.premium) {
+                    const random = Math.random();
+                    if (random < 0.01) {
+                        bonusEntries = 9;
+                    } else if (random < 0.1) {
+                        bonusEntries = 4;
+                    } else if (random < 1) {
+                        bonusEntries = 1;
+                    }
+                }
+
+                // Add entries to giveaway
+                const entries = Array(1 + bonusEntries).fill().map(() => ({
+                    userID: interaction.user.id,
+                    timestamp: Date.now()
+                }));
+
                 await mGiveawayDB.updateOne(
                     { giveawayID: giveaway.giveawayID },
                     { 
                         $push: { 
-                            entries: { 
-                                userID: interaction.user.id,
-                                timestamp: Date.now()
-                            },
+                            entries: { $each: entries },
                             logs: { 
                                 userID: interaction.user.id, 
                                 timestamp: new Date(), 
                                 tickets: isFreeEntry ? 0 : 1,
-                                freeEntry: isFreeEntry
+                                freeEntry: isFreeEntry,
+                                bonusEntries
                             }
                         }
                     }
@@ -258,11 +285,17 @@ module.exports = {
                 const totalEntries = finalGiveaway.entries?.length || 0;
                 const remainingTickets = !isFreeEntry ? (updatedUser?.currency?.[5] || 0) : tickets;
 
+                let message = `<@${interaction.user.id}> ${isFreeEntry ? 'got a free entry!' : 'joined the giveaway!'}\n` +
+                    `🎟️ Remaining Tickets: **${remainingTickets}**\n` +
+                    `🎯 Your Entries: **${finalUserEntries}**\n` +
+                    `👥 Total Entries: **${totalEntries}**`;
+
+                if (bonusEntries > 0) {
+                    message += `\n🎉 Premium Bonus: **${bonusEntries}** extra entries!`;
+                }
+
                 await handleInteraction(interaction, {
-                    content: `<@${interaction.user.id}> ${isFreeEntry ? 'got a free entry!' : 'joined the giveaway!'}\n` +
-                        `🎫 Remaining Tickets: **${remainingTickets}**\n` +
-                        `🎯 Your Entries: **${finalUserEntries}**\n` +
-                        `👥 Total Entries: **${totalEntries}**`,
+                    content: message,
                     ephemeral: false
                 }, 'reply');
             } catch (error) {
