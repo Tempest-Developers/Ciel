@@ -34,7 +34,7 @@ module.exports = {
             }
 
             // Check cooldown at the beginning
-            const initialCooldownCheck = handleCooldown(interaction.user.id, false, COOLDOWN);
+            const initialCooldownCheck = handleCooldown(interaction.user.id, false);
             console.log(`Debug: Initial cooldown check:`, initialCooldownCheck);
 
             if (initialCooldownCheck.onCooldown) {
@@ -88,7 +88,7 @@ module.exports = {
 
             // Apply cooldown only if the command was executed successfully
             if (commandExecuted) {
-                const finalCooldownResult = handleCooldown(interaction.user.id, false, COOLDOWN);
+                const finalCooldownResult = handleCooldown(interaction.user.id, false);
                 console.log(`Debug: Final cooldown applied. Result:`, finalCooldownResult);
             } else {
                 console.log(`Debug: Command not executed, cooldown not applied.`);

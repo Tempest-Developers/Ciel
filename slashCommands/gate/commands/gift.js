@@ -26,7 +26,7 @@ module.exports = {
             await safeDefer(interaction, { ephemeral: true });
 
             // Check cooldown
-            const cooldownResult = handleCooldown(interaction.user.id, false, COOLDOWN);
+            const cooldownResult = handleCooldown(interaction.user.id, false);
             if (cooldownResult.onCooldown) {
                 return await handleInteraction(interaction, {
                     content: `❌ This command is on cooldown. Please try again in ${cooldownResult.timeLeft} seconds.`,
