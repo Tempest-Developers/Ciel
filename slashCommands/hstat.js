@@ -94,57 +94,61 @@ module.exports = {
                 // Get all server settings
                 const guilds = await interaction.client.guilds.fetch();
                 const allSettings = [];
-
+            
                 // Fetch settings for each guild the bot is in
                 for (const [id, guild] of guilds) {
                     let settings = await getServerSettings(id);
-                    
+            
                     // If settings don't exist, create them
                     if (!settings) {
                         await createServerSettings(id);
                         settings = await getServerSettings(id);
                     }
-
+            
                     // Only add if settings exist and have proper structure
                     if (settings?.settings?.handlers) {
                         allSettings.push({ guild, settings });
                     }
                 }
-
+            
                 // Create messages array to handle Discord's character limit
-                const messages = ['🌐 Server Settings Overview\n🟢 Enabled | 🔴 Disabled\nOrder: claim,summ,mclaim,msumm | tier,ping'];
-                let currentMessage = messages[0];
-
-                for (const { guild, settings } of allSettings) {
-                    const handlers = [
-                        settings.settings.handlers.claim ? '🟢' : '🔴',
-                        settings.settings.handlers.summon ? '🟢' : '🔴',
-                        settings.settings.handlers.manualClaim ? '🟢' : '🔴',
-                        settings.settings.handlers.manualSummon ? '🟢' : '🔴'
-                    ].join('');
-                    
-                    const adminSettings = [
-                        settings.settings.allowRolePing ? '🟢' : '🔴',
-                        settings.settings.allowShowStats ? '🟢' : '🔴',
-                        settings.settings.allowCooldownPing ? '🟢' : '🔴'
-                    ].join('');
-
-                    const serverInfo = `\n${guild.name} (${guild.id})\n${handlers} | ${adminSettings}`;
-
-                    // Check if adding this server would exceed Discord's limit
-                    if (currentMessage.length + serverInfo.length > 1900) { // Using 1900 to be safe
-                        messages.push(serverInfo);
-                        currentMessage = serverInfo;
-                    } else {
-                        currentMessage += serverInfo;
-                        messages[messages.length - 1] = currentMessage;
+                const maxServersPerMessage = 12;
+                const messages = [];
+                let serverIndex = 1;
+            
+                for (let i = 0; i < allSettings.length; i += maxServersPerMessage) {
+                    const chunk = allSettings.slice(i, i + maxServersPerMessage);
+            
+                    let message = `🌐 Server Settings Overview (Servers ${serverIndex}-${serverIndex + chunk.length - 1}/${allSettings.length})\n🟢 Enabled | 🔴 Disabled | ✅ Registered | ❌ Not Registered\nOrder: claim,summ,mclaim,msumm | tier,ping`;
+            
+                    for (const { guild, settings } of chunk) {
+                        const handlers = [
+                            settings.settings.handlers.claim ? '🟢' : '🔴',
+                            settings.settings.handlers.summon ? '🟢' : '🔴',
+                            settings.settings.handlers.manualClaim ? '🟢' : '🔴',
+                            settings.settings.handlers.manualSummon ? '🟢' : '🔴'
+                        ].join('');
+            
+                        const adminSettings = [
+                            settings.settings.allowRolePing ? '🟢' : '🔴',
+                            settings.settings.allowShowStats ? '🟢' : '🔴',
+                            settings.settings.allowCooldownPing ? '🟢' : '🔴'
+                        ].join('');
+            
+                        const isRegistered = guild.name === guild.id ? '❌' : '✅';
+            
+                        const serverInfo = `\n${serverIndex}. ${guild.name} (${guild.id}) ${isRegistered}\n${handlers} | ${adminSettings}`;
+            
+                        message += serverInfo;
+                        serverIndex++;
                     }
+            
+                    messages.push(message);
                 }
-
+            
                 // Send all messages
-                await handleInteraction(interaction, { content: messages[0] }, 'editReply');
-                for (let i = 1; i < messages.length; i++) {
-                    await handleInteraction(interaction, { content: messages[i], ephemeral: true }, 'followUp');
+                for (let i = 0; i < messages.length; i++) {
+                    await handleInteraction(interaction, { content: messages[i] }, i === 0 ? 'editReply' : 'followUp');
                 }
             }
         } catch (error) {
