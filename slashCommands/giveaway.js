@@ -44,7 +44,7 @@ module.exports = {
                             { name: 'Level 0 (Single Card)', value: 0 },
                             { name: 'Level 1 (Custom Item)', value: 1 },
                             { name: 'Level 2 (Multiple Winners)', value: 2 },
-                            { name: 'Level 2 (Leaderboard Winners)', value: 3 }
+                            { name: 'Level 3 (Leaderboard Winners)', value: 3 }
                         ))
                 .addStringOption(option =>
                     option.setName('prize')
