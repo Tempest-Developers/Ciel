@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { handleInteraction, handleCommandError, safeDefer } = require('../../../utility/interactionHandler');
 const { ensureUser } = require('../utils/database');
-const { applyCooldown, checkCooldown } = require('../utils/cooldown');
+const { handleCooldown } = require('../utils/cooldown');
 
 const CLAN_ROLE_ID = '1299135748984934431';
 const HIGH_TIER_PING_ROLE_ID = '1305567492277796908';
@@ -33,11 +33,11 @@ module.exports = {
                 }, 'editReply');
             }
 
-            // Check cooldown
-            const cooldownResult = await checkCooldown(interaction.user.id, 'clan', database);
-            if (cooldownResult) {
+            // Check cooldown using handleCooldown
+            const cooldownResult = handleCooldown(interaction.user.id, false, COOLDOWN);
+            if (cooldownResult.onCooldown) {
                 return await handleInteraction(interaction, {
-                    content: `❌ This command is on cooldown. Please try again in ${cooldownResult} seconds.`,
+                    content: `❌ This command is on cooldown. Please try again in ${cooldownResult.timeLeft} seconds.`,
                     ephemeral: true
                 }, 'editReply');
             }
@@ -79,9 +79,6 @@ module.exports = {
                     ephemeral: false
                 }, 'editReply');
             }
-
-            // Apply cooldown
-            await applyCooldown(interaction.user.id, 'clan', COOLDOWN, database);
 
         } catch (error) {
             await handleCommandError(interaction, error, '❌ An error occurred while processing your request.');
