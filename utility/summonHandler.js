@@ -206,64 +206,64 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
         // Mark this message as processed
         processedEdits.set(messageId, Date.now());
 
-        const urlParts = newEmbed.image.url.split('/');
-        const cardIds = urlParts.slice(4, 7);
-
         const allowRolePing = serverSettings?.settings?.allowRolePing ?? false;
         const allowShowStats = serverSettings?.settings?.allowShowStats ?? false;
 
         try {
-            // Determine elapsed time since message detection
-            const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
-
-            // Calculate countdown time by subtracting the elapsed time from the desired countdown
-            const countdownTime = startTime + 18 - elapsedTime;
-            const nextSummonTime = startTime + 120 - elapsedTime;
-
-            // Create base embed with countdown
-            const countdownEmbed = {
-                title: 'Summon Information',
-                fields: [
-                    {
-                        name: `Claim Time <t:${countdownTime}:R> 📵`,
-                        value: `🌟 \`/help\` to see all commands`
-                    }
-                ],
-                color: 0x0099ff
-            };
-
-            let description = null;
-
             // Pass allowRolePing and allowShowStats to buildCardDescription
             if(allowShowStats){
+                const urlParts = newEmbed.image.url.split('/');
+                const cardIds = urlParts.slice(4, 7);
+                
+                // Determine elapsed time since message detection
+                const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
+
+                // Calculate countdown time by subtracting the elapsed time from the desired countdown
+                const countdownTime = startTime + 18 - elapsedTime;
+                const nextSummonTime = startTime + 120 - elapsedTime;
+
+                // Create base embed with countdown
+                const countdownEmbed = {
+                    title: 'Summon Information',
+                    fields: [
+                        {
+                            name: `Claim Time <t:${countdownTime}:R> 📵`,
+                            value: `🌟 \`/help\` to see all commands`
+                        }
+                    ],
+                    color: 0x0099ff
+                };
+
+                let description = null;
+
                 const result = await buildCardDescription(cardIds, client, newMessage, guildId, allowRolePing);
                 description = result.description;
-            }
 
-            // Add description to embed if it exists
-            if (description) {
-                countdownEmbed.description = description;
-            }
-
-            // Send countdown message
-            const countdownMsg = await newMessage.reply({
-                embeds: [countdownEmbed]
-            });
-
-            // Update to next summon time
-            setTimeout(async () => {
-                try {
-                    countdownEmbed.fields[0] = {
-                        name: `Next Summon <t:${nextSummonTime}:R> 📵`,
-                        value: `🌟 \`/help\` to see all commands`
-                    };
-                    await countdownMsg.edit({
-                        embeds: [countdownEmbed]
-                    });
-                } catch (error) {
-                    console.error('Error editing countdown message:', error);
+                // Add description to embed if it exists
+                if (description) {
+                    countdownEmbed.description = description;
                 }
-            }, (16 - elapsedTime) * 1000);
+
+                // Send countdown message
+                const countdownMsg = await newMessage.reply({
+                    embeds: [countdownEmbed]
+                });
+
+                // Update to next summon time
+                setTimeout(async () => {
+                    try {
+                        countdownEmbed.fields[0] = {
+                            name: `Next Summon <t:${nextSummonTime}:R> 📵`,
+                            value: `🌟 \`/help\` to see all commands`
+                        };
+                        await countdownMsg.edit({
+                            embeds: [countdownEmbed]
+                        });
+                    } catch (error) {
+                        console.error('Error editing countdown message:', error);
+                    }
+                }, (16 - elapsedTime) * 1000);
+            }
         } catch (error) {
             console.error('Error in handleSummonInfo:', error);
             const errorMessage = error.message === "The Mazoku Servers are currently unavailable. Please try again later."
