@@ -112,7 +112,7 @@ module.exports = {
                 }
 
                 // Create messages array to handle Discord's character limit
-                const messages = ['🌐 Server Settings Overview\n'];
+                const messages = ['🌐 Server Settings Overview\n🟢 Enabled | 🔴 Disabled\nOrder: claim,summ,mclaim,msumm | tier,ping'];
                 let currentMessage = messages[0];
 
                 for (const { guild, settings } of allSettings) {
@@ -129,7 +129,7 @@ module.exports = {
                         settings.settings.allowCooldownPing ? '🟢' : '🔴'
                     ].join('');
 
-                    const serverInfo = `\n${guild.name} (${guild.id})\n${handlers} | ${adminSettings}\n`;
+                    const serverInfo = `\n${guild.name} (${guild.id})\n${handlers} | ${adminSettings}`;
 
                     // Check if adding this server would exceed Discord's limit
                     if (currentMessage.length + serverInfo.length > 1900) { // Using 1900 to be safe
@@ -140,9 +140,6 @@ module.exports = {
                         messages[messages.length - 1] = currentMessage;
                     }
                 }
-
-                // Add legend to the last message
-                messages[messages.length - 1] += '\n🟢 Enabled | 🔴 Disabled\nOrder: claim,summ,mclaim,msumm | tier,ping';
 
                 // Send all messages
                 await handleInteraction(interaction, { content: messages[0] }, 'editReply');
