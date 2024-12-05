@@ -1,11 +1,11 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { handleInteraction, handleCommandError, safeDefer } = require('../../../utility/interactionHandler');
 const { ensureUser } = require('../utils/database');
-const { handleCooldown } = require('../utils/cooldown');
 
 const CLAN_ROLE_ID = '1299135748984934431';
 const HIGH_TIER_PING_ROLE_ID = '1305567492277796908';
-const COOLDOWN = 60; // 60 seconds cooldown
+const COOLDOWN = 60 * 1000; // 60 seconds cooldown in milliseconds
+const cooldowns = new Map();
 
 module.exports = {
     subcommand: subcommand =>
@@ -33,13 +33,13 @@ module.exports = {
                 }, 'editReply');
             }
 
-            // Check cooldown at the beginning
-            const initialCooldownCheck = handleCooldown(interaction.user.id, false);
-            console.log(`Debug: Initial cooldown check:`, initialCooldownCheck);
-
-            if (initialCooldownCheck.onCooldown) {
+            // Check cooldown
+            const now = Date.now();
+            const cooldownEnd = cooldowns.get(interaction.user.id) || 0;
+            if (now < cooldownEnd) {
+                const remainingTime = Math.ceil((cooldownEnd - now) / 1000);
                 return await handleInteraction(interaction, {
-                    content: `❌ This command is on cooldown. Please try again in ${initialCooldownCheck.timeLeft} seconds.`,
+                    content: `❌ This command is on cooldown. Please try again in ${remainingTime} seconds.`,
                     ephemeral: true
                 }, 'editReply');
             }
@@ -88,8 +88,8 @@ module.exports = {
 
             // Apply cooldown only if the command was executed successfully
             if (commandExecuted) {
-                const finalCooldownResult = handleCooldown(interaction.user.id, false);
-                console.log(`Debug: Final cooldown applied. Result:`, finalCooldownResult);
+                cooldowns.set(interaction.user.id, now + COOLDOWN);
+                console.log(`Debug: Cooldown applied for user ${interaction.user.id} until ${new Date(now + COOLDOWN)}`);
             } else {
                 console.log(`Debug: Command not executed, cooldown not applied.`);
             }

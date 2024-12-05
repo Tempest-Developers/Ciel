@@ -1,9 +1,9 @@
 const { COSTS, MAX_TOKENS_TICKET } = require('../utils/constants');
 const { ensureUser } = require('../utils/database');
 const { handleInteraction, handleCommandError, safeDefer } = require('../../../utility/interactionHandler');
-const { handleCooldown } = require('../utils/cooldown');
 
-const COOLDOWN = 30; // 30 seconds cooldown
+const COOLDOWN = 30 * 1000; // 30 seconds cooldown in milliseconds
+const cooldowns = new Map();
 
 module.exports = {
     subcommand: subcommand =>
@@ -26,10 +26,12 @@ module.exports = {
             await safeDefer(interaction, { ephemeral: true });
 
             // Check cooldown
-            const cooldownResult = handleCooldown(interaction.user.id, false);
-            if (cooldownResult.onCooldown) {
+            const now = Date.now();
+            const cooldownEnd = cooldowns.get(interaction.user.id) || 0;
+            if (now < cooldownEnd) {
+                const remainingTime = Math.ceil((cooldownEnd - now) / 1000);
                 return await handleInteraction(interaction, {
-                    content: `❌ This command is on cooldown. Please try again in ${cooldownResult.timeLeft} seconds.`,
+                    content: `❌ This command is on cooldown. Please try again in ${remainingTime} seconds.`,
                     ephemeral: true
                 }, 'editReply');
             }
@@ -86,6 +88,9 @@ module.exports = {
                     { userID: targetUser.id },
                     { $inc: { 'currency.5': amount } }
                 );
+
+                // Set cooldown
+                cooldowns.set(interaction.user.id, now + COOLDOWN);
 
                 return await handleInteraction(interaction, {
                     content: `✅ Successfully gifted ${amount} Ticket(s) to ${targetUser.username}! Your new balance is ${userData.currency[0] - totalCost} Slime Tokens.`,
