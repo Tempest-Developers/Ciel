@@ -43,7 +43,7 @@ module.exports = {
                 } else if (giveaway.level === 1) {
                     description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
                                 `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
-                } else if (giveaway.level === 2) {
+                } else if (giveaway.level === 2 || giveaway.level === 3) {
                     const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
                     description = `**Prizes:**\n${prizes}\n\n` +
                                 `${giveaway.item?.description || 'No Message Set'}`;
@@ -62,6 +62,15 @@ module.exports = {
                         name: 'Time Remaining',
                         value: `⏰ Ends <t:${giveaway.endTimestamp}:R>`
                     });
+
+                // Add leaderboard for level 3 giveaways
+                if (giveaway.level === 3) {
+                    const leaderboard = this.getLeaderboard(giveaway.entries, giveaway.amount);
+                    embed.addFields({
+                        name: 'Leaderboard',
+                        value: leaderboard
+                    });
+                }
 
                 embeds.push(embed);
             }
@@ -263,5 +272,24 @@ module.exports = {
         } catch (error) {
             await handleCommandError(interaction, error, '❌ Error joining giveaway. Please try again in a few moments.');
         }
+    },
+
+    getLeaderboard(entries, winnerCount) {
+        if (!entries || entries.length === 0) {
+            return "No entries yet.";
+        }
+
+        const userEntries = entries.reduce((acc, entry) => {
+            acc[entry.userID] = (acc[entry.userID] || 0) + 1;
+            return acc;
+        }, {});
+
+        const sortedEntries = Object.entries(userEntries)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, Math.min(5, winnerCount));
+
+        return sortedEntries.map(([userID, count], index) => 
+            `${index + 1}. <@${userID}>: ${count} entries`
+        ).join('\n');
     }
 };

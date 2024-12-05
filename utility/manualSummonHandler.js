@@ -113,8 +113,9 @@ async function buildCardDescription(cardIds, client) {
         // Build description
         for (let i = 0; i < cardInfoResults.length; i++) {
             const cardInfo = cardInfoResults[i];
-            const tierList = ['SR', 'SSR'];
-            if (cardInfo) {
+            if (cardInfo && cardInfo.name) {
+                // Card data is available
+                const tierList = ['SR', 'SSR'];
                 if (tierList.includes(cardInfo.tier)) {
                     hasHighTierCard = true;
                 }
@@ -137,6 +138,9 @@ async function buildCardDescription(cardIds, client) {
                 const seriesName = cardInfo.series.length > 25 ? cardInfo.series.substring(0, 25)+"..." : cardInfo.series;
                 
                 description += `${letters[i]} \`❤️ ${wishlistCount}\` ${tierEmoji} [${cardInfo.name}](${cardInfo.cardLink}) *${seriesName}*\n${batchInfo} ${versionsText}${remainingText}${newEMOTE} \n`;
+            } else {
+                // Card data is not available
+                description += `${letters[i]} No Data Found\n`;
             }
         }
     } catch (error) {

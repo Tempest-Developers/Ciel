@@ -43,9 +43,9 @@ module.exports = {
                         `\`/gate balance\` - Check your balance\n` +
                         `\`/gate buy ticket\` - Buy a ticket (${constants.COSTS.TICKET} tokens)\n` +
                         `\`/gate buy premium\` - Buy premium (${constants.COSTS.PREMIUM} tokens, 1 week)\n` +
-                        `\`/gate gift <user>\` - Gift special ticket (${constants.COSTS.GIFT_TICKET} tokens)\n` +
-                        `\`/gate giveaway\` - View giveaway rewards\n` +
-                        `**Cooldown**: ${constants.USER_COOLDOWN} seconds`, inline: false },
+                        `\`/gate gift <user> <amount>\` - Gift special ticket(s) (${constants.COSTS.GIFT_TICKET} tokens each)\n` +
+                        `\`/gate clan <add/remove>\` - Add or remove High-Tier-Ping role\n` +
+                        `\`/gate giveaway\` - View giveaway rewards\n`, inline: false },
                     { name: 'Information', value:
                         `• Earn <:Slime_Token:1304929154285703179> \`1\` up to rare \`100\` by chatting and claiming cards\n` +
                         `• Earn bonus <:Slime_Token:1304929154285703179> when \`Booster\` role or \`Clan\` role is present\n` +

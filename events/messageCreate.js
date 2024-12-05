@@ -54,7 +54,7 @@ module.exports = {
                         } else if (giveaway.level === 1) {
                             description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
                                         `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
-                        } else if (giveaway.level === 2) {
+                        } else if (giveaway.level === 2 || giveaway.level === 3) {
                             const prizes = giveaway.item?.name?.split(' | ') || ['No Prizes Set'];
                             description = `**Prizes:**\n${prizes.map((prize, i) => `${i + 1}. ${prize}`).join('\n')}\n\n` +
                                         `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
@@ -101,7 +101,7 @@ module.exports = {
                             entries: giveaway.entries.filter(entry => entry.userID === winnerEntry.userID).length
                         });
                     } 
-                    // Level 2: Multiple winners
+                    // Level 2: Multiple winners (random selection)
                     else if (giveaway.level === 2) {
                         const winnerCount = Math.min(giveaway.amount, totalEntries);
                         const selectedIndexes = new Set();
@@ -124,6 +124,35 @@ module.exports = {
                             }
                         }
                     }
+                    // Level 3: Multiple winners (sorted by entries)
+                    else if (giveaway.level === 3) {
+                        const winnerCount = Math.min(giveaway.amount, totalEntries);
+                        const uniqueWinnersSet = new Set();
+                        const sortedEntries = giveaway.entries.reduce((acc, entry) => {
+                            const existingUser = acc.find(user => user.userID === entry.userID);
+                            if (existingUser) {
+                                existingUser.entries++;
+                            } else {
+                                acc.push({ userID: entry.userID, entries: 1 });
+                            }
+                            return acc;
+                        }, []).sort((a, b) => b.entries - a.entries);
+
+                        for (let i = 0; i < sortedEntries.length; i++) {
+                            const winnerEntry = sortedEntries[i];
+                            if (uniqueWinnersSet.has(winnerEntry.userID)) {
+                                continue;
+                            }
+                            winners.push({
+                                userID: winnerEntry.userID,
+                                entries: winnerEntry.entries
+                            });
+                            uniqueWinnersSet.add(winnerEntry.userID);
+                            if (winners.length >= Math.min(winnerCount, 5)) {
+                                break;
+                            }
+                        }
+                    }
 
                     // Build description based on giveaway level
                     let description = '';
@@ -132,7 +161,7 @@ module.exports = {
                     } else if (giveaway.level === 1) {
                         description = `**Prize:** ${giveaway.item?.name || 'No Prize Set'}\n` +
                                     `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
-                    } else if (giveaway.level === 2) {
+                    } else if (giveaway.level === 2 || giveaway.level === 3) {
                         const prizes = giveaway.item?.name?.split(' | ') || ['No Prizes Set'];
                         description = `**Prizes:**\n${prizes.map((prize, i) => `${i + 1}. ${prize}`).join('\n')}\n\n` +
                                     `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
@@ -141,33 +170,49 @@ module.exports = {
                     description += `\n\n**Total Entries:** ${totalEntries}`;
 
                     // Create winner announcement embed
-                    const embed = new EmbedBuilder()
-                        .setColor('#00ff00')
-                        .setTitle('🎉 Giveaway Winners')
-                        .setDescription(description)
-                        .setImage(giveaway.item?.imageUrl || null)
-                        .setTimestamp();
+                    let embed;
+                    if (giveaway.level === 3) {
+                        embed = new EmbedBuilder()
+                            .setColor('#00ff00')
+                            .setTitle('🎉 Giveaway Winners - Special Event')
+                            .setDescription(description)
+                            .setImage(giveaway.item?.imageUrl || null)
+                            .setTimestamp();
 
-                    // Prepare winner details
-                    let winnerDetails = [];
-                    if (giveaway.level === 2) {
-                        // For level 2, split prizes
-                        const prizes = giveaway.item?.name?.split(',') || ['Prize'];
+                        const prizes = giveaway.item?.name?.split(' | ') || ['No Prizes Set'];
                         winners.forEach((winner, index) => {
-                            winnerDetails.push(`🏆 <@${winner.userID}>: ${prizes[index] || 'Prize'}`);
+                            embed.addFields({
+                                name: `Winner ${index + 1}`,
+                                value: `🏆 <@${winner.userID}>\nEntries: ${winner.entries}\nPrize: ${prizes[index] || 'Prize'}`
+                            });
                         });
                     } else {
-                        // For levels 0 and 1
-                        winnerDetails = winners.map(winner => 
-                            `🏆 <@${winner.userID}> (Entries: ${winner.entries})`
-                        );
-                    }
+                        embed = new EmbedBuilder()
+                            .setColor('#00ff00')
+                            .setTitle('🎉 Giveaway Winners')
+                            .setDescription(description)
+                            .setImage(giveaway.item?.imageUrl || null)
+                            .setTimestamp();
 
-                    // Add winners to embed
-                    embed.addFields({ 
-                        name: 'Winners', 
-                        value: winnerDetails.join('\n')
-                    });
+                        let winnerDetails = [];
+                        if (giveaway.level === 2) {
+                            // For level 2, split prizes
+                            const prizes = giveaway.item?.name?.split(',') || ['Prize'];
+                            winners.forEach((winner, index) => {
+                                winnerDetails.push(`🏆 <@${winner.userID}>: ${prizes[index] || 'Prize'}`);
+                            });
+                        } else {
+                            // For levels 0 and 1
+                            winnerDetails = winners.map(winner => 
+                                `🏆 <@${winner.userID}> (Entries: ${winner.entries})`
+                            );
+                        }
+
+                        embed.addFields({ 
+                            name: 'Winners', 
+                            value: winnerDetails.join('\n')
+                        });
+                    }
 
                     // Send winner announcement to appropriate guild channels
                     for (const [guildId, channelId] of Object.entries(GUILD_CHANNELS)) {
@@ -175,10 +220,11 @@ module.exports = {
                             const guild = await message.client.guilds.fetch(guildId);
                             if (guild) {
                                 const channel = await guild.channels.fetch(channelId);
+                                const winnerTestList = winners.map(winner => `<@${winner.userID}>!`).join(' ')
                                 if (channel) {
                                     await channel.send({ 
                                         embeds: [embed],
-                                        content: `Congratulations `+ winners.map(winner => `<@${winner.userID}>!`).join(' ')
+                                        content: `Congratulations `+ winnerTestList
                                     });
                                 }
                             }

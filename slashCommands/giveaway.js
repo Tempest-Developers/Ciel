@@ -43,7 +43,8 @@ module.exports = {
                         .addChoices(
                             { name: 'Level 0 (Single Card)', value: 0 },
                             { name: 'Level 1 (Custom Item)', value: 1 },
-                            { name: 'Level 2 (Multiple Winners)', value: 2 }
+                            { name: 'Level 2 (Multiple Winners)', value: 2 },
+                            { name: 'Level 2 (Leaderboard Winners)', value: 3 }
                         ))
                 .addStringOption(option =>
                     option.setName('prize')
@@ -205,7 +206,25 @@ module.exports = {
                             itemDetails = {
                                 name: prizes.join(','),
                                 description: message,
-                                imageUrl: null
+                                imageUrl: imageUrl || null
+                            };
+                            break;
+                        }
+                        case 3: {
+                            // Level 3: Multiple prizes
+                            const prizes = prize.split(',').map(p => p.trim());
+                            
+                            if (prizes.length < amount) {
+                                return await handleInteraction(interaction, {
+                                    content: `❌ Not enough prizes. You specified ${amount} winners but only ${prizes.length} prizes.`,
+                                    ephemeral: true
+                                }, 'editReply');
+                            }
+
+                            itemDetails = {
+                                name: prizes.join(','),
+                                description: message,
+                                imageUrl: imageUrl || null
                             };
                             break;
                         }
