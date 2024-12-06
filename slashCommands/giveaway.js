@@ -339,11 +339,11 @@ module.exports = {
                         let description = '';
                         if (announcementData.giveaway.level === 2) {
                             const prizes = announcementData.giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join(' ') || 'No Prizes Set';
-                            description = `**Prizes:**\n${prizes}\n\n`;
+                            description = `**Prizes:**\n${prizes}\n`;
                         } else {
                             description = `**Prize:** ${announcementData.giveaway.item?.name || 'No Prize Set'}\n`;
                         }
-                        description += `**Message:** ${announcementData.giveaway.item?.description || 'No Message Set'}\n` +
+                        description += `${announcementData.giveaway.item?.description || 'No Message Set'}\n` +
                                      `**Winners:** ${announcementData.giveaway.amount}\n` +
                                      `**Ends:** <t:${announcementData.giveaway.endTimestamp}:R>`;
 
