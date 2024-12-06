@@ -339,7 +339,7 @@ module.exports = {
                         let description = '';
                         if (announcementData.giveaway.level === 2) {
                             const prizes = announcementData.giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join(' ') || 'No Prizes Set';
-                            description = `**Prizes:**\n${prizes}\n`;
+                            description = `**Prizes:**\n${prizes}\n\n`;
                         } else {
                             description = `**Prize:** ${announcementData.giveaway.item?.name || 'No Prize Set'}\n`;
                         }
