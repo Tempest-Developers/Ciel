@@ -14,7 +14,7 @@ const giftCommand = require('./gate/commands/gift');
 const giveawayCommand = require('./gate/commands/giveaway');
 const { give, take } = require('./gate/commands/currency');
 const clanCommand = require('./gate/commands/clan');
-const gwMiniCommand = require('./gate/commands/gw-mini'); // Add this line
+const gwMiniCommand = require('./gate/commands/gw-mini');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -31,7 +31,7 @@ module.exports = {
         .addSubcommand(give.subcommand)
         .addSubcommand(take.subcommand)
         .addSubcommand(clanCommand.subcommand)
-        .addSubcommand(gwMiniCommand.subcommand), // Add this line
+        .addSubcommand(gwMiniCommand.subcommand),
 
     async execute(interaction, { database, config }) {
         try {
@@ -89,7 +89,7 @@ module.exports = {
                     case 'clan':
                         return await clanCommand.execute(interaction, { database });
                     case 'gw-mini':
-                        return await gwMiniCommand.execute(interaction, { database }); // Add this line
+                        return await gwMiniCommand.execute(interaction, { database, config }); // Fixed: Added config
                 }
             } catch (error) {
                 await handleCommandError(interaction, error, '❌ An error occurred while processing your command.');
