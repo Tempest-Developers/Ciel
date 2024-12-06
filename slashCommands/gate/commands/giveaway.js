@@ -46,7 +46,7 @@ module.exports = {
                 } else if (giveaway.level === 2) {
                     const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
                     description = `**Prizes:**${prizes}\n\n` +
-                                `${giveaway.item?.description || 'No Message Set'}\n`;
+                                `${giveaway.item?.description || 'No Message Set'}`;
                 } else if (giveaway.level === 3) {
                     const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
                     description = user.premium ? 
