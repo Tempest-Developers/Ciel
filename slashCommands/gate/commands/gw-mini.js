@@ -56,9 +56,8 @@ module.exports = {
             let entries = giveaway.entries || [];
             let winners = [];
 
-            if (!allowPrevious) {
-                const previousWinners = await database.getPreviousWinners();
-                entries = entries.filter(entry => !previousWinners.includes(entry.userID));
+            if (!allowPrevious && giveaway.winners && giveaway.winners.length > 0) {
+                entries = entries.filter(entry => !giveaway.winners.includes(entry.userID));
             }
 
             if (uniqueWinners) {
@@ -85,6 +84,12 @@ module.exports = {
                 .setTimestamp();
 
             const winnerPings = winners.map(id => `<@${id}>`).join(' ');
+
+            // Update the giveaway in the database with the new winners
+            await database.mGiveawayDB.updateOne(
+                { giveawayID: giveawayId },
+                { $push: { winners: { $each: winners } } }
+            );
 
             await handleInteraction(interaction, { 
                 content: `Congratulations to the winners! ${winnerPings}`,
