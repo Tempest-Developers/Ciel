@@ -49,7 +49,9 @@ module.exports = {
                                 `${giveaway.item?.description || 'No Message Set'}`;
                 } else if (giveaway.level === 3) {
                     const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
-                    description = `👑 Premium access\n\n${giveaway.item?.description || 'No Message Set'}`;
+                    description = user.premium ? 
+                        `👑 Premium access\n\n${giveaway.item?.description || 'No Message Set'}` :
+                        `${giveaway.item?.description || 'No Message Set'}`;
                 }
 
                 description += `\n🎟️ Your Tickets: **${userTickets}**\n` +
