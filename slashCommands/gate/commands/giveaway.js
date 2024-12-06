@@ -45,8 +45,8 @@ module.exports = {
                                 `**Message:** ${giveaway.item?.description || 'No Message Set'}`;
                 } else if (giveaway.level === 2) {
                     const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
-                    description = `**Prizes:**\n${prizes}\n\n` +
-                                `${giveaway.item?.description || 'No Message Set'}`;
+                    description = `**Prizes:**${prizes}\n\n` +
+                                `${giveaway.item?.description || 'No Message Set'}\n`;
                 } else if (giveaway.level === 3) {
                     const prizes = `\n`+giveaway.item?.name?.split(',').map((p, i) => `${p.trim()}`).join('\n') || 'No Prizes Set';
                     description = user.premium ? 
@@ -54,7 +54,7 @@ module.exports = {
                         `${giveaway.item?.description || 'No Message Set'}`;
                 }
 
-                description += `\n🎟️ Your Tickets: **${userTickets}**\n` +
+                description += `\n\n🎟️ Your Tickets: **${userTickets}**\n` +
                              `🎯 Your Entries: **${userEntries}**\n` +
                              `👥 Total Entries: **${totalEntries}**`;
 
