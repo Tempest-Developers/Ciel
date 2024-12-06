@@ -248,16 +248,16 @@ module.exports = {
 
                 // Calculate bonus entries for premium users
                 let bonusEntries = 0;
-                if (user.premium) {
+                // if (user.premium) {
                     const random = Math.random();
                     if (random < 0.01) {
-                        bonusEntries = 9;
+                        bonusEntries = 3;
                     } else if (random < 0.1) {
-                        bonusEntries = 4;
+                        bonusEntries = 2;
                     } else if (random < 1) {
                         bonusEntries = 1;
                     }
-                }
+                // }
 
                 // Add entries to giveaway
                 const entries = Array(1 + bonusEntries).fill().map(() => ({
@@ -292,8 +292,10 @@ module.exports = {
                     `🎯 Your Entries: **${finalUserEntries}**\n` +
                     `👥 Total Entries: **${totalEntries}**`;
 
+                let messageType = false    
                 if (bonusEntries > 0) {
-                    message += `\n🎉 Premium Bonus: **${bonusEntries}** extra entries!`;
+                    message += `\n🎉 Random Bonus: **${bonusEntries}** extra entries!`;
+                    messageType = true
                 }
 
                 await handleInteraction(interaction, {
