@@ -113,7 +113,7 @@ async function buildCardDescription(cardIds, client) {
         // Build description
         for (let i = 0; i < cardInfoResults.length; i++) {
             const cardInfo = cardInfoResults[i];
-            if (cardInfo && cardInfo.name) {
+            if (cardInfo && cardInfo.cardLink!="undefined") {
                 // Card data is available
                 const tierList = ['SR', 'SSR'];
                 if (tierList.includes(cardInfo.tier)) {

@@ -134,11 +134,19 @@ async function buildCardDescription(cardIds, client, message, guildId, allowRole
         // Build description
     for (let i = 0; i < cardInfoResults.length; i++) {
         const cardInfo = cardInfoResults[i];
-        if (cardInfo && cardInfo.name) {
+        if (cardInfo && cardInfo.cardLink!="undefined") {
             // Card data is available
             const tierList = ['SR', 'SSR'];
-            if (tierList.includes(cardInfo.tier)) {
-                hasHighTierCard = true;
+            if (tierList.includes(cardInfo.tier) && !hasPinged && guildId === GATE_GUILD && allowRolePing) {
+                // Instantly send role ping for the first high tier card
+                const highTierRole = await getOrCreateHighTierRole(message.guild);
+                if (highTierRole) {
+                    await message.reply({
+                        content: `<@&${highTierRole.id}>`,
+                        allowedMentions: { roles: [highTierRole.id] }
+                    });
+                    hasPinged = true;
+                }
             }
             lastTier = cardInfo.tier;
             const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
