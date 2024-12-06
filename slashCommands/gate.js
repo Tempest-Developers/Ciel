@@ -13,7 +13,8 @@ const buyCommand = require('./gate/commands/buy');
 const giftCommand = require('./gate/commands/gift');
 const giveawayCommand = require('./gate/commands/giveaway');
 const { give, take } = require('./gate/commands/currency');
-const clanCommand = require('./gate/commands/clan'); // Add this line
+const clanCommand = require('./gate/commands/clan');
+const gwMiniCommand = require('./gate/commands/gw-mini'); // Add this line
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -29,7 +30,8 @@ module.exports = {
         .addSubcommand(giveawayCommand.subcommand)
         .addSubcommand(give.subcommand)
         .addSubcommand(take.subcommand)
-        .addSubcommand(clanCommand.subcommand), // Add this line
+        .addSubcommand(clanCommand.subcommand)
+        .addSubcommand(gwMiniCommand.subcommand), // Add this line
 
     async execute(interaction, { database, config }) {
         try {
@@ -42,7 +44,7 @@ module.exports = {
 
             const serverData = await getServerData(GATE_GUILD, mGateServerDB);
 
-            if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take', 'top', 'clan'].includes(subcommand)) {
+            if (!serverData.economyEnabled && ['balance', 'buy', 'gift', 'giveaway', 'give', 'take', 'top', 'clan', 'gw-mini'].includes(subcommand)) {
                 return await handleInteraction(interaction, {
                     content: '❌ The gate system is currently disabled.',
                     ephemeral: true
@@ -85,7 +87,9 @@ module.exports = {
                     case 'take':
                         return await take.execute(interaction, { database, config });
                     case 'clan':
-                        return await clanCommand.execute(interaction, { database }); // Add this line
+                        return await clanCommand.execute(interaction, { database });
+                    case 'gw-mini':
+                        return await gwMiniCommand.execute(interaction, { database }); // Add this line
                 }
             } catch (error) {
                 await handleCommandError(interaction, error, '❌ An error occurred while processing your command.');

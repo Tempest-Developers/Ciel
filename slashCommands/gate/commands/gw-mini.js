@@ -1,6 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
 const { handleInteraction, handleCommandError, safeDefer } = require('../../../utility/interactionHandler');
-const config = require('../../../config.json');
 
 module.exports = {
     subcommand: subcommand =>
@@ -28,7 +27,7 @@ module.exports = {
                     .setDescription('Custom message for the giveaway')
                     .setRequired(false)),
 
-    async execute(interaction, { database }) {
+    async execute(interaction, { database, config }) {
         if (!config.leads.includes(interaction.user.id)) {
             return await handleInteraction(interaction, {
                 content: '❌ You do not have permission to use this command.',
