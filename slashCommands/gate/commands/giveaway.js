@@ -251,11 +251,11 @@ module.exports = {
                 // if (user.premium) {
                     const random = Math.random();
                     if (random < 0.01) {
-                        bonusEntries = 3;
-                    } else if (random < 0.1) {
                         bonusEntries = 2;
-                    } else if (random < 1) {
+                    } else if (random < 0.1) {
                         bonusEntries = 1;
+                    } else if (random < 1) {
+                        bonusEntries = 0;
                     }
                 // }
 
