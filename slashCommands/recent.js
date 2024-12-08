@@ -4,7 +4,7 @@ const getTierEmoji = require('../utility/getTierEmoji');
 require('dotenv').config();
 
 const cooldowns = new Map();
-const COOLDOWN_DURATION = 2000; // 5 seconds
+const COOLDOWN_DURATION = 2000; // 2 seconds
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -49,19 +49,17 @@ module.exports = {
       }
 
       function getAllClaims(claims) {
-        // Combine all tier arrays and ensure sorting by newest first
         return Object.entries(claims)
           .filter(([tier]) => ['CT', 'RT', 'SRT', 'SSRT'].includes(tier))
           .map(([_, claims]) => claims)
           .flat()
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Newest first
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       }
 
       function getClaimsForTier(claims, tier) {
         if (tier === 'ALL') {
           return getAllClaims(claims);
         }
-        // Ensure tier-specific claims are also sorted newest first
         return (claims[tier] || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       }
 
@@ -79,13 +77,11 @@ module.exports = {
         if (claims.length === 0) {
           embed.setDescription('No claims recorded for this tier');
         } else {
-          // Take first 15 claims (already sorted newest first) and map them to display strings
           const description = claims
             .slice(0, 15)
             .map((claim, index) => {
               const unixTime = Math.floor(new Date(claim.timestamp).getTime() / 1000);
               const ownerName = claim.owner || 'Unknown Owner';
-              // Add index+1 to show clear ordering from top to bottom
               return `${getTierEmoji(claim.tier)} <t:${unixTime}:R> • #\`${claim.print}\` • **${claim.cardName}** • \`${ownerName}\``;
             })
             .join('\n');
@@ -117,49 +113,50 @@ module.exports = {
         fetchReply: true 
       }, 'editReply');
 
-      const collector = response.createMessageComponentCollector({ 
-        time: 600000 // Collector active for 10 minutes
-      });
+      if (response) {
+        const collector = response.createMessageComponentCollector({ 
+          time: 600000 // Collector active for 10 minutes
+        });
 
-      collector.on('collect', async i => {
-        try {
-          if (i.user.id === interaction.user.id) {
-            await i.deferUpdate();
-            
-            const selectedTier = i.values[0];
-            const filteredClaims = getClaimsForTier(serverData.claims, selectedTier);
-            const newEmbed = createEmbed(filteredClaims, selectedTier);
-            
-            await i.editReply({ 
-              embeds: [newEmbed], 
-              components: [row] 
-            });
-          } else {
-            await handleInteraction(i, { 
-              content: 'Only the command user can use this menu.', 
-              ephemeral: true 
-            }, 'reply');
+        collector.on('collect', async i => {
+          try {
+            if (i.user.id === interaction.user.id) {
+              await i.deferUpdate();
+              
+              const selectedTier = i.values[0];
+              const filteredClaims = getClaimsForTier(serverData.claims, selectedTier);
+              const newEmbed = createEmbed(filteredClaims, selectedTier);
+              
+              await i.editReply({ 
+                embeds: [newEmbed], 
+                components: [row] 
+              });
+            } else {
+              await handleInteraction(i, { 
+                content: 'Only the command user can use this menu.', 
+                ephemeral: true 
+              }, 'reply');
+            }
+          } catch (error) {
+            await handleCommandError(i, error, 'An error occurred while updating the display.');
           }
-        } catch (error) {
-          await handleCommandError(i, error, 'An error occurred while updating the display.');
-        }
-      });
+        });
 
-      collector.on('end', async () => {
-        try {
-          // Check if the message still exists and is fetchable
-          const message = await interaction.channel.messages.fetch(response.id).catch(() => null);
-          if (message) {
-            await message.edit({ components: [] }).catch(() => {
-              // Silently fail if we can't edit the message
-              console.log('Could not remove components from message - it may have been deleted');
-            });
+        collector.on('end', async () => {
+          try {
+            const message = await interaction.channel.messages.fetch(response.id).catch(() => null);
+            if (message) {
+              await message.edit({ components: [] }).catch(() => {
+                console.log('Could not remove components from message - it may have been deleted');
+              });
+            }
+          } catch (error) {
+            console.log('Error in collector end event:', error);
           }
-        } catch (error) {
-          // Silently handle any errors during component removal
-          console.log('Error in collector end event:', error);
-        }
-      });
+        });
+      } else {
+        console.log('Failed to get a valid response from handleInteraction');
+      }
 
     } catch (error) {
       await handleCommandError(interaction, error, 'An error occurred while executing this command.');
