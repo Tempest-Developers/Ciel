@@ -155,7 +155,7 @@ function formatCardCollection(cardCounts, totalCards, isPremiumAccount) {
 
 function formatPremiumStatus(userData) {
   if (userData.isPremiumAccount) {
-    const expirationDate = new Date(userData.premiumExpiresAt);
+    const expirationDate = new Date(userData.premiumExpiresAt+"Z");
     const expirationTimestamp = Math.floor(expirationDate.getTime() / 1000);
     console.log(`${userData.userId} | 👑 Premium (Expires <t:${expirationTimestamp}:R>)`);
     return `👑 Premium (Expires <t:${expirationTimestamp}:R>)`;
@@ -165,7 +165,7 @@ function formatPremiumStatus(userData) {
 
 function calculateDaysSinceRegistered(registrationDate) {
   const now = new Date();
-  const regDate = new Date(registrationDate);
+  const regDate = new Date(registrationDate+"Z");
   const diffTime = Math.abs(now - regDate);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return diffDays;
