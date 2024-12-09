@@ -4,7 +4,7 @@ const axios = require('axios');
 const getTierEmoji = require('../utility/getTierEmoji');
 
 const cooldowns = new Map();
-const COOLDOWN_DURATION = 30000; // 30 seconds
+const COOLDOWN_DURATION = 15000; // 30 seconds
 const API_TIMEOUT = 15000; // 15 seconds timeout for API calls
 
 module.exports = {
