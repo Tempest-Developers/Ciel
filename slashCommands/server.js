@@ -2,11 +2,11 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const getTierEmoji = require('../utility/getTierEmoji');
 const getLoadBar = require('../utility/getLoadBar');
 const { enrichClaimWithCardData } = require('../utility/cardAPI');
-const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
+const { handleInteraction, handleCommandError } = require('../utility/interactionHandler');
 
 // Add cooldown system
 const cooldowns = new Map();
-const COOLDOWN_DURATION = 2000; // 5 seconds in milliseconds
+const COOLDOWN_DURATION = 2000; // 2 seconds in milliseconds
 
 // Function to check if timestamp is within last 1 hour
 const isWithinLastHour = (timestamp) => {
@@ -60,12 +60,7 @@ module.exports = {
         const userId = interaction.user.id;
         const cooldownKey = `${guildId}-${userId}`;
 
-        let hasDeferred = false;
         try {
-
-            await safeDefer(interaction);
-            hasDeferred = true;
-            
             if (cooldowns.has(cooldownKey)) {
                 const expirationTime = cooldowns.get(cooldownKey);
                 if (Date.now() < expirationTime) {
@@ -309,7 +304,7 @@ module.exports = {
                             }
                         } catch (error) {
                             if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
-                                return await interaction.editReply(error.message);
+                                return await handleInteraction(interaction, { content: error.message });
                             }
                             console.error('Error enriching card data:', error);
                             embed.addFields({
@@ -378,7 +373,7 @@ module.exports = {
                     break;
             }
 
-            return await interaction.editReply({ embeds: [embed] });
+            return await handleInteraction(interaction, { embeds: [embed] });
 
         } catch (error) {
             console.error('Error in serverstats command:', error);
@@ -387,17 +382,7 @@ module.exports = {
                 ? error.message
                 : 'An error occurred while fetching server stats.';
             
-            if (!hasDeferred) {
-                await handleInteraction(interaction, {
-                    content: errorMessage,
-                    ephemeral: true
-                });
-            } else {
-                await handleInteraction(interaction, {
-                    content: errorMessage,
-                    ephemeral: true
-                }, 'editReply');
-            }
+            await handleCommandError(interaction, error, errorMessage);
         }
     },
 };
