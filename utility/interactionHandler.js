@@ -19,6 +19,11 @@ async function handleInteraction(interaction, options, type = 'reply') {
             return;
         }
 
+        // Ensure ephemeral property is preserved when editing
+        if (type === 'editReply' && interaction.ephemeral) {
+            options.ephemeral = true;
+        }
+
         // Handle different response types
         switch (type) {
             case 'reply':

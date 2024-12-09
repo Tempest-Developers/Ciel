@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { handleInteraction, handleCommandError, safeDefer } = require('../utility/interactionHandler');
 const axios = require('axios');
 const getTierEmoji = require('../utility/getTierEmoji');
@@ -39,16 +39,17 @@ module.exports = {
     }
 
     try {
+      // Defer the reply without making it ephemeral
       await safeDefer(interaction);
 
       const targetUser = interaction.options.getUser('user') || interaction.user;
       const userId = targetUser.id;
 
-      // Inform user that data is being fetched
+      // Inform user that data is being fetched (ephemeral message)
       await handleInteraction(interaction, { 
         content: 'Fetching profile data, please wait...',
         ephemeral: true 
-      }, 'editReply');
+      }, 'followUp');
 
       // Fetch user data from Mazoku API with timeout
       const userData = await axios.get(`https://api.mazoku.cc/api/get-user/${userId}`, { timeout: API_TIMEOUT });
@@ -93,7 +94,24 @@ module.exports = {
         )
         .setFooter({ text: 'Banner shown is the one set on your profile' });
 
-      await handleInteraction(interaction, { embeds: [embed] }, 'editReply');
+      // Create buttons
+      const profileButton = new ButtonBuilder()
+        .setLabel('View Profile on Website')
+        .setStyle(ButtonStyle.Link)
+        .setURL(`https://mazoku.cc/user/${userId}`);
+
+      const storeButton = new ButtonBuilder()
+        .setLabel('Mazoku Store')
+        .setStyle(ButtonStyle.Link)
+        .setURL('https://mazoku.cc/store');
+
+      const row = new ActionRowBuilder().addComponents(profileButton, storeButton);
+
+      // Send the profile embed with buttons (not ephemeral)
+      await handleInteraction(interaction, { 
+        embeds: [embed],
+        components: [row]
+      }, 'editReply');
 
       // Apply cooldown only after successful execution
       guildCooldowns.set(user.id, Date.now());
