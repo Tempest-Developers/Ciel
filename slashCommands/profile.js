@@ -23,25 +23,6 @@ module.exports = {
       
       await safeDefer(interaction);
 
-      if (!cooldowns.has(guildId)) {
-        cooldowns.set(guildId, new Map());
-      }
-      
-      const guildCooldowns = cooldowns.get(guildId);
-      
-      if (guildCooldowns.has(user.id)) {
-        const expirationTime = guildCooldowns.get(user.id) + COOLDOWN_DURATION;
-        if (Date.now() < expirationTime) {
-          const timeLeft = (expirationTime - Date.now()) / 1000;
-          return await handleInteraction(interaction, { 
-            content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
-            ephemeral: true 
-          }, 'editReply');
-        }
-      }
-      
-      guildCooldowns.set(user.id, Date.now());
-
       const targetUser = interaction.options.getUser('user') || interaction.user;
       const userId = targetUser.id;
 
@@ -110,6 +91,25 @@ module.exports = {
     } catch (error) {
       await handleCommandError(interaction, error, 'An error occurred while fetching the profile information.');
     }
+
+    if (!cooldowns.has(guildId)) {
+      cooldowns.set(guildId, new Map());
+    }
+    
+    const guildCooldowns = cooldowns.get(guildId);
+    
+    if (guildCooldowns.has(user.id)) {
+      const expirationTime = guildCooldowns.get(user.id) + COOLDOWN_DURATION;
+      if (Date.now() < expirationTime) {
+        const timeLeft = (expirationTime - Date.now()) / 1000;
+        return await handleInteraction(interaction, { 
+          content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
+          ephemeral: true 
+        }, 'editReply');
+      }
+    }
+    
+    guildCooldowns.set(user.id, Date.now());
   }
 };
 
