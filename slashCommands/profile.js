@@ -17,81 +17,10 @@ module.exports = {
         .setRequired(false)),
 
   async execute(interaction) {
-    try {
-      const { user } = interaction;
-      const guildId = interaction.guild.id;
-      
-      await safeDefer(interaction);
+    const { user } = interaction;
+    const guildId = interaction.guild.id;
 
-      const targetUser = interaction.options.getUser('user') || interaction.user;
-      const userId = targetUser.id;
-
-      try {
-        // Fetch user data from Mazoku API with timeout
-        const userData = await axios.get(`https://api.mazoku.cc/api/get-user/${userId}`, { timeout: API_TIMEOUT });
-        
-        // Fetch inventory data for each tier
-        const tiers = ['C', 'R', 'SR', 'SSR', 'UR'];
-        const cardCounts = {};
-        let totalWorth = 0;
-
-        for (const tier of tiers) {
-          const requestBody = {
-            page: 1,
-            pageSize: 1,
-            name:"",
-            type: "Card",
-            sortBy: "dateAdded",
-            sortOrder: "desc",
-            tiers: [tier],
-            minVersion: 0,
-            maxVersion: 2000,
-            owner: userId
-          };
-
-          const inventoryData = await axios.post('https://api.mazoku.cc/api/get-inventory-items/', requestBody, { timeout: API_TIMEOUT });
-          cardCounts[tier] = inventoryData.data.cardCount;
-        }
-
-        const totalCards = Object.values(cardCounts).reduce((a, b) => a + b, 0);
-        const daysSinceRegistered = calculateDaysSinceRegistered(userData.data.registrationDate);
-
-        // Create embed
-        const embed = new EmbedBuilder()
-          .setColor('#0099ff')
-          .setTitle(`${targetUser.username}'s Mazoku Profile`)
-          .setThumbnail(`https://cdn.discordapp.com/avatars/${userId}/${userData.data.avatar}.png`)
-          .setImage(`https://cdn.mazoku.cc/banners/${userData.data.selectedBanner}/banner`)
-          .addFields(
-            { name: 'Balance', value: `<:bloodstone:1315603629591498762> \`${userData.data.bloodStones}\`\n<:moonstone:1315604285710401576> \`${userData.data.moonStones}\``, inline: true },
-            { name: 'Registered', value: `\`${daysSinceRegistered}\` days ago`, inline: true },
-            { name: 'Card Collection', value: formatCardCollection(cardCounts, totalCards, userData.data.isPremiumAccount), inline: false },
-            { name: 'Premium Status', value: formatPremiumStatus(userData.data), inline: false }
-          )
-          .setFooter({ text: 'Banner shown is the one set on your profile' });
-
-        await handleInteraction(interaction, { embeds: [embed] }, 'editReply');
-
-      } catch (error) {
-        console.error('API Error:', error);
-        let errorMessage = 'An error occurred while fetching data from the Mazoku API. Please try again later.';
-        
-        if (error.code === 'ECONNABORTED') {
-          errorMessage = 'The Mazoku API is taking longer than usual to respond. Please try again in a few minutes.';
-        } else if (error.response && error.response.status === 404) {
-          errorMessage = 'User not found in the Mazoku database. Make sure the user has registered with Mazoku.';
-        }
-        
-        await handleInteraction(interaction, { 
-          content: errorMessage,
-          ephemeral: true 
-        }, 'editReply');
-      }
-
-    } catch (error) {
-      await handleCommandError(interaction, error, 'An error occurred while fetching the profile information.');
-    }
-
+    // Check for cooldown
     if (!cooldowns.has(guildId)) {
       cooldowns.set(guildId, new Map());
     }
@@ -105,11 +34,82 @@ module.exports = {
         return await handleInteraction(interaction, { 
           content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
           ephemeral: true 
-        }, 'editReply');
+        }, 'reply');
       }
     }
-    
-    guildCooldowns.set(user.id, Date.now());
+
+    try {
+      await safeDefer(interaction);
+
+      const targetUser = interaction.options.getUser('user') || interaction.user;
+      const userId = targetUser.id;
+
+      // Inform user that data is being fetched
+      await handleInteraction(interaction, { 
+        content: 'Fetching profile data, please wait...',
+        ephemeral: true 
+      }, 'editReply');
+
+      // Fetch user data from Mazoku API with timeout
+      const userData = await axios.get(`https://api.mazoku.cc/api/get-user/${userId}`, { timeout: API_TIMEOUT });
+      
+      // Fetch inventory data for each tier
+      const tiers = ['C', 'R', 'SR', 'SSR', 'UR'];
+      const cardCounts = {};
+      let totalWorth = 0;
+
+      for (const tier of tiers) {
+        const requestBody = {
+          page: 1,
+          pageSize: 1,
+          name:"",
+          type: "Card",
+          sortBy: "dateAdded",
+          sortOrder: "desc",
+          tiers: [tier],
+          minVersion: 0,
+          maxVersion: 2000,
+          owner: userId
+        };
+
+        const inventoryData = await axios.post('https://api.mazoku.cc/api/get-inventory-items/', requestBody, { timeout: API_TIMEOUT });
+        cardCounts[tier] = inventoryData.data.cardCount;
+      }
+
+      const totalCards = Object.values(cardCounts).reduce((a, b) => a + b, 0);
+      const daysSinceRegistered = calculateDaysSinceRegistered(userData.data.registrationDate);
+
+      // Create embed
+      const embed = new EmbedBuilder()
+        .setColor('#0099ff')
+        .setTitle(`${targetUser.username}'s Mazoku Profile`)
+        .setThumbnail(`https://cdn.discordapp.com/avatars/${userId}/${userData.data.avatar}.png`)
+        .setImage(`https://cdn.mazoku.cc/banners/${userData.data.selectedBanner}/banner`)
+        .addFields(
+          { name: 'Balance', value: `<:bloodstone:1315603629591498762> \`${userData.data.bloodStones}\`\n<:moonstone:1315604285710401576> \`${userData.data.moonStones}\``, inline: true },
+          { name: 'Registered', value: `\`${daysSinceRegistered}\` days ago`, inline: true },
+          { name: 'Card Collection', value: formatCardCollection(cardCounts, totalCards, userData.data.isPremiumAccount), inline: false },
+          { name: 'Premium Status', value: formatPremiumStatus(userData.data), inline: false }
+        )
+        .setFooter({ text: 'Banner shown is the one set on your profile' });
+
+      await handleInteraction(interaction, { embeds: [embed] }, 'editReply');
+
+      // Apply cooldown only after successful execution
+      guildCooldowns.set(user.id, Date.now());
+
+    } catch (error) {
+      console.error('API Error:', error);
+      let errorMessage = 'An error occurred while fetching data from the Mazoku API. Please try again later.';
+      
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'The Mazoku API is taking longer than usual to respond. Please try again in a few minutes.';
+      } else if (error.response && error.response.status === 404) {
+        errorMessage = 'User not found in the Mazoku database. Make sure the user has registered with Mazoku.';
+      }
+      
+      await handleCommandError(interaction, error, errorMessage);
+    }
   }
 };
 
