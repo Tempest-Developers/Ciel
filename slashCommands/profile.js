@@ -5,6 +5,7 @@ const getTierEmoji = require('../utility/getTierEmoji');
 
 const cooldowns = new Map();
 const COOLDOWN_DURATION = 30000; // 30 seconds
+const API_TIMEOUT = 15000; // 15 seconds timeout for API calls
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,7 +18,6 @@ module.exports = {
 
   async execute(interaction) {
     try {
-      // Cooldown check
       const { user } = interaction;
       const guildId = interaction.guild.id;
       
@@ -36,7 +36,7 @@ module.exports = {
           return await handleInteraction(interaction, { 
             content: `Please wait ${timeLeft.toFixed(1)} seconds before using this command again.`,
             ephemeral: true 
-          }, 'reply');
+          }, 'editReply');
         }
       }
       
@@ -46,8 +46,8 @@ module.exports = {
       const userId = targetUser.id;
 
       try {
-        // Fetch user data from Mazoku API
-        const userData = await axios.get(`https://api.mazoku.cc/api/get-user/${userId}`);
+        // Fetch user data from Mazoku API with timeout
+        const userData = await axios.get(`https://api.mazoku.cc/api/get-user/${userId}`, { timeout: API_TIMEOUT });
         
         // Fetch inventory data for each tier
         const tiers = ['C', 'R', 'SR', 'SSR', 'UR'];
@@ -68,12 +68,8 @@ module.exports = {
             owner: userId
           };
 
-          console.log(`Request body for ${tier} tier:`, JSON.stringify(requestBody, null, 2));
-
-          const inventoryData = await axios.post('https://api.mazoku.cc/api/get-inventory-items/', requestBody);
-
+          const inventoryData = await axios.post('https://api.mazoku.cc/api/get-inventory-items/', requestBody, { timeout: API_TIMEOUT });
           cardCounts[tier] = inventoryData.data.cardCount;
-          
         }
 
         const totalCards = Object.values(cardCounts).reduce((a, b) => a + b, 0);
@@ -97,8 +93,16 @@ module.exports = {
 
       } catch (error) {
         console.error('API Error:', error);
+        let errorMessage = 'An error occurred while fetching data from the Mazoku API. Please try again later.';
+        
+        if (error.code === 'ECONNABORTED') {
+          errorMessage = 'The Mazoku API is taking longer than usual to respond. Please try again in a few minutes.';
+        } else if (error.response && error.response.status === 404) {
+          errorMessage = 'User not found in the Mazoku database. Make sure the user has registered with Mazoku.';
+        }
+        
         await handleInteraction(interaction, { 
-          content: 'An error occurred while fetching data from the Mazoku API. Please try again later.',
+          content: errorMessage,
           ephemeral: true 
         }, 'editReply');
       }

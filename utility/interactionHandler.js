@@ -1,3 +1,5 @@
+const { InteractionType } = require('discord.js');
+
 /**
  * Utility functions for handling Discord interactions safely
  */
@@ -71,20 +73,26 @@ async function handleCommandError(interaction, error, customMessage) {
         guildId: interaction.guildId
     });
 
-    const errorMessage = {
-        content: error.message === "Mazoku Servers unavailable" 
-            ? "Mazoku Servers unavailable"
-            : customMessage || 'An error occurred while processing your request.',
+    let errorMessage = customMessage || 'An error occurred while processing your request.';
+
+    if (error.message === "Mazoku Servers unavailable") {
+        errorMessage = "Mazoku Servers are currently unavailable. Please try again later.";
+    } else if (error.code === 'ECONNABORTED') {
+        errorMessage = "The request timed out. Mazoku servers might be experiencing high load. Please try again in a few minutes.";
+    }
+
+    const responseOptions = {
+        content: errorMessage,
         ephemeral: true
     };
 
     try {
         if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply(errorMessage);
+            await interaction.reply(responseOptions);
         } else if (interaction.deferred) {
-            await interaction.editReply(errorMessage);
+            await interaction.editReply(responseOptions);
         } else {
-            await interaction.followUp(errorMessage);
+            await interaction.followUp(responseOptions);
         }
     } catch (replyError) {
         if (replyError.code === 10062) {
