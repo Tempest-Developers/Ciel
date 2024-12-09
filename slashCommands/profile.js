@@ -157,6 +157,7 @@ function formatPremiumStatus(userData) {
   if (userData.isPremiumAccount) {
     const expirationDate = new Date(userData.premiumExpiresAt);
     const expirationTimestamp = Math.floor(expirationDate.getTime() / 1000);
+    console.log(`${userData.userId} | 👑 Premium (Expires <t:${expirationTimestamp}:R>)`);
     return `👑 Premium (Expires <t:${expirationTimestamp}:R>)`;
   }
   return 'Standard';
