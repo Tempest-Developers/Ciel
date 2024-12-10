@@ -31,7 +31,7 @@ const handleMazokuAPICall = async (apiCall) => {
     }
 };
 
-const MAX_ATTEMPTS = 2;
+const MAX_ATTEMPTS = 1;
 
 async function getInventoryItemsByCard(cardId) {
   let attempts = 0;
@@ -56,8 +56,8 @@ async function getInventoryItemsByCard(cardId) {
 async function getCardInfo(cardId, client) {
     try {
         // Replace the original line with the new function call
-        const response = await getInventoryItemsByCard(cardId);response.data;
-        const data = response.data;
+        const response = await getInventoryItemsByCard(cardId);
+        const data = response.data?response.data:null;
         if (data && data.length > 0) {
             const card = data[0].card;
             // Get wishlist count from database
