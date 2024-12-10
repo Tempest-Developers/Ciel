@@ -31,11 +31,32 @@ const handleMazokuAPICall = async (apiCall) => {
     }
 };
 
+const MAX_ATTEMPTS = 2;
+
+async function getInventoryItemsByCard(cardId) {
+  let attempts = 0;
+  let response;
+
+  while (attempts < MAX_ATTEMPTS) {
+    try {
+      response = await handleMazokuAPICall(() =>
+        axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`)
+      );
+      break; // Exits the loop on success
+    } catch (error) {
+      attempts++;
+      // You can add some logging or error handling here
+      console.error(`Attempt ${attempts} failed:`, error);
+    }
+  }
+
+  return attempts < MAX_ATTEMPTS ? response : null; // Return null on max attempts exceeded
+}
+
 async function getCardInfo(cardId, client) {
     try {
-        const response = await handleMazokuAPICall(() => 
-            axios.get(`https://api.mazoku.cc/api/get-inventory-items-by-card/${cardId}`)
-        );
+        // Replace the original line with the new function call
+        const response = await getInventoryItemsByCard(cardId);response.data;
         const data = response.data;
         if (data && data.length > 0) {
             const card = data[0].card;
@@ -131,7 +152,15 @@ async function buildCardDescription(cardIds, client, message, guildId, allowRole
     
     try {
         // Get card info for all cards at once
-        const cardInfoResults = await Promise.all(cardIds.map(id => getCardInfo(id, client)));
+        const cardInfoResults = await Promise.all(
+            cardIds.map(async id => {
+                const result = await getCardInfo(id, client);
+                if (result === null) {
+                    throw new Error(`Failed to fetch card info for ${id}`);
+                }
+                return result;
+            })
+        );
         
         // Build description
     for (let i = 0; i < cardInfoResults.length; i++) {
