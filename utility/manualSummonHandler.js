@@ -58,8 +58,10 @@ async function getCardInfo(cardId, client) {
         console.error('Error fetching card info:', error);
         return {
             name: '*Data Unavailable*',
-            series: '*Data Unavailable*',
+            series: '',
             tier: 'Unknown',
+            batchID: '0',
+            cardLink: `undefined`,
             versions: { availableVersions: [], remainingVersions: 0 },
             wishlistCount: 0
         };
