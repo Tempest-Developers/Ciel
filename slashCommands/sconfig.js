@@ -43,7 +43,7 @@ module.exports = {
                 responseEmbed = new EmbedBuilder()
                     .setColor('#2B2D31')
                     .setTitle('Server Configuration Updated')
-                    .setDescription(`To help Mazoku Bot we are switch ❌ off the tier display in summon messages for one day.`)
+                    .setDescription(`As requested from Mazoku we are **switching off** ❌ the **tier display** in summon messages for one day.`)
                     // .setDescription(`Tier display in summon messages ${toggleResult.allowShowStats ? 'enabled' : 'disabled'} for this server.`)
                     .setTimestamp();
             } 
@@ -67,7 +67,7 @@ module.exports = {
                             // value: serverData.settings.allowShowStats ? 'Enabled ✅' : 'Disabled ❌', 
                             value: 'Disabled For 1 Day ❌',
                             inline: true 
-                        },
+                        },s
                         { 
                             name: 'Cooldown Ping Notifications', 
                             value: serverData.settings.allowCooldownPing ? 'Enabled ✅' : 'Disabled ❌', 
