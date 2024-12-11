@@ -1,5 +1,6 @@
 const axios = require('axios');
 const getTierEmoji = require('./getTierEmoji');
+const { cacheCardData, getCachedCardData } = require('../database/modules/mCards');
 
 // Use a Map to track processed edits with a TTL
 const processedEdits = new Map();
@@ -55,14 +56,20 @@ async function getInventoryItemsByCard(cardId) {
 
 async function getCardInfo(cardId, client) {
     try {
-        // Replace the original line with the new function call
+        // Check if card data is cached and not older than 24 hours
+        const cachedCardInfo = await getCachedCardData(cardId);
+        if (cachedCardInfo) {
+            return cachedCardInfo;
+        }
+
+        // If not cached, fetch from API
         const response = await getInventoryItemsByCard(cardId);
         const data = response.data?response.data:null;
         if (data && data.length > 0) {
             const card = data[0].card;
             // Get wishlist count from database
             const wishlistCount = await client.database.getCardWishlistCount(cardId);
-            return {
+            const cardInfo = {
                 name: card.name || '*Data Unavailable*',
                 series: card.series || '*Data Unavailable*',
                 tier: card.tier,
@@ -71,6 +78,11 @@ async function getCardInfo(cardId, client) {
                 versions: await getAvailableVersions(data, card.tier),
                 wishlistCount: wishlistCount || 0
             };
+
+            // Cache the card data
+            await cacheCardData(cardId, cardInfo);
+
+            return cardInfo;
         }
     } catch (error) {
         if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
@@ -85,7 +97,7 @@ async function getCardInfo(cardId, client) {
             cardLink: `undefined`,
             versions: { availableVersions: [], remainingVersions: 0 },
             wishlistCount: 0
-        };s
+        };
     }
     return null;
 }
@@ -163,46 +175,46 @@ async function buildCardDescription(cardIds, client, message, guildId, allowRole
         );
         
         // Build description
-    for (let i = 0; i < cardInfoResults.length; i++) {
-        const cardInfo = cardInfoResults[i];
-        if (cardInfo && cardInfo.cardLink!="undefined") {
-            // Card data is available
-            const tierList = ['SR', 'SSR'];
-            if (tierList.includes(cardInfo.tier) && !hasPinged && guildId === GATE_GUILD && allowRolePing) {
-                // Instantly send role ping for the first high tier card
-                const highTierRole = await getOrCreateHighTierRole(message.guild);
-                if (highTierRole) {
-                    await message.reply({
-                        content: `<@&${highTierRole.id}>`,
-                        allowedMentions: { roles: [highTierRole.id] }
-                    });
-                    hasPinged = true;
+        for (let i = 0; i < cardInfoResults.length; i++) {
+            const cardInfo = cardInfoResults[i];
+            if (cardInfo && cardInfo.cardLink!="undefined") {
+                // Card data is available
+                const tierList = ['SR', 'SSR'];
+                if (tierList.includes(cardInfo.tier) && !hasPinged && guildId === GATE_GUILD && allowRolePing) {
+                    // Instantly send role ping for the first high tier card
+                    const highTierRole = await getOrCreateHighTierRole(message.guild);
+                    if (highTierRole) {
+                        await message.reply({
+                            content: `<@&${highTierRole.id}>`,
+                            allowedMentions: { roles: [highTierRole.id] }
+                        });
+                        hasPinged = true;
+                    }
                 }
+                lastTier = cardInfo.tier;
+                const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
+                
+                const versionsText = cardInfo.versions.availableVersions.length > 0 
+                    ? `\`V:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
+                    : "**No versions available**";
+                
+                const remainingText = cardInfo.versions.remainingVersions > 0 
+                    ? ` \`+${cardInfo.versions.remainingVersions}v left\`` 
+                    : '';
+
+                const batchInfo = cardInfo.batchID ? `\`B-${cardInfo.batchID}\`` : '';
+
+                const newEMOTE = cardInfo.batchID==4 ? '🆕' : '';
+
+                const wishlistCount = cardInfo.wishlistCount;
+                const seriesName = cardInfo.series.length > 25 ? cardInfo.series.substring(0, 25)+"..." : cardInfo.series;
+                
+                description += `${letters[i]} \`❤️ ${wishlistCount}\` ${tierEmoji} [${cardInfo.name}](${cardInfo.cardLink}) *${seriesName}*\n${batchInfo} ${versionsText}${remainingText}${newEMOTE} \n`;
+            } else {
+                // Card data is not available
+                description += `${letters[i]} No Data Found\n`;
             }
-            lastTier = cardInfo.tier;
-            const tierEmoji = getTierEmoji(cardInfo.tier + 'T');
-            
-            const versionsText = cardInfo.versions.availableVersions.length > 0 
-                ? `\`V:\` ${cardInfo.versions.availableVersions.map(version => `*__${version}__*`).join(', ')}` 
-                : "**No versions available**";
-            
-            const remainingText = cardInfo.versions.remainingVersions > 0 
-                ? ` \`+${cardInfo.versions.remainingVersions}v left\`` 
-                : '';
-
-            const batchInfo = cardInfo.batchID ? `\`B-${cardInfo.batchID}\`` : '';
-
-            const newEMOTE = cardInfo.batchID==4 ? '🆕' : '';
-
-            const wishlistCount = cardInfo.wishlistCount;
-            const seriesName = cardInfo.series.length > 25 ? cardInfo.series.substring(0, 25)+"..." : cardInfo.series;
-            
-            description += `${letters[i]} \`❤️ ${wishlistCount}\` ${tierEmoji} [${cardInfo.name}](${cardInfo.cardLink}) *${seriesName}*\n${batchInfo} ${versionsText}${remainingText}${newEMOTE} \n`;
-        } else {
-            // Card data is not available
-            description += `${letters[i]} No Data Found\n`;
         }
-    }
     } catch (error) {
         if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
             description = error.message;

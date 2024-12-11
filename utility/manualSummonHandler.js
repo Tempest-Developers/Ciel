@@ -1,5 +1,6 @@
 const axios = require('axios');
 const getTierEmoji = require('./getTierEmoji');
+const { cacheCardData, getCachedCardData } = require('../database/modules/mCards');
 
 // Use a Map to track processed manual edits with a TTL
 const processedManualEdits = new Map();
@@ -53,17 +54,22 @@ async function getInventoryItemsByCard(cardId) {
   return attempts < MAX_ATTEMPTS ? response : null; // Return null on max attempts exceeded
 }
 
-
 async function getCardInfo(cardId, client) {
     try {
-        // Replace the original line with the new function call
+        // Check if card data is cached and not older than 24 hours
+        const cachedCardInfo = await getCachedCardData(cardId);
+        if (cachedCardInfo) {
+            return cachedCardInfo;
+        }
+
+        // If not cached, fetch from API
         const response = await getInventoryItemsByCard(cardId);
         const data = response.data?response.data:null;
         if (data && data.length > 0) {
             const card = data[0].card;
             // Get wishlist count from database
             const wishlistCount = await client.database.getCardWishlistCount(cardId);
-            return {
+            const cardInfo = {
                 name: card.name || '*Data Unavailable*',
                 series: card.series || '*Data Unavailable*',
                 tier: card.tier,
@@ -72,6 +78,11 @@ async function getCardInfo(cardId, client) {
                 versions: await getAvailableVersions(data, card.tier),
                 wishlistCount: wishlistCount || 0
             };
+
+            // Cache the card data
+            await cacheCardData(cardId, cardInfo);
+
+            return cardInfo;
         }
     } catch (error) {
         if (error.message === "The Mazoku Servers are currently unavailable. Please try again later.") {
