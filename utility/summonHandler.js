@@ -264,7 +264,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                 const elapsedTime = Math.floor(Date.now() / 1000) - startTime;
 
                 // Calculate countdown time by subtracting the elapsed time from the desired countdown
-                const countdownTime = (startTime + 18 - elapsedTime)>16?16:startTime + 18 - elapsedTime;
+                const countdownTime = (startTime + 18 - elapsedTime) > 16 ? startTime + 16 : (startTime + 16 - elapsedTime);
                 const nextSummonTime = startTime + 120 - elapsedTime;
 
                 // Create base embed with countdown
@@ -307,7 +307,7 @@ async function handleSummonInfo(client, newMessage, newEmbed, messageId) {
                     } catch (error) {
                         console.error('Error editing countdown message:', error);
                     }
-                }, (16 - elapsedTime) * 1000);
+                }, (countdownTime - 2) * 1000);
             }
         } catch (error) {
             console.error('Error in handleSummonInfo:', error);
