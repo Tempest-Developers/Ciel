@@ -146,6 +146,8 @@ for (const file of eventFiles) {
         });
     } else {
         client.on(event.name, async (...args) => {
+            if(event.name === 'messageUpdate' && process.env.READ_MAZOKU === false) return
+            if(event.name === 'interactionCreate' && process.env.UPDATE_EVENT === false) return
             try {
                 if (event.name === 'messageCreate') {
                     await event.execute(...args, { 
