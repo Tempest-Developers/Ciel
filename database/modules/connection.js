@@ -15,14 +15,14 @@ const client = new MongoClient(uri, {
 });
 
 let mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, mCommandLogsDB, mGiveawayDB;
-let mCardWishlistDB, mUserWishlistDB;
+let mCardWishlistDB, mUserWishlistDB, mCardDB; // Added mCardDB
 let isConnected = false;
 
 async function connectDB() {
     if (isConnected) {
         return { 
             mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, 
-            mCommandLogsDB, mGiveawayDB, mCardWishlistDB, mUserWishlistDB 
+            mCommandLogsDB, mGiveawayDB, mCardWishlistDB, mUserWishlistDB, mCardDB 
         };
     }
 
@@ -54,12 +54,13 @@ async function connectDB() {
         mGiveawayDB = client.db('MainDB').collection('mGiveawayDB');
         mCardWishlistDB = client.db('MainDB').collection('mCardWishlistDB');
         mUserWishlistDB = client.db('MainDB').collection('mUserWishlistDB');
+        mCardDB = client.db('MainDB').collection('mCardDB'); // Initialize mCardDB
 
         await initializeIndexes();
 
         return { 
             mServerDB, mUserDB, mServerSettingsDB, mGateDB, mGateServerDB, 
-            mCommandLogsDB, mGiveawayDB, mCardWishlistDB, mUserWishlistDB 
+            mCommandLogsDB, mGiveawayDB, mCardWishlistDB, mUserWishlistDB, mCardDB 
         };
     } catch (err) {
         console.error('Error connecting to MongoDB:', err);
@@ -116,6 +117,9 @@ async function initializeIndexes() {
         "manualClaims.cardID": 1,
         "manualClaims.timestamp": 1
     });
+
+    // Index for mCardDB
+    await mCardDB.createIndex({ cardId: 1 }, { unique: true });
 }
 
 async function reconnect() {
@@ -164,5 +168,6 @@ module.exports = {
     mCommandLogsDB,
     mGiveawayDB,
     mCardWishlistDB,
-    mUserWishlistDB
+    mUserWishlistDB,
+    mCardDB
 };
