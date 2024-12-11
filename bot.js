@@ -146,8 +146,8 @@ for (const file of eventFiles) {
         });
     } else {
         client.on(event.name, async (...args) => {
-            if(event.name === 'messageUpdate' && process.env.READ_MAZOKU_TOGGLE === false) return
-            if(event.name === 'interactionCreate' && process.env.SLASH_COMMANDS_TOGGLE === false) return
+            if(event.name === 'messageUpdate' && process.env.READ_MAZOKU_TOGGLE === 'false') return
+            if(event.name === 'interactionCreate' && process.env.SLASH_COMMANDS_TOGGLE === 'false') return
             try {
                 if (event.name === 'messageCreate') {
                     await event.execute(...args, { 
