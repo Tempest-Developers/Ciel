@@ -146,12 +146,6 @@ for (const file of eventFiles) {
         });
     } else {
         client.on(event.name, async (...args) => {
-            console.log(event.name)
-            console.log("READ_MAZOKU "+process.env.READ_MAZOKU_TOGGLE)
-            console.log("SLASH_COMMANDS_TOGGLE "+process.env.SLASH_COMMANDS_TOGGLE)
-            console.log(event.name === 'messageUpdate' && process.env.READ_MAZOKU_TOGGLE === false)
-            console.log(event.name === 'interactionCreate' && process.env.SLASH_COMMANDS_TOGGLE === false)
-
             if(event.name === 'messageUpdate' && process.env.READ_MAZOKU_TOGGLE === false) return
             if(event.name === 'interactionCreate' && process.env.SLASH_COMMANDS_TOGGLE === false) return
             try {
