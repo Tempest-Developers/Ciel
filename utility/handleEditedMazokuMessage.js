@@ -60,10 +60,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
             // Handle based on summon type
             if (oldEmbed.title.includes("Automatic Summon!")) {
                 // Check if summon handler is enabled
-                // if (serverSettings.settings.handlers.summon) {
-                //     // Handle automatic summon information if it's a pack image
-                //     await handleSummonInfo(client, newMessage, newEmbed, messageId);
-                // }
+                if (serverSettings.settings.handlers.summon) {
+                    // Handle automatic summon information if it's a pack image
+                    await handleSummonInfo(client, newMessage, newEmbed, messageId);
+                }
 
                 // Check if claim handler is enabled
                 if (serverSettings.settings.handlers.claim) {
@@ -76,10 +76,10 @@ module.exports = async (client, oldMessage, newMessage, exemptBotId) => {
                 }
             } else if (oldEmbed.title.includes("Manual Summon")) {
                 // Check if manual summon handler is enabled
-                // if (serverSettings.settings.handlers.manualSummon) {
-                //     // Handle manual summon information if it's a pack image
-                //     await handleManualSummonInfo(client, newMessage, newEmbed, messageId);
-                // }
+                if (serverSettings.settings.handlers.manualSummon) {
+                    // Handle manual summon information if it's a pack image
+                    await handleManualSummonInfo(client, newMessage, newEmbed, messageId);
+                }
 
                 // Check if manual claim handler is enabled
                 if (serverSettings.settings.handlers.manualClaim) {

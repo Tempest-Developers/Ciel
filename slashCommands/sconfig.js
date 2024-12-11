@@ -39,12 +39,12 @@ module.exports = {
 
             if (subcommand === 'tier') {
                 // Toggle the tier display setting
-                // toggleResult = await interaction.client.database.toggleAllowRolePing(guildId);
+                toggleResult = await interaction.client.database.toggleAllowRolePing(guildId);
                 responseEmbed = new EmbedBuilder()
                     .setColor('#2B2D31')
                     .setTitle('Server Configuration Updated')
-                    .setDescription(`As requested Mazoku we are **Switching off** ❌ the **tier display** in summon messages for one day.`)
-                    // .setDescription(`Tier display in summon messages ${toggleResult.allowShowStats ? 'enabled' : 'disabled'} for this server.`)
+                    // .setDescription(`As requested Mazoku we are **Switching off** ❌ the **tier display** in summon messages for one day.`)
+                    .setDescription(`Tier display in summon messages ${toggleResult.allowShowStats ? 'enabled' : 'disabled'} for this server.`)
                     .setTimestamp();
             } 
             else if (subcommand === 'ping') {
@@ -64,8 +64,8 @@ module.exports = {
                     .addFields(
                         { 
                             name: 'Tier Display', 
-                            // value: serverData.settings.allowShowStats ? 'Enabled ✅' : 'Disabled ❌', 
-                            value: 'Disabled For 1 Day ❌',
+                            value: serverData.settings.allowShowStats ? 'Enabled ✅' : 'Disabled ❌', 
+                            // value: 'Disabled For 1 Day ❌',
                             inline: true 
                         },
                         { 
