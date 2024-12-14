@@ -223,12 +223,12 @@ module.exports = {
                 }, 'reply');
             }
 
-            if (GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0 && slimeBalance < 10) {
-                return await handleInteraction(interaction, {
-                    content: '❌ You need at least 10 <:Slime_Token:1304929154285703179> Balance to join for free!',
-                    ephemeral: true
-                }, 'reply');
-            }
+            // if (GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0 && slimeBalance < 10) {
+            //     return await handleInteraction(interaction, {
+            //         content: '❌ You need at least 10 <:Slime_Token:1304929154285703179> Balance to join for free!',
+            //         ephemeral: true
+            //     }, 'reply');
+            // }
 
             try {
                 // Only consume ticket if it's a paid entry
