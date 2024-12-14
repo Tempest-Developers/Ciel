@@ -214,7 +214,7 @@ module.exports = {
             const tickets = user?.currency?.[5] || 0;
             const slimeBalance = user?.currency?.[0] || 0;
             const userEntries = giveaway.entries?.filter(entry => entry.userID === interaction.user.id)?.length || 0;
-            const isFreeEntry = GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0 && slimeBalance >= 10;
+            const isFreeEntry = GIVEAWAY_FIRST_TICKET_FREE && userEntries === 0;// && slimeBalance >= 10;
 
             if (!isFreeEntry && tickets < 1) {
                 return await handleInteraction(interaction, {
