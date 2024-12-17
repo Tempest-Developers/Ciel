@@ -249,15 +249,34 @@ module.exports = {
                 // Calculate bonus entries for premium users
                 let bonusEntries = 0;
                 // if (user.premium) {
-                    const random = Math.random();
-                    if (random < 0.01) {
-                        bonusEntries = 2;
-                    } else if (random < 0.1) {
-                        bonusEntries = 1;
-                    } else if (random < 1) {
-                        bonusEntries = 0;
-                    }
+                    // const random = Math.random();
+                    // if (random < 0.01) {
+                    //     bonusEntries = 2;
+                    // } else if (random < 0.1) {
+                    //     bonusEntries = 1;
+                    // } else if (random < 1) {
+                    //     bonusEntries = 0;
+                    // }
                 // }
+
+                const randomGW = Math.random();
+                if (randomGW < 0.001) { // 0.1% chance
+                    bonusEntries = 25;
+                } else if (randomGW < 0.005) { // 0.4% chance
+                    bonusEntries = 15;
+                } else if (randomGW < 0.01) { // 0.5% chance
+                    bonusEntries = 10;
+                } else if (randomGW < 0.05) { // 4% chance
+                    bonusEntries = 5;
+                } else if (randomGW < 0.1) { // 5% chance
+                    bonusEntries = 3;
+                } else if (randomGW < 0.2) { // 10% chance
+                    bonusEntries = 2;
+                } else if (randomGW < 0.5) { // 30% chance
+                    bonusEntries = 1;
+                } else { // 50% chance
+                    bonusEntries = 0;
+                }
 
                 // Add entries to giveaway
                 const entries = Array(1 + bonusEntries).fill().map(() => ({
