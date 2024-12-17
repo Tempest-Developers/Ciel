@@ -15,7 +15,12 @@ module.exports = {
                     .addChoices(
                         { name: 'Ticket', value: 'ticket' },
                         { name: 'Premium (1 week)', value: 'premium' }
-                    )),
+                    ))
+            .addIntegerOption(option =>
+                option.setName('amount')
+                    .setDescription('Number of tickets to buy')
+                    .setMinValue(1)
+                    .setMaxValue(MAX_TOKENS_TICKET)),
 
     async execute(interaction, { database }) {
         try {
@@ -128,12 +133,21 @@ module.exports = {
                 return;
             }
             else if (type === 'ticket') {
-                const ticketCost = COSTS.TICKET;
+                const amount = interaction.options.getInteger('amount') || 1;
+                const ticketCost = COSTS.TICKET * amount;
                 const currentTickets = userData.currency[5] || 0;
 
-                if (currentTickets >= MAX_TOKENS_TICKET) {
+                // Additional check to ensure amount is a positive integer
+                if (!Number.isInteger(amount) || amount <= 0 || amount > MAX_TOKENS_TICKET) {
                     return await handleInteraction(interaction, {
-                        content: `❌ You already have the maximum number of tickets (${MAX_TOKENS_TICKET})!`,
+                        content: `❌ Invalid amount. Please enter a positive integer between 1 and ${MAX_TOKENS_TICKET}.`,
+                        ephemeral: true
+                    }, 'editReply');
+                }
+
+                if (currentTickets + amount > MAX_TOKENS_TICKET) {
+                    return await handleInteraction(interaction, {
+                        content: `❌ You can't buy ${amount} ticket(s). It would exceed the maximum limit of ${MAX_TOKENS_TICKET} tickets.`,
                         ephemeral: true
                     }, 'editReply');
                 }
@@ -147,7 +161,7 @@ module.exports = {
 
                 const confirmButton = new ButtonBuilder()
                     .setCustomId('buy_confirm')
-                    .setLabel(`Buy Ticket (${ticketCost} Slime Tokens)`)
+                    .setLabel(`Buy ${amount} Ticket${amount > 1 ? 's' : ''} (${ticketCost} Slime Tokens)`)
                     .setStyle(ButtonStyle.Primary);
 
                 const cancelButton = new ButtonBuilder()
@@ -159,7 +173,7 @@ module.exports = {
                     .addComponents(confirmButton, cancelButton);
 
                 const response = await handleInteraction(interaction, {
-                    content: `Are you sure you want to buy a ticket for ${ticketCost} Slime Tokens?`,
+                    content: `Are you sure you want to buy ${amount} ticket${amount > 1 ? 's' : ''} for ${ticketCost} Slime Tokens?`,
                     components: [row],
                     ephemeral: true
                 }, 'editReply');
@@ -184,9 +198,9 @@ module.exports = {
                             const updatedUserData = await database.mGateDB.findOne({ userID: interaction.user.id });
                             const updatedTickets = updatedUserData.currency[5] || 0;
 
-                            if (updatedTickets >= MAX_TOKENS_TICKET) {
+                            if (updatedTickets + amount > MAX_TOKENS_TICKET) {
                                 await handleInteraction(i, {
-                                    content: `❌ You already have the maximum number of tickets (${MAX_TOKENS_TICKET})!`,
+                                    content: `❌ You can't buy ${amount} ticket(s). It would exceed the maximum limit of ${MAX_TOKENS_TICKET} tickets.`,
                                     components: []
                                 }, 'editReply');
                                 return;
@@ -205,13 +219,13 @@ module.exports = {
                                 {
                                     $inc: { 
                                         'currency.0': -ticketCost,
-                                        'currency.5': 1
+                                        'currency.5': amount
                                     }
                                 }
                             );
 
                             await handleInteraction(i, {
-                                content: `✅ Successfully purchased a ticket! Your new balance is ${updatedUserData.currency[0] - ticketCost} Slime Tokens.`,
+                                content: `✅ Successfully purchased ${amount} ticket${amount > 1 ? 's' : ''}! Your new balance is ${updatedUserData.currency[0] - ticketCost} Slime Tokens.`,
                                 components: []
                             }, 'editReply');
                         }
